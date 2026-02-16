@@ -2175,6 +2175,10 @@ def super_admin_operations(request: HttpRequest) -> HttpResponse:
     def _set_flash(*, title: str, body: str):
         request.session["homeglue_flash"] = {"title": title, "body": body}
 
+    is_reauthed = _is_reauthed(request)
+    next_url = request.get_full_path()
+    reauth_url = f"{reverse('ui:reauth')}?{urlencode({'next': next_url})}"
+
     # Org selector (explicit, to preserve "org-first" mental model even for ops).
     orgs = list(Organization.objects.all().order_by("name")[:500])
     raw_org_id = (request.GET.get("org_id") or request.POST.get("org_id") or "").strip()
@@ -2198,7 +2202,7 @@ def super_admin_operations(request: HttpRequest) -> HttpResponse:
         from django.core.management import call_command
 
         # Most operations are per-org to avoid accidental cross-org actions.
-        if action in {"sync_proxmox", "run_workflows", "deliver_notifications", "run_checklist_schedules", "schedule_backups"}:
+        if action in {"sync_proxmox", "run_workflows", "deliver_notifications", "run_checklist_schedules", "schedule_backups", "audit_policy_save", "audit_purge_now"}:
             if not selected_org:
                 _set_flash(title="Not run", body="Pick an organization first.")
                 return redirect(f"{reverse('ui:super_admin_operations')}?{urlencode({'org_id': raw_org_id})}" if raw_org_id else reverse("ui:super_admin_operations"))
@@ -2208,12 +2212,28 @@ def super_admin_operations(request: HttpRequest) -> HttpResponse:
                 if selected_org:
                     call_command("seed_workflow_rules", org_id=int(selected_org.id))
                     _set_flash(title="Done", body=f"Seeded workflow rules for org '{selected_org.name}'.")
+                    _audit_event(
+                        request=request,
+                        org=selected_org,
+                        action=AuditEvent.ACTION_UPDATE,
+                        model="ops.WorkflowSeed",
+                        object_pk=str(selected_org.id),
+                        summary="Seeded default workflow rules (admin operation).",
+                    )
                 else:
                     if not allow_all:
                         _set_flash(title="Not run", body="To seed rules for ALL orgs, check the confirmation box.")
                         return redirect(reverse("ui:super_admin_operations"))
                     call_command("seed_workflow_rules")
                     _set_flash(title="Done", body="Seeded workflow rules for ALL orgs.")
+                    _audit_event(
+                        request=request,
+                        org=None,
+                        action=AuditEvent.ACTION_UPDATE,
+                        model="ops.WorkflowSeed",
+                        object_pk="ALL",
+                        summary="Seeded default workflow rules for ALL orgs (admin operation).",
+                    )
                 return redirect(reverse("ui:super_admin_operations") + (f"?{urlencode({'org_id': selected_org.id})}" if selected_org else ""))
 
             if action == "sync_proxmox":
@@ -2221,29 +2241,134 @@ def super_admin_operations(request: HttpRequest) -> HttpResponse:
                 if conn_id and conn_id.isdigit():
                     call_command("sync_proxmox", org_id=int(selected_org.id), connection_id=int(conn_id))
                     _set_flash(title="Done", body="Proxmox sync completed for the selected connection.")
+                    _audit_event(
+                        request=request,
+                        org=selected_org,
+                        action=AuditEvent.ACTION_UPDATE,
+                        model="ops.ProxmoxSync",
+                        object_pk=str(int(conn_id)),
+                        summary=f"Triggered Proxmox sync for connection_id={int(conn_id)} (admin operation).",
+                    )
                 else:
                     call_command("sync_proxmox", org_id=int(selected_org.id))
                     _set_flash(title="Done", body="Proxmox sync completed for the selected org.")
+                    _audit_event(
+                        request=request,
+                        org=selected_org,
+                        action=AuditEvent.ACTION_UPDATE,
+                        model="ops.ProxmoxSync",
+                        object_pk="ALL",
+                        summary="Triggered Proxmox sync for all enabled connections in org (admin operation).",
+                    )
                 return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
 
             if action == "run_checklist_schedules":
                 call_command("run_checklist_schedules_once", org_id=int(selected_org.id))
                 _set_flash(title="Done", body="Processed due checklist schedules for the selected org.")
+                _audit_event(
+                    request=request,
+                    org=selected_org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="ops.ChecklistSchedules",
+                    object_pk=str(selected_org.id),
+                    summary="Processed due checklist schedules (admin operation).",
+                )
                 return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
 
             if action == "run_workflows":
                 call_command("run_workflows_once", org_id=int(selected_org.id))
                 _set_flash(title="Done", body="Evaluated due workflow rules for the selected org.")
+                _audit_event(
+                    request=request,
+                    org=selected_org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="ops.WorkflowsRun",
+                    object_pk=str(selected_org.id),
+                    summary="Evaluated due workflow rules (admin operation).",
+                )
                 return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
 
             if action == "deliver_notifications":
                 call_command("deliver_workflow_notifications_once", org_id=int(selected_org.id))
                 _set_flash(title="Done", body="Attempted delivery of workflow notifications for the selected org.")
+                _audit_event(
+                    request=request,
+                    org=selected_org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="ops.NotificationsDeliver",
+                    object_pk=str(selected_org.id),
+                    summary="Attempted workflow notification delivery (admin operation).",
+                )
                 return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
 
             if action == "schedule_backups":
                 call_command("run_backup_scheduler_once", org_id=int(selected_org.id), force=True)
                 _set_flash(title="Done", body="Backup scheduler ran (force) for the selected org. Pending snapshots will be built by the worker.")
+                _audit_event(
+                    request=request,
+                    org=selected_org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="ops.BackupScheduler",
+                    object_pk=str(selected_org.id),
+                    summary="Triggered backup scheduler (force) (admin operation).",
+                )
+                return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+
+            if action == "audit_policy_save":
+                if not _is_reauthed(request):
+                    _set_flash(title="Not saved", body="Re-authentication required for audit governance changes.")
+                    return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+                from apps.audit.models import AuditPolicy
+
+                policy, _ = AuditPolicy.objects.get_or_create(organization=selected_org)
+                enabled = (request.POST.get("enabled") or "").strip() == "1"
+                try:
+                    retention_days = int((request.POST.get("retention_days") or "").strip() or policy.retention_days)
+                except Exception:
+                    retention_days = int(policy.retention_days or 365)
+                retention_days = max(7, min(3650, retention_days))
+                policy.enabled = bool(enabled)
+                policy.retention_days = int(retention_days)
+                policy.save(update_fields=["enabled", "retention_days", "updated_at"])
+                _set_flash(title="Saved", body="Audit retention policy updated.")
+                _audit_event(
+                    request=request,
+                    org=selected_org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="audit.AuditPolicy",
+                    object_pk=str(selected_org.id),
+                    summary=f"Updated audit policy: enabled={int(enabled)}, retention_days={int(retention_days)}.",
+                )
+                return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+
+            if action == "audit_purge_now":
+                if not _is_reauthed(request):
+                    _set_flash(title="Not purged", body="Re-authentication required for audit purge.")
+                    return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+                from apps.audit.models import AuditPolicy
+                from django.utils import timezone
+                from datetime import timedelta
+
+                policy, _ = AuditPolicy.objects.get_or_create(organization=selected_org)
+                if not policy.enabled:
+                    _set_flash(title="Not purged", body="Retention policy is disabled for this org.")
+                    return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+                try:
+                    retention_days = int(policy.retention_days or 365)
+                except Exception:
+                    retention_days = 365
+                retention_days = max(1, min(3650, retention_days))
+                cutoff = timezone.now() - timedelta(days=retention_days)
+                purged, _ = AuditEvent.objects.filter(organization=selected_org, ts__lt=cutoff).delete()
+                _set_flash(title="Purged", body=f"Removed {int(purged)} audit event(s) older than {retention_days} days.")
+                _audit_event(
+                    request=request,
+                    org=selected_org,
+                    action=AuditEvent.ACTION_DELETE,
+                    model="audit.AuditEvent",
+                    object_pk="retention",
+                    summary=f"Audit purge executed via Operations; removed {int(purged)} event(s).",
+                )
                 return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
 
         except Exception as e:
@@ -2254,6 +2379,7 @@ def super_admin_operations(request: HttpRequest) -> HttpResponse:
     org_status = None
     if selected_org:
         from apps.backups.models import BackupSnapshot
+        from apps.audit.models import AuditPolicy
         from apps.integrations.models import ProxmoxConnection
         from apps.workflows.models import Notification, WorkflowRule, NotificationDeliveryAttempt
         from django.utils import timezone
@@ -2261,6 +2387,7 @@ def super_admin_operations(request: HttpRequest) -> HttpResponse:
 
         pending_backups = BackupSnapshot.objects.filter(organization=selected_org, status__in=[BackupSnapshot.STATUS_PENDING, BackupSnapshot.STATUS_RUNNING]).count()
         failed_backups_7d = BackupSnapshot.objects.filter(organization=selected_org, status=BackupSnapshot.STATUS_FAILED).order_by("-created_at")[:10]
+        recent_backups = list(BackupSnapshot.objects.filter(organization=selected_org).order_by("-created_at")[:12])
         prox_conns = list(ProxmoxConnection.objects.filter(organization=selected_org).order_by("name", "id")[:50])
         unread_notifications = Notification.objects.filter(organization=selected_org, read_at__isnull=True).count()
 
@@ -2275,13 +2402,20 @@ def super_admin_operations(request: HttpRequest) -> HttpResponse:
             .order_by("-last_run_at")[:20]
         )
 
+        policy, _ = AuditPolicy.objects.get_or_create(organization=selected_org)
+        # Only allow policy changes when reauthed (same rule as /app/audit/).
+        can_govern = _is_reauthed(request)
+
         org_status = {
             "pending_backups": int(pending_backups),
             "failed_backups_7d": list(failed_backups_7d),
+            "recent_backups": recent_backups,
             "proxmox_connections": prox_conns,
             "unread_notifications": int(unread_notifications),
             "failed_deliveries_24h": int(failed_deliveries_24h),
             "workflow_rule_errors": rule_errors,
+            "audit_policy": policy,
+            "can_govern": bool(can_govern),
         }
 
     return render(
@@ -2291,6 +2425,8 @@ def super_admin_operations(request: HttpRequest) -> HttpResponse:
             "org": org_ctx,
             "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("Operations", None)),
             "flash": flash,
+            "is_reauthed": bool(is_reauthed),
+            "reauth_url": reauth_url,
             "orgs": orgs,
             "selected_org": selected_org,
             "hb": hb,

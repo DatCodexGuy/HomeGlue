@@ -107,6 +107,56 @@
             </form>
           </div>
 
+          <h3 class="h3" style="margin-top:16px">Governance (Audit Retention)</h3>
+          <div class="mini">
+            {% if not is_reauthed %}
+              <div class="muted" style="margin-bottom:8px">Re-authentication required for retention changes and purge.</div>
+              <a class="btn btn--ghost btn--sm" href="{{ reauth_url }}">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+                Re-authenticate
+              </a>
+            {% endif %}
+
+            <form method="post" style="margin-top:10px">
+              {% csrf_token %}
+              <input type="hidden" name="org_id" value="{{ selected_org.id }}" />
+              <input type="hidden" name="_action" value="audit_policy_save" />
+              <div class="grid2">
+                <label class="field">
+                  <div class="field__label">Retention enabled</div>
+                  <select class="input" name="enabled">
+                    <option value="1" {% if org_status.audit_policy.enabled %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if not org_status.audit_policy.enabled %}selected{% endif %}>No</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <div class="field__label">Retention days</div>
+                  <input class="input" type="number" min="7" max="3650" name="retention_days" value="{{ org_status.audit_policy.retention_days }}" />
+                </label>
+              </div>
+              <div style="margin-top:10px">
+                <button class="btn btn--ghost btn--sm" type="submit" {% if not org_status.can_govern %}disabled{% endif %}>
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                  Save policy
+                </button>
+              </div>
+            </form>
+
+            <form method="post" style="margin-top:8px">
+              {% csrf_token %}
+              <input type="hidden" name="org_id" value="{{ selected_org.id }}" />
+              <input type="hidden" name="_action" value="audit_purge_now" />
+              <button class="btn btn--danger btn--sm" type="submit" {% if not org_status.can_govern %}disabled{% endif %}>
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+                Purge now (by retention policy)
+              </button>
+            </form>
+
+            <div class="muted" style="margin-top:10px">
+              Full audit explorer: <a class="link" href="{% url 'ui:audit_log' %}">Audit log</a>
+            </div>
+          </div>
+
           <h3 class="h3" style="margin-top:16px">Org Status ({{ selected_org.name }})</h3>
           <div class="mini">
             <div class="mini__row">
@@ -121,6 +171,23 @@
               <div class="muted">Pending backups</div>
               <div class="mono">{{ org_status.pending_backups }}</div>
             </div>
+          </div>
+
+          <h3 class="h3" style="margin-top:16px">Recent Backups</h3>
+          <div class="table">
+            <div class="row row--head" style="grid-template-columns:1.2fr 0.9fr 1fr 2fr">
+              <div>When</div><div>Status</div><div>Bytes</div><div>Error</div>
+            </div>
+            {% for b in org_status.recent_backups %}
+              <div class="row row--static" style="grid-template-columns:1.2fr 0.9fr 1fr 2fr">
+                <div class="mono muted">{{ b.created_at|date:"Y-m-d H:i" }}</div>
+                <div class="mono">{{ b.status }}</div>
+                <div class="mono muted">{{ b.bytes|default:"-" }}</div>
+                <div class="mono">{% if b.error %}{{ b.error|truncatechars:120 }}{% else %}-{% endif %}</div>
+              </div>
+            {% empty %}
+              <div class="muted" style="margin-top:10px">No backups found.</div>
+            {% endfor %}
           </div>
 
           <h3 class="h3" style="margin-top:16px">Proxmox Connections</h3>
