@@ -546,6 +546,7 @@ class UiBasicTests(TestCase):
         from django.contrib.contenttypes.models import ContentType
         from django.core.files.uploadedfile import SimpleUploadedFile
         from apps.assets.models import Asset
+        from apps.audit.models import AuditEvent
         from apps.core.models import Attachment, AttachmentShareLink
         from apps.core.reauth import mark_session_reauthed
 
@@ -586,3 +587,49 @@ class UiBasicTests(TestCase):
         r = self.client.post(share_path, {"_action": "download"})
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Link consumed", status_code=200)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                organization=self.org,
+                model="core.Attachment",
+                object_pk=str(a.id),
+                summary__icontains="File SafeShare download",
+            ).exists()
+        )
+
+    def test_files_saved_view_applies_non_q_filters(self):
+        from django.contrib.contenttypes.models import ContentType
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.assets.models import Asset
+        from apps.core.models import Attachment, SavedView
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+
+        Attachment.objects.create(
+            organization=self.org,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("orgfile.txt", b"org", content_type="text/plain"),
+            filename="orgfile.txt",
+        )
+        asset = Asset.objects.create(organization=self.org, name="A2")
+        ct = ContentType.objects.get_for_model(Asset)
+        Attachment.objects.create(
+            organization=self.org,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("attached.txt", b"att", content_type="text/plain"),
+            filename="attached.txt",
+            content_type=ct,
+            object_id=str(asset.id),
+        )
+
+        sv = SavedView.objects.create(
+            organization=self.org,
+            model_key=SavedView.KEY_FILE,
+            name="Org only files",
+            params={"attached": "org"},
+            created_by=self.user,
+        )
+
+        r = self.client.get(f"/app/files/?view={sv.id}")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "orgfile.txt", status_code=200)
+        self.assertNotContains(r, "attached.txt")

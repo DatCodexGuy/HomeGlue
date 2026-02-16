@@ -381,6 +381,7 @@ _MODEL_KEY_TO_LIST_URL = {
     SavedView.KEY_PASSWORD: "ui:passwords_list",
     SavedView.KEY_DOMAIN: "ui:domains_list",
     SavedView.KEY_SSL_CERT: "ui:sslcerts_list",
+    SavedView.KEY_FILE: "ui:files_list",
 }
 
 
@@ -724,8 +725,41 @@ def _apply_saved_view_q(*, request: HttpRequest, org, model_key: str, q: str) ->
     return (q2 or "").strip(), sv
 
 
-def _save_view_new_url(*, request: HttpRequest, model_key: str, q: str) -> str:
-    qs = urlencode({"model_key": model_key, "next": request.get_full_path(), "q": q or ""})
+def _apply_saved_view_params(*, request: HttpRequest, org, model_key: str, params: dict[str, str]) -> tuple[dict[str, str], SavedView | None]:
+    """
+    Apply saved-view params when `view=<id>` is selected.
+    Explicit query params in the current request always win.
+    """
+
+    view_id = request.GET.get("view")
+    if not view_id or not str(view_id).isdigit():
+        return params, None
+    sv = SavedView.objects.filter(organization=org, model_key=model_key, id=int(view_id)).first()
+    if not sv:
+        return params, None
+
+    out = dict(params or {})
+    explicit = set(request.GET.keys())
+    try:
+        saved = dict(sv.params or {})
+    except Exception:
+        saved = {}
+
+    for k, v in saved.items():
+        if k in explicit:
+            continue
+        out[k] = str(v or "").strip()
+    return out, sv
+
+
+def _save_view_new_url(*, request: HttpRequest, model_key: str, q: str, params: dict | None = None) -> str:
+    qs_data = {"model_key": model_key, "next": request.get_full_path(), "q": q or ""}
+    if params:
+        try:
+            qs_data["params_json"] = json.dumps(params, sort_keys=True)
+        except Exception:
+            pass
+    qs = urlencode(qs_data)
     return reverse("ui:saved_view_new") + "?" + qs
 
 
@@ -2429,6 +2463,7 @@ def saved_view_new(request: HttpRequest) -> HttpResponse:
     model_key = (request.GET.get("model_key") or request.POST.get("model_key") or "").strip()
     next_url = (request.GET.get("next") or request.POST.get("next") or "").strip()
     q = (request.GET.get("q") or request.POST.get("q") or "").strip()
+    params_json = (request.GET.get("params_json") or request.POST.get("params_json") or "").strip()
 
     if model_key not in _MODEL_KEY_TO_LIST_URL:
         raise PermissionDenied("Unknown view type.")
@@ -2441,7 +2476,15 @@ def saved_view_new(request: HttpRequest) -> HttpResponse:
             obj = form.save(commit=False)
             obj.organization = org
             obj.model_key = model_key
-            obj.params = {"q": q} if q else {}
+            params = {"q": q} if q else {}
+            if params_json:
+                try:
+                    parsed = json.loads(params_json)
+                    if isinstance(parsed, dict):
+                        params = {str(k): str(v) for k, v in parsed.items() if str(v or "").strip()}
+                except Exception:
+                    pass
+            obj.params = params
             obj.created_by = request.user
             obj.save()
             return _redirect_back(request, fallback_url=reverse("ui:saved_views_list"))
@@ -2460,6 +2503,7 @@ def saved_view_new(request: HttpRequest) -> HttpResponse:
             "model_label": model_label,
             "q": q,
             "next_url": next_url,
+            "params_json": params_json,
         },
     )
 
@@ -4756,12 +4800,37 @@ def files_list(request: HttpRequest) -> HttpResponse:
     ctx = require_current_org(request)
     org = ctx.organization
     can_admin = _is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)
-    q = (request.GET.get("q") or "").strip()
-    ref = (request.GET.get("ref") or "").strip()
-    folder_raw = (request.GET.get("folder") or "").strip()
+    params, active_view = _apply_saved_view_params(
+        request=request,
+        org=org,
+        model_key=SavedView.KEY_FILE,
+        params={
+            "q": (request.GET.get("q") or "").strip(),
+            "ref": (request.GET.get("ref") or "").strip(),
+            "folder": (request.GET.get("folder") or "").strip(),
+            "tag": (request.GET.get("tag") or "").strip(),
+            "attached": (request.GET.get("attached") or "").strip(),
+            "has_versions": (request.GET.get("has_versions") or "").strip(),
+            "has_shares": (request.GET.get("has_shares") or "").strip(),
+            "sort": (request.GET.get("sort") or "").strip(),
+        },
+    )
+    q = (params.get("q") or "").strip()
+    ref = (params.get("ref") or "").strip()
+    folder_raw = (params.get("folder") or "").strip()
     folder_id = int(folder_raw) if folder_raw.isdigit() else None
-    tag_raw = (request.GET.get("tag") or "").strip()
+    tag_raw = (params.get("tag") or "").strip()
     tag_id = int(tag_raw) if tag_raw.isdigit() else None
+    attached_scope = (params.get("attached") or "").strip().lower()
+    if attached_scope not in {"", "org", "object"}:
+        attached_scope = ""
+    has_versions = (params.get("has_versions") or "").strip() == "1"
+    has_shares = (params.get("has_shares") or "").strip() == "1"
+    sort = (params.get("sort") or "").strip().lower()
+    if sort not in {"", "newest", "oldest", "name_asc", "name_desc", "size_desc", "size_asc"}:
+        sort = "newest"
+    if not sort:
+        sort = "newest"
     filter_invalid = False
     filter_label = None
 
@@ -4789,7 +4858,10 @@ def files_list(request: HttpRequest) -> HttpResponse:
         return redirect("ui:files_list")
 
     qs = _attachments_queryset_visible_to_user(request=request, org=org)
-    qs = qs.select_related("folder").prefetch_related("tags")
+    qs = qs.select_related("folder").prefetch_related("tags").annotate(
+        version_count=Count("versions", distinct=True),
+        share_count=Count("share_links", distinct=True),
+    )
 
     if ref:
         parsed = _parse_ref(ref)
@@ -4809,11 +4881,28 @@ def files_list(request: HttpRequest) -> HttpResponse:
 
     if q:
         qs = qs.filter(Q(filename__icontains=q) | Q(file__icontains=q) | Q(uploaded_by__username__icontains=q))
+    if attached_scope == "org":
+        qs = qs.filter(content_type__isnull=True)
+    elif attached_scope == "object":
+        qs = qs.filter(content_type__isnull=False, object_id__isnull=False)
 
     if folder_id:
         qs = qs.filter(folder_id=int(folder_id))
     if tag_id:
         qs = qs.filter(tags__id=int(tag_id)).distinct()
+    if has_versions:
+        qs = qs.filter(versions__isnull=False).distinct()
+    if has_shares:
+        qs = qs.filter(share_links__isnull=False).distinct()
+
+    if sort == "oldest":
+        qs = qs.order_by("created_at", "id")
+    elif sort == "name_asc":
+        qs = qs.order_by("filename", "id")
+    elif sort == "name_desc":
+        qs = qs.order_by("-filename", "-id")
+    else:
+        qs = qs.order_by("-created_at", "-id")
 
     items = []
     for a in list(qs[:200]):
@@ -4854,8 +4943,15 @@ def files_list(request: HttpRequest) -> HttpResponse:
                 "download_url": reverse("ui:file_download", kwargs={"attachment_id": a.id}),
                 "attached_label": attached_label,
                 "attached_url": attached_url,
+                "has_versions": bool(getattr(a, "version_count", 0)),
+                "has_shares": bool(getattr(a, "share_count", 0)),
             }
         )
+
+    if sort == "size_desc":
+        items.sort(key=lambda x: int(x.get("size") or 0), reverse=True)
+    elif sort == "size_asc":
+        items.sort(key=lambda x: int(x.get("size") or 0))
 
     folders = list(FileFolder.objects.filter(organization=org, archived_at__isnull=True).select_related("parent").order_by("parent_id", "name")[:5000])
     tags = list(_tags_available_for_org(org)[:500])
@@ -4875,9 +4971,31 @@ def files_list(request: HttpRequest) -> HttpResponse:
             "folder_id": folder_id,
             "tags": tags,
             "tag_id": tag_id,
+            "attached_scope": attached_scope,
+            "has_versions": has_versions,
+            "has_shares": has_shares,
+            "sort": sort,
             "can_admin": can_admin,
             "bulk_url": reverse("ui:files_bulk"),
             "folders_url": reverse("ui:file_folders_list"),
+            "saved_views": _saved_views_for(org=org, model_key=SavedView.KEY_FILE),
+            "active_view": active_view,
+            "save_view_url": _save_view_new_url(
+                request=request,
+                model_key=SavedView.KEY_FILE,
+                q=q,
+                params={
+                    "q": q,
+                    "ref": ref,
+                    "folder": str(folder_id) if folder_id else "",
+                    "tag": str(tag_id) if tag_id else "",
+                    "attached": attached_scope,
+                    "has_versions": "1" if has_versions else "",
+                    "has_shares": "1" if has_shares else "",
+                    "sort": sort,
+                },
+            ),
+            "clear_view_url": reverse("ui:files_list"),
         },
     )
 
@@ -5336,6 +5454,14 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
                     expires_at=expires_at,
                     one_time=one_time,
                 )
+                AuditEvent.objects.create(
+                    organization=org,
+                    user=request.user if request.user.is_authenticated else None,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model=f"{Attachment._meta.app_label}.{Attachment.__name__}",
+                    object_pk=str(a.id),
+                    summary=f"Created file SafeShare link{f' ({label})' if label else ''}; expires in {hours}h{' (one-time)' if one_time else ''}.",
+                )
                 break
             except IntegrityError:
                 token = ""
@@ -5360,6 +5486,14 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
             if sl and not sl.revoked_at:
                 sl.revoked_at = timezone.now()
                 sl.save(update_fields=["revoked_at"])
+                AuditEvent.objects.create(
+                    organization=org,
+                    user=request.user if request.user.is_authenticated else None,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model=f"{Attachment._meta.app_label}.{Attachment.__name__}",
+                    object_pk=str(a.id),
+                    summary=f"Revoked file SafeShare link #{sl.id}.",
+                )
         return redirect("ui:file_detail", attachment_id=a.id)
 
     if request.method == "POST" and request.POST.get("_action") == "upload_version":
@@ -5486,6 +5620,7 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
             )
             if can_admin
             else [],
+            "activity": _activity_for_object(org=org, model_cls=Attachment, obj_id=a.id),
         },
     )
 

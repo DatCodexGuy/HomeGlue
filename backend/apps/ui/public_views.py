@@ -10,6 +10,7 @@ from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
+from apps.audit.models import AuditEvent
 from apps.core.models import AttachmentShareLink
 from apps.secretsapp.models import PasswordShareLink
 
@@ -123,6 +124,18 @@ def file_share(request: HttpRequest, token: str) -> HttpResponse:
                     f = share.attachment.file.open("rb")
                 except Exception:
                     raise Http404("File unavailable.")
+                try:
+                    AuditEvent.objects.create(
+                        organization=share.organization,
+                        user=None,
+                        ip=(request.META.get("REMOTE_ADDR") or "")[:64] or None,
+                        action=AuditEvent.ACTION_UPDATE,
+                        model="core.Attachment",
+                        object_pk=str(share.attachment_id),
+                        summary=f"File SafeShare download via public link #{share.id}.",
+                    )
+                except Exception:
+                    pass
                 ctype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
                 resp = FileResponse(f, as_attachment=True, filename=Path(filename).name, content_type=ctype)
                 resp["Cache-Control"] = "no-store"

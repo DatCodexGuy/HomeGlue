@@ -15,6 +15,7 @@
         </a>
       </div>
     </div>
+    {% include "ui/_views_bar.html" with saved_views=saved_views active_view=active_view save_view_url=save_view_url clear_view_url=clear_view_url %}
 
     {% if filter_invalid %}
       <div class="warn">
@@ -83,6 +84,27 @@
           <option value="{{ t.id }}" {% if tag_id == t.id %}selected{% endif %}>{{ t.name }}</option>
         {% endfor %}
       </select>
+      <select class="bulkbar__select" name="attached" aria-label="Attachment scope" style="max-width:220px">
+        <option value="" {% if not attached_scope %}selected{% endif %}>Any scope</option>
+        <option value="org" {% if attached_scope == "org" %}selected{% endif %}>Org files only</option>
+        <option value="object" {% if attached_scope == "object" %}selected{% endif %}>Attached to object</option>
+      </select>
+      <label class="mono" style="display:inline-flex; align-items:center; gap:6px; padding:0 6px">
+        <input type="checkbox" name="has_versions" value="1" {% if has_versions %}checked{% endif %} />
+        Has versions
+      </label>
+      <label class="mono" style="display:inline-flex; align-items:center; gap:6px; padding:0 6px">
+        <input type="checkbox" name="has_shares" value="1" {% if has_shares %}checked{% endif %} />
+        Has shares
+      </label>
+      <select class="bulkbar__select" name="sort" aria-label="Sort" style="max-width:220px">
+        <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest first</option>
+        <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Oldest first</option>
+        <option value="name_asc" {% if sort == "name_asc" %}selected{% endif %}>Name (A-Z)</option>
+        <option value="name_desc" {% if sort == "name_desc" %}selected{% endif %}>Name (Z-A)</option>
+        <option value="size_desc" {% if sort == "size_desc" %}selected{% endif %}>Largest first</option>
+        <option value="size_asc" {% if sort == "size_asc" %}selected{% endif %}>Smallest first</option>
+      </select>
       <button class="btn btn--ghost btn--sm" type="submit">Apply</button>
       <a class="btn btn--ghost btn--sm" href="{% url 'ui:files_list' %}">Clear</a>
     </form>
@@ -92,6 +114,10 @@
       {% if filter_ref %}<input type="hidden" name="ref" value="{{ filter_ref }}" />{% endif %}
       {% if folder_id %}<input type="hidden" name="folder" value="{{ folder_id }}" />{% endif %}
       {% if tag_id %}<input type="hidden" name="tag" value="{{ tag_id }}" />{% endif %}
+      {% if attached_scope %}<input type="hidden" name="attached" value="{{ attached_scope }}" />{% endif %}
+      {% if has_versions %}<input type="hidden" name="has_versions" value="1" />{% endif %}
+      {% if has_shares %}<input type="hidden" name="has_shares" value="1" />{% endif %}
+      <input type="hidden" name="sort" value="{{ sort }}" />
       <button class="btn btn--ghost btn--sm" type="submit">
         <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
         Search
@@ -112,6 +138,10 @@
             <div class="titlecell">
               <a class="row__link mono" href="{{ it.detail_url }}">{{ it.filename }}</a>
               {% if it.size %}<div class="muted mono" style="margin-top:6px">{{ it.size }} bytes</div>{% endif %}
+              <div class="muted" style="margin-top:6px">
+                {% if it.has_versions %}<span class="pill pill--tiny">versions</span>{% endif %}
+                {% if it.has_shares %}<span class="pill pill--tiny">shared</span>{% endif %}
+              </div>
             </div>
             <div class="muted">{% if it.folder %}{{ it.folder.name }}{% else %}...{% endif %}</div>
             <div class="muted">

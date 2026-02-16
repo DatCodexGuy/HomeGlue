@@ -292,5 +292,10 @@
         <div class="muted">No preview available for this file type.</div>
       {% endif %}
     </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Activity</h3>
+      {% include "ui/_activity.html" with activity=activity %}
+    </div>
   </section>
 {% endblock %}

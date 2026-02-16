@@ -25,6 +25,7 @@
       {% csrf_token %}
       <input type="hidden" name="model_key" value="{{ model_key }}" />
       <input type="hidden" name="q" value="{{ q }}" />
+      {% if params_json %}<input type="hidden" name="params_json" value="{{ params_json }}" />{% endif %}
       {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}" />{% endif %}
       {{ form.as_p }}
       <button class="btn" type="submit">
@@ -34,4 +35,3 @@
     </form>
   </section>
 {% endblock %}
-

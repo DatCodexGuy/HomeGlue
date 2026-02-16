@@ -521,6 +521,7 @@ class SavedView(models.Model):
     KEY_PASSWORD = "secretsapp.passwordentry"
     KEY_DOMAIN = "netapp.domain"
     KEY_SSL_CERT = "netapp.sslcertificate"
+    KEY_FILE = "core.attachment"
 
     KEY_CHOICES = [
         (KEY_ASSET, "Assets"),
@@ -532,6 +533,7 @@ class SavedView(models.Model):
         (KEY_PASSWORD, "Passwords"),
         (KEY_DOMAIN, "Domains"),
         (KEY_SSL_CERT, "SSL Certificates"),
+        (KEY_FILE, "Files"),
     ]
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="saved_views")
