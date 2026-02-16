@@ -152,12 +152,22 @@
         </form>
 
         {% if share_links %}
+          <div style="display:flex; justify-content:flex-end; margin-top:10px">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="share_revoke_all" />
+              <button class="btn btn--danger btn--sm" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+                Revoke all active
+              </button>
+            </form>
+          </div>
           <div class="table" style="margin-top:12px">
-            <div class="row row--head" style="grid-template-columns: 1.1fr 0.8fr 0.8fr 0.6fr">
-              <div>Link</div><div>Expires</div><div>Status</div><div></div>
+            <div class="row row--head" style="grid-template-columns: 1.1fr 0.7fr 0.7fr 0.8fr 0.7fr">
+              <div>Link</div><div>Expires</div><div>Status</div><div>Last used</div><div></div>
             </div>
             {% for s in share_links %}
-              <div class="row" style="grid-template-columns: 1.1fr 0.8fr 0.8fr 0.6fr">
+              <div class="row" style="grid-template-columns: 1.1fr 0.7fr 0.7fr 0.8fr 0.7fr">
                 <div class="mono">
                   {{ s.label|default:"(no label)" }}
                   <div class="sub">
@@ -172,8 +182,11 @@
                   {% if s.revoked_at %}revoked{% elif s.expires_at and s.expires_at < now %}expired{% elif s.one_time and s.consumed_at %}consumed{% elif s.max_downloads and s.view_count >= s.max_downloads %}consumed{% else %}active{% endif %}
                   <div class="sub">downloads {{ s.view_count }}</div>
                 </div>
-                <div style="display:flex; justify-content:flex-end">
-                  {% if not s.revoked_at %}
+                <div class="muted mono">
+                  {% if s.last_viewed_at %}{{ s.last_viewed_at|date:"Y-m-d H:i" }}{% else %}...{% endif %}
+                </div>
+                <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap">
+                  {% if s.is_active %}
                     <form method="post">
                       {% csrf_token %}
                       <input type="hidden" name="_action" value="share_revoke" />
@@ -181,6 +194,16 @@
                       <button class="btn btn--danger btn--sm" type="submit">
                         <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
                         Revoke
+                      </button>
+                    </form>
+                  {% else %}
+                    <form method="post">
+                      {% csrf_token %}
+                      <input type="hidden" name="_action" value="share_delete" />
+                      <input type="hidden" name="share_id" value="{{ s.id }}" />
+                      <button class="btn btn--ghost btn--sm" type="submit">
+                        <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+                        Delete
                       </button>
                     </form>
                   {% endif %}

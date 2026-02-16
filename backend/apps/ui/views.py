@@ -5513,6 +5513,45 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
                 )
         return redirect("ui:file_detail", attachment_id=a.id)
 
+    if request.method == "POST" and request.POST.get("_action") == "share_revoke_all":
+        if not can_admin:
+            raise PermissionDenied("Only org admins can revoke share links.")
+        if not is_reauthed:
+            return redirect(reauth_url)
+        now = timezone.now()
+        changed = AttachmentShareLink.objects.filter(organization=org, attachment=a, revoked_at__isnull=True).update(revoked_at=now)
+        if changed:
+            AuditEvent.objects.create(
+                organization=org,
+                user=request.user if request.user.is_authenticated else None,
+                action=AuditEvent.ACTION_UPDATE,
+                model=f"{Attachment._meta.app_label}.{Attachment.__name__}",
+                object_pk=str(a.id),
+                summary=f"Revoked all file SafeShare links ({changed}).",
+            )
+        return redirect("ui:file_detail", attachment_id=a.id)
+
+    if request.method == "POST" and request.POST.get("_action") == "share_delete":
+        if not can_admin:
+            raise PermissionDenied("Only org admins can delete share links.")
+        if not is_reauthed:
+            return redirect(reauth_url)
+        sid = (request.POST.get("share_id") or "").strip()
+        if sid.isdigit():
+            sl = AttachmentShareLink.objects.filter(organization=org, attachment=a, id=int(sid)).first()
+            if sl and not sl.is_active():
+                share_id = sl.id
+                sl.delete()
+                AuditEvent.objects.create(
+                    organization=org,
+                    user=request.user if request.user.is_authenticated else None,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model=f"{Attachment._meta.app_label}.{Attachment.__name__}",
+                    object_pk=str(a.id),
+                    summary=f"Deleted inactive file SafeShare link #{share_id}.",
+                )
+        return redirect("ui:file_detail", attachment_id=a.id)
+
     if request.method == "POST" and request.POST.get("_action") == "upload_version":
         if not can_admin:
             raise PermissionDenied("Not allowed.")

@@ -713,3 +713,69 @@ class UiBasicTests(TestCase):
         r = self.client.post(share_path, {"_action": "download"})
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "maximum number of downloads", status_code=200)
+
+    def test_file_safeshare_revoke_all_blocks_download(self):
+        from urllib.parse import urlsplit
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.core.models import Attachment
+        from apps.core.reauth import mark_session_reauthed
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        sess = self.client.session
+        mark_session_reauthed(session=sess)
+        sess.save()
+
+        a = Attachment.objects.create(
+            organization=self.org,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("bulk.txt", b"x", content_type="text/plain"),
+            filename="bulk.txt",
+        )
+
+        r = self.client.post(f"/app/files/{a.id}/", {"_action": "share_create", "expires_in_hours": "1", "label": "L1"})
+        self.assertEqual(r.status_code, 302)
+        share_url = self.client.session.get(f"file_share_new_url_{self.org.id}_{a.id}", "")
+        share_path = urlsplit(share_url).path
+
+        r = self.client.post(f"/app/files/{a.id}/", {"_action": "share_create", "expires_in_hours": "1", "label": "L2"})
+        self.assertEqual(r.status_code, 302)
+
+        r = self.client.post(f"/app/files/{a.id}/", {"_action": "share_revoke_all"})
+        self.assertEqual(r.status_code, 302)
+
+        r = self.client.post(share_path, {"_action": "download"})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Link revoked", status_code=200)
+
+    def test_file_safeshare_delete_inactive_link(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.core.models import Attachment, AttachmentShareLink
+        from apps.core.reauth import mark_session_reauthed
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        sess = self.client.session
+        mark_session_reauthed(session=sess)
+        sess.save()
+
+        a = Attachment.objects.create(
+            organization=self.org,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("cleanup.txt", b"c", content_type="text/plain"),
+            filename="cleanup.txt",
+        )
+        share = AttachmentShareLink.objects.create(
+            organization=self.org,
+            attachment=a,
+            created_by=self.user,
+            token_hash=AttachmentShareLink.hash_token("t"),
+            token_prefix="t",
+            expires_at=self.org.created_at,  # already expired
+            one_time=False,
+        )
+        self.assertEqual(AttachmentShareLink.objects.filter(id=share.id).count(), 1)
+
+        r = self.client.post(f"/app/files/{a.id}/", {"_action": "share_delete", "share_id": str(share.id)})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(AttachmentShareLink.objects.filter(id=share.id).count(), 0)
