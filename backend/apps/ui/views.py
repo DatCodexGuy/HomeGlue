@@ -5437,6 +5437,14 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
         hours = max(1, min(24 * 90, int(hours)))
         one_time = (request.POST.get("one_time") or "").strip() == "1"
         label = (request.POST.get("label") or "").strip()
+        passphrase = (request.POST.get("passphrase") or "").strip()
+        max_downloads = None
+        max_raw = (request.POST.get("max_downloads") or "").strip()
+        if max_raw:
+            try:
+                max_downloads = max(1, min(100000, int(max_raw)))
+            except Exception:
+                max_downloads = None
 
         expires_at = timezone.now() + timedelta(hours=hours)
         token = ""
@@ -5444,7 +5452,7 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
             token = AttachmentShareLink.build_new_token()
             token_hash = AttachmentShareLink.hash_token(token)
             try:
-                AttachmentShareLink.objects.create(
+                sl = AttachmentShareLink(
                     organization=org,
                     attachment=a,
                     created_by=request.user if request.user.is_authenticated else None,
@@ -5453,14 +5461,23 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
                     token_prefix=(token[:12] if token else ""),
                     expires_at=expires_at,
                     one_time=one_time,
+                    max_downloads=max_downloads,
                 )
+                if passphrase:
+                    sl.set_passphrase(passphrase)
+                sl.save()
                 AuditEvent.objects.create(
                     organization=org,
                     user=request.user if request.user.is_authenticated else None,
                     action=AuditEvent.ACTION_UPDATE,
                     model=f"{Attachment._meta.app_label}.{Attachment.__name__}",
                     object_pk=str(a.id),
-                    summary=f"Created file SafeShare link{f' ({label})' if label else ''}; expires in {hours}h{' (one-time)' if one_time else ''}.",
+                    summary=(
+                        f"Created file SafeShare link{f' ({label})' if label else ''}; expires in {hours}h"
+                        f"{' (one-time)' if one_time else ''}"
+                        f"{' (passphrase protected)' if passphrase else ''}"
+                        f"{f' (max {max_downloads} downloads)' if max_downloads else ''}."
+                    ),
                 )
                 break
             except IntegrityError:

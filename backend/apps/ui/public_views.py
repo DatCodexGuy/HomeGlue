@@ -95,6 +95,8 @@ def file_share(request: HttpRequest, token: str) -> HttpResponse:
     active = share.is_active()
     download_attempted = False
     should_download = False
+    passphrase_error = ""
+    passphrase_required = share.has_passphrase()
 
     if request.method == "POST" and (request.POST.get("_action") or "") == "download":
         download_attempted = True
@@ -109,15 +111,21 @@ def file_share(request: HttpRequest, token: str) -> HttpResponse:
                     share = s
                     active = False
                 else:
-                    now = timezone.now()
-                    s.view_count = int(s.view_count or 0) + 1
-                    s.last_viewed_at = now
-                    if s.one_time and not s.consumed_at:
-                        s.consumed_at = now
-                    s.save(update_fields=["view_count", "last_viewed_at", "consumed_at"])
-                    share = s
-                    active = share.is_active()
-                    should_download = True
+                    passphrase = (request.POST.get("passphrase") or "").strip()
+                    if s.has_passphrase() and not s.check_passphrase(passphrase):
+                        passphrase_error = "Invalid passphrase."
+                        share = s
+                        active = share.is_active()
+                    else:
+                        now = timezone.now()
+                        s.view_count = int(s.view_count or 0) + 1
+                        s.last_viewed_at = now
+                        if s.one_time and not s.consumed_at:
+                            s.consumed_at = now
+                        s.save(update_fields=["view_count", "last_viewed_at", "consumed_at"])
+                        share = s
+                        active = share.is_active()
+                        should_download = True
 
             if should_download and share:
                 try:
@@ -152,6 +160,8 @@ def file_share(request: HttpRequest, token: str) -> HttpResponse:
             "active": active,
             "filename": filename,
             "download_attempted": download_attempted,
+            "passphrase_required": passphrase_required,
+            "passphrase_error": passphrase_error,
             "now": timezone.now(),
         },
     )

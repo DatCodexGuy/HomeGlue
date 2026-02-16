@@ -10,6 +10,8 @@
           <span class="dot"></span>
           Expires {{ share.expires_at|date:"Y-m-d H:i" }}
           {% if share.one_time %}<span class="dot"></span><span class="pill pill--tiny pill--ghost">one-time</span>{% endif %}
+          {% if share.max_downloads %}<span class="dot"></span><span class="pill pill--tiny pill--ghost">max {{ share.max_downloads }}</span>{% endif %}
+          {% if share.passphrase_hash %}<span class="dot"></span><span class="pill pill--tiny pill--ghost">passphrase</span>{% endif %}
         </div>
       </div>
     </div>
@@ -29,6 +31,11 @@
         <div class="warn__title">Link consumed</div>
         <div class="warn__body">This one-time link was already used and can no longer be downloaded.</div>
       </div>
+    {% elif share.max_downloads and share.view_count >= share.max_downloads %}
+      <div class="warn">
+        <div class="warn__title">Link consumed</div>
+        <div class="warn__body">This link reached its maximum number of downloads.</div>
+      </div>
     {% endif %}
 
     <h3 class="h3" style="margin-top:16px">Download</h3>
@@ -41,11 +48,23 @@
       <form method="post" style="margin-top:10px">
         {% csrf_token %}
         <input type="hidden" name="_action" value="download" />
+        {% if passphrase_required %}
+          <p>
+            <label for="id_share_passphrase">Passphrase</label>
+            <input id="id_share_passphrase" type="password" name="passphrase" autocomplete="off" required />
+          </p>
+        {% endif %}
         <button class="btn btn--ghost btn--sm" type="submit">
           <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
           Download file
         </button>
       </form>
+      {% if passphrase_error %}
+        <div class="warn" style="margin-top:10px">
+          <div class="warn__title">Passphrase required</div>
+          <div class="warn__body">{{ passphrase_error }}</div>
+        </div>
+      {% endif %}
     {% elif download_attempted %}
       <div class="muted" style="margin-top:10px">This link is no longer active.</div>
     {% endif %}

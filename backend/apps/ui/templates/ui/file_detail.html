@@ -135,6 +135,16 @@
               </select>
             </div>
           </div>
+          <div class="grid" style="grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px">
+            <div>
+              <label for="id_share_passphrase">Passphrase (optional)</label>
+              <input id="id_share_passphrase" type="password" name="passphrase" autocomplete="new-password" placeholder="Require passphrase to download" />
+            </div>
+            <div>
+              <label for="id_share_max_downloads">Max downloads (optional)</label>
+              <input id="id_share_max_downloads" type="number" min="1" step="1" name="max_downloads" placeholder="Unlimited if empty" />
+            </div>
+          </div>
           <button class="btn btn--ghost btn--sm" type="submit" style="margin-top:10px">
             <svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>
             Create share link
@@ -150,11 +160,16 @@
               <div class="row" style="grid-template-columns: 1.1fr 0.8fr 0.8fr 0.6fr">
                 <div class="mono">
                   {{ s.label|default:"(no label)" }}
-                  <div class="sub">token {{ s.token_prefix }}…{% if s.one_time %}<span class="dot"></span>one-time{% endif %}</div>
+                  <div class="sub">
+                    token {{ s.token_prefix }}…
+                    {% if s.one_time %}<span class="dot"></span>one-time{% endif %}
+                    {% if s.max_downloads %}<span class="dot"></span>max {{ s.max_downloads }}{% endif %}
+                    {% if s.passphrase_hash %}<span class="dot"></span>passphrase{% endif %}
+                  </div>
                 </div>
                 <div class="muted mono">{{ s.expires_at|date:"Y-m-d H:i" }}</div>
                 <div class="muted mono">
-                  {% if s.revoked_at %}revoked{% elif s.one_time and s.consumed_at %}consumed{% elif s.expires_at and s.expires_at < now %}expired{% else %}active{% endif %}
+                  {% if s.revoked_at %}revoked{% elif s.expires_at and s.expires_at < now %}expired{% elif s.one_time and s.consumed_at %}consumed{% elif s.max_downloads and s.view_count >= s.max_downloads %}consumed{% else %}active{% endif %}
                   <div class="sub">downloads {{ s.view_count }}</div>
                 </div>
                 <div style="display:flex; justify-content:flex-end">

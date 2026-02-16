@@ -633,3 +633,83 @@ class UiBasicTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "orgfile.txt", status_code=200)
         self.assertNotContains(r, "attached.txt")
+
+    def test_file_safeshare_passphrase_required(self):
+        from urllib.parse import urlsplit
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.core.models import Attachment
+        from apps.core.reauth import mark_session_reauthed
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        sess = self.client.session
+        mark_session_reauthed(session=sess)
+        sess.save()
+
+        a = Attachment.objects.create(
+            organization=self.org,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("secure.txt", b"secret", content_type="text/plain"),
+            filename="secure.txt",
+        )
+
+        r = self.client.post(
+            f"/app/files/{a.id}/",
+            {
+                "_action": "share_create",
+                "expires_in_hours": "1",
+                "label": "Protected",
+                "passphrase": "OpenSesame!",
+            },
+        )
+        self.assertEqual(r.status_code, 302)
+        share_url = self.client.session.get(f"file_share_new_url_{self.org.id}_{a.id}", "")
+        share_path = urlsplit(share_url).path
+
+        r = self.client.post(share_path, {"_action": "download", "passphrase": "wrong"})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Invalid passphrase", status_code=200)
+
+        r = self.client.post(share_path, {"_action": "download", "passphrase": "OpenSesame!"})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("attachment", (r.headers.get("Content-Disposition") or "").lower())
+        self.assertEqual(b"".join(r.streaming_content), b"secret")
+
+    def test_file_safeshare_max_downloads_consumes_link(self):
+        from urllib.parse import urlsplit
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.core.models import Attachment
+        from apps.core.reauth import mark_session_reauthed
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        sess = self.client.session
+        mark_session_reauthed(session=sess)
+        sess.save()
+
+        a = Attachment.objects.create(
+            organization=self.org,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("limit.txt", b"only-once", content_type="text/plain"),
+            filename="limit.txt",
+        )
+
+        r = self.client.post(
+            f"/app/files/{a.id}/",
+            {
+                "_action": "share_create",
+                "expires_in_hours": "1",
+                "max_downloads": "1",
+            },
+        )
+        self.assertEqual(r.status_code, 302)
+        share_url = self.client.session.get(f"file_share_new_url_{self.org.id}_{a.id}", "")
+        share_path = urlsplit(share_url).path
+
+        r = self.client.post(share_path, {"_action": "download"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(b"".join(r.streaming_content), b"only-once")
+
+        r = self.client.post(share_path, {"_action": "download"})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "maximum number of downloads", status_code=200)

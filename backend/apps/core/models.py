@@ -4,6 +4,7 @@ import hashlib
 import secrets
 
 from django.conf import settings
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
@@ -223,6 +224,8 @@ class AttachmentShareLink(models.Model):
 
     expires_at = models.DateTimeField()
     one_time = models.BooleanField(default=False)
+    max_downloads = models.PositiveIntegerField(null=True, blank=True)
+    passphrase_hash = models.CharField(max_length=255, blank=True, default="")
 
     consumed_at = models.DateTimeField(null=True, blank=True)
     view_count = models.IntegerField(default=0)
@@ -258,10 +261,32 @@ class AttachmentShareLink(models.Model):
         return bool(self.revoked_at)
 
     def is_consumed(self) -> bool:
-        return bool(self.one_time and self.consumed_at)
+        if self.one_time and self.consumed_at:
+            return True
+        try:
+            if self.max_downloads and int(self.view_count or 0) >= int(self.max_downloads):
+                return True
+        except Exception:
+            pass
+        return False
 
     def is_active(self) -> bool:
         return (not self.is_revoked()) and (not self.is_expired()) and (not self.is_consumed())
+
+    def has_passphrase(self) -> bool:
+        return bool((self.passphrase_hash or "").strip())
+
+    def set_passphrase(self, passphrase: str) -> None:
+        raw = (passphrase or "").strip()
+        self.passphrase_hash = make_password(raw) if raw else ""
+
+    def check_passphrase(self, passphrase: str) -> bool:
+        if not self.has_passphrase():
+            return True
+        try:
+            return check_password((passphrase or "").strip(), self.passphrase_hash)
+        except Exception:
+            return False
 
     def __str__(self) -> str:
         return f"{self.organization}: share {self.pk} for attachment {self.attachment_id}"

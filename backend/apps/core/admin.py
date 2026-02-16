@@ -62,7 +62,17 @@ class AttachmentVersionAdmin(admin.ModelAdmin):
 @admin.register(AttachmentShareLink)
 class AttachmentShareLinkAdmin(admin.ModelAdmin):
     search_fields = ("label", "token_prefix", "attachment__filename", "organization__name")
-    list_display = ("id", "label", "attachment", "organization", "expires_at", "one_time", "view_count", "revoked_at")
+    list_display = (
+        "id",
+        "label",
+        "attachment",
+        "organization",
+        "expires_at",
+        "one_time",
+        "max_downloads",
+        "view_count",
+        "revoked_at",
+    )
     list_filter = ("organization", "one_time", "revoked_at")
 
 
