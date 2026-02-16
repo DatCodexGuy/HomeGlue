@@ -53,8 +53,7 @@ class UiBasicTests(TestCase):
         self.assertEqual(r["Location"], "/app/assets/")
 
     def test_settings_can_set_default_org(self):
-        self.client.get(f"/app/orgs/{self.org.id}/enter/")
-        r = self.client.post("/app/settings/", {"_action": "set_default_org"})
+        r = self.client.post("/app/account/", {"_action": "set_default_org", "default_org_id": str(self.org.id)})
         self.assertEqual(r.status_code, 302)
 
         profile = UserProfile.objects.get(user=self.user)

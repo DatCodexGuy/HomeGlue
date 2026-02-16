@@ -285,10 +285,14 @@ class PasswordEntryForm(OrgBoundModelForm):
             self.fields["allowed_users"].queryset = User.objects.filter(id__in=member_ids).order_by("username")
             self.fields["allowed_users"].required = False
         self.fields["allowed_users"].help_text = "Only used when visibility is Shared."
+        # Default is 0; keep this optional so quick-create works without extra fields.
+        self.fields["rotation_interval_days"].required = False
         self.fields["rotation_interval_days"].help_text = "0 = no rotation reminders. Example: 90 for quarterly rotation."
 
     def clean(self):
         cleaned = super().clean()
+        if cleaned.get("rotation_interval_days") in (None, ""):
+            cleaned["rotation_interval_days"] = 0
         vis = cleaned.get("visibility")
         allowed = cleaned.get("allowed_users")
         if vis != PasswordEntry.VIS_SHARED and allowed:

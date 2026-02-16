@@ -26,6 +26,16 @@
 
     <div class="split" style="margin-top:14px">
       <div class="split__main">
+        <div class="mini" style="margin-bottom:12px">
+          <div class="mini__row">
+            <div class="mini__top"><span class="mono">System</span></div>
+            <div class="mini__body">
+              <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_system_settings' %}">System settings</a>
+              <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_users_list' %}" style="margin-left:6px">All users</a>
+            </div>
+          </div>
+        </div>
+
         <h3 class="h3">Organizations</h3>
         <div class="mini">
           <form method="post">
@@ -123,4 +133,3 @@
     </div>
   </section>
 {% endblock %}
-

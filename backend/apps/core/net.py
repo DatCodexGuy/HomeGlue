@@ -5,6 +5,12 @@ from dataclasses import dataclass
 
 from django.conf import settings
 
+from .system_settings import (
+    get_ip_allowlist_raw,
+    get_ip_blocklist_raw,
+    get_trust_x_forwarded_for,
+    get_trusted_proxy_cidrs_raw,
+)
 
 @dataclass(frozen=True)
 class ClientIpResult:
@@ -53,9 +59,9 @@ def get_client_ip(request) -> ClientIpResult:
     except Exception:
         remote_ip = None
 
-    trust = bool(getattr(settings, "HOMEGLUE_TRUST_X_FORWARDED_FOR", False))
+    trust = bool(get_trust_x_forwarded_for())
     if trust and remote_ip is not None:
-        proxies = _parse_networks(getattr(settings, "HOMEGLUE_TRUSTED_PROXY_CIDRS", "") or "")
+        proxies = _parse_networks(get_trusted_proxy_cidrs_raw() or "")
         if proxies and _ip_in_any(remote_ip, proxies):
             xff = (request.META.get("HTTP_X_FORWARDED_FOR") or "").split(",")[0].strip()
             try:
@@ -81,8 +87,8 @@ def is_request_ip_allowed(request) -> tuple[bool, str]:
     except Exception:
         return (False, "invalid client ip")
 
-    allow = _parse_networks(getattr(settings, "HOMEGLUE_IP_ALLOWLIST", "") or "")
-    block = _parse_networks(getattr(settings, "HOMEGLUE_IP_BLOCKLIST", "") or "")
+    allow = _parse_networks(get_ip_allowlist_raw() or "")
+    block = _parse_networks(get_ip_blocklist_raw() or "")
 
     if block and _ip_in_any(ip, block):
         return (False, "blocked")
@@ -91,4 +97,3 @@ def is_request_ip_allowed(request) -> tuple[bool, str]:
         return (_ip_in_any(ip, allow), "allowlist")
 
     return (True, "default")
-

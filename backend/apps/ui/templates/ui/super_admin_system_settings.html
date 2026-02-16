@@ -1,0 +1,101 @@
+{% extends "ui/base.html" %}
+{% block title %}Admin | System Settings{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">System Settings</h1>
+        <div class="sub">Superuser-only settings for the whole HomeGlue instance.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_home' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    {% if saved %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">Saved</div>
+        <div class="warn__body">System settings updated.</div>
+      </div>
+    {% endif %}
+
+    {% if error %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">Not saved</div>
+        <div class="warn__body">{{ error }}</div>
+      </div>
+    {% endif %}
+
+    <div class="split" style="margin-top:14px">
+      <div class="split__main">
+        <h3 class="h3">Base URL</h3>
+        <div class="mini">
+          <div class="muted">Used for absolute links in notifications (email/webhooks) and share links.</div>
+          <form method="post" style="margin-top:10px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="save" />
+            <label class="field">
+              <div class="field__label">HOMEGLUE_BASE_URL override (optional)</div>
+              <input class="input" type="text" name="base_url" value="{{ obj.base_url }}" placeholder="https://homeglue.example.com" />
+            </label>
+            <div style="margin-top:10px">
+              <button class="btn" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">IP Access Control</h3>
+        <div class="mini">
+          <div class="muted">Optional allow/block lists for the entire app (UI + API).</div>
+          <form method="post" style="margin-top:10px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="save" />
+            <label class="field">
+              <div class="field__label">Allowlist (comma-separated CIDRs/IPs)</div>
+              <textarea class="input" name="ip_allowlist" rows="2" placeholder="10.0.0.0/24,192.168.1.10">{{ obj.ip_allowlist }}</textarea>
+            </label>
+            <label class="field" style="margin-top:10px">
+              <div class="field__label">Blocklist (comma-separated CIDRs/IPs)</div>
+              <textarea class="input" name="ip_blocklist" rows="2" placeholder="10.0.0.123/32">{{ obj.ip_blocklist }}</textarea>
+            </label>
+            <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
+              <input type="checkbox" name="trust_x_forwarded_for" value="1" {% if obj.trust_x_forwarded_for %}checked{% endif %} />
+              <div class="muted">Trust `X-Forwarded-For` (only when REMOTE_ADDR is a trusted proxy)</div>
+            </label>
+            <label class="field" style="margin-top:10px">
+              <div class="field__label">Trusted proxy CIDRs (comma-separated)</div>
+              <textarea class="input" name="trusted_proxy_cidrs" rows="2" placeholder="10.0.0.0/24">{{ obj.trusted_proxy_cidrs }}</textarea>
+            </label>
+            <div style="margin-top:10px">
+              <button class="btn" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Notes</h3>
+        <div class="mini">
+          <div class="muted">
+            These DB-backed settings override env vars when set.
+            If you prefer immutable config, keep these empty and configure via `.env`.
+          </div>
+          <div class="muted" style="margin-top:10px">
+            Docs: <a class="link" href="{% url 'ui:wiki_page' slug='security' %}">Security</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+

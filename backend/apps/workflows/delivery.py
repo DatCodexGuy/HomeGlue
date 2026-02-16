@@ -11,6 +11,7 @@ from django.core.mail import send_mail
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.core.system_settings import get_base_url
 from apps.workflows.models import Notification, NotificationDeliveryAttempt, WebhookEndpoint
 
 
@@ -30,7 +31,7 @@ def _build_email_body(n: Notification) -> str:
     lines.append("")
     lines.append("View in HomeGlue:")
     # Keep it simple: point users to the notifications list.
-    base = (getattr(settings, "HOMEGLUE_BASE_URL", "") or "").rstrip("/")
+    base = (get_base_url() or "").rstrip("/")
     path = "/app/notifications/"
     if base:
         lines.append(f"{base}{path}")
@@ -165,4 +166,3 @@ def deliver_workflow_notifications_once(*, org_id: int | None = None, limit: int
                     delivered_webhook += 1
 
     return {"email": delivered_email, "webhook": delivered_webhook}
-

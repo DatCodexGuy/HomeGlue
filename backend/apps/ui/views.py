@@ -62,6 +62,7 @@ from apps.secretsapp.totp import TotpError, build_otpauth_url, generate_base32_s
 from apps.audit.models import AuditEvent, AuditPolicy
 from rest_framework.authtoken.models import Token
 from apps.core.reauth import is_session_reauthed, mark_session_reauthed
+from apps.core.system_settings import get_base_url
 
 from apps.integrations.models import ProxmoxConnection, ProxmoxGuest, ProxmoxNetwork, ProxmoxNode
 from apps.integrations.proxmox import sync_proxmox_connection
@@ -2129,6 +2130,153 @@ def super_admin_org_detail(request: HttpRequest, org_id: int) -> HttpResponse:
 
 
 @login_required
+def super_admin_system_settings(request: HttpRequest) -> HttpResponse:
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+
+    saved = False
+    error = ""
+    try:
+        from apps.core.models import SystemSettings
+
+        obj = SystemSettings.objects.first()
+        if obj is None:
+            obj = SystemSettings.objects.create()
+    except Exception:
+        obj = None
+        error = "System settings table is not ready yet (run migrations)."
+
+    if request.method == "POST" and request.POST.get("_action") == "save" and obj is not None:
+        base_url = (request.POST.get("base_url") or "").strip().rstrip("/")
+        ip_allowlist = (request.POST.get("ip_allowlist") or "").strip()
+        ip_blocklist = (request.POST.get("ip_blocklist") or "").strip()
+        trust = (request.POST.get("trust_x_forwarded_for") or "").strip() == "1"
+        proxies = (request.POST.get("trusted_proxy_cidrs") or "").strip()
+        obj.base_url = base_url
+        obj.ip_allowlist = ip_allowlist
+        obj.ip_blocklist = ip_blocklist
+        obj.trust_x_forwarded_for = trust
+        obj.trusted_proxy_cidrs = proxies
+        obj.save()
+        saved = True
+        _audit_event(
+            request=request,
+            org=None,
+            action=AuditEvent.ACTION_UPDATE,
+            model="system.SystemSettings",
+            object_pk=str(obj.id),
+            summary="Updated system settings (base url / ip access control).",
+        )
+
+    return render(
+        request,
+        "ui/super_admin_system_settings.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("System settings", None)),
+            "obj": obj or type("Tmp", (), {"base_url": "", "ip_allowlist": "", "ip_blocklist": "", "trust_x_forwarded_for": False, "trusted_proxy_cidrs": ""})(),
+            "saved": saved,
+            "error": error,
+        },
+    )
+
+
+@login_required
+def super_admin_users_list(request: HttpRequest) -> HttpResponse:
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+
+    q = (request.GET.get("q") or "").strip().lower()
+    User = get_user_model()
+    qs = User.objects.all().order_by("username")
+    if q:
+        qs = qs.filter(Q(username__icontains=q) | Q(email__icontains=q))
+    users = list(qs[:500])
+    return render(
+        request,
+        "ui/super_admin_users_list.html",
+        {"org": org, "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("Users", None)), "q": q, "users": users},
+    )
+
+
+@login_required
+def super_admin_user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+
+    flash = request.session.pop("homeglue_flash", None)
+
+    def _set_flash(*, title: str, body: str, secret: str | None = None, secret_label: str | None = None):
+        request.session["homeglue_flash"] = {"title": title, "body": body, "secret": secret, "secret_label": secret_label}
+
+    User = get_user_model()
+    target = get_object_or_404(User, id=user_id)
+
+    if request.method == "POST":
+        action = (request.POST.get("_action") or "").strip()
+        if action == "reset_password":
+            import secrets
+
+            pw = secrets.token_urlsafe(12)
+            target.set_password(pw)
+            target.save(update_fields=["password"])
+            _set_flash(title="Password reset", body="New temporary password generated.", secret=pw, secret_label="Temp password")
+            _audit_event(
+                request=request,
+                org=None,
+                action=AuditEvent.ACTION_UPDATE,
+                model="auth.User",
+                object_pk=str(target.id),
+                summary=f"Reset password for user '{target.username}'.",
+            )
+            return redirect("ui:super_admin_user_detail", user_id=target.id)
+
+        if action == "save_profile":
+            email = (request.POST.get("email") or "").strip()
+            is_active = (request.POST.get("is_active") or "").strip() == "1"
+            is_superuser = (request.POST.get("is_superuser") or "").strip() == "1"
+            target.email = email
+            target.is_active = is_active
+            target.is_superuser = is_superuser
+            target.is_staff = is_superuser or bool(getattr(target, "is_staff", False))
+            target.save(update_fields=["email", "is_active", "is_superuser", "is_staff"])
+            _set_flash(title="Saved", body="User updated.")
+            _audit_event(
+                request=request,
+                org=None,
+                action=AuditEvent.ACTION_UPDATE,
+                model="auth.User",
+                object_pk=str(target.id),
+                summary=f"Updated user '{target.username}' (email/active/superuser).",
+            )
+            return redirect("ui:super_admin_user_detail", user_id=target.id)
+
+    memberships = list(
+        OrganizationMembership.objects.filter(user=target).select_related("organization").order_by("organization__name")[:5000]
+    )
+    return render(
+        request,
+        "ui/super_admin_user_detail.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("Users", reverse("ui:super_admin_users_list")), (target.username, None)),
+            "target": target,
+            "memberships": memberships,
+            "flash": flash,
+        },
+    )
+
+
+@login_required
 def version_compare(request: HttpRequest, version_id: int) -> HttpResponse:
     ctx = require_current_org(request)
     org = ctx.organization
@@ -3148,61 +3296,85 @@ def note_detail(request: HttpRequest, note_id: int) -> HttpResponse:
 def settings_view(request: HttpRequest) -> HttpResponse:
     ctx = require_current_org(request)
     org = ctx.organization
+    can_admin = _is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)
+    flash = None
 
-    profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    default_org = profile.default_organization
+    def _set_flash(title: str, body: str):
+        nonlocal flash
+        flash = {"title": title, "body": body}
 
-    if request.method == "POST" and request.POST.get("_action") == "api_token_reveal":
-        Token.objects.get_or_create(user=request.user)
-        request.session["homeglue_show_api_token"] = True
-        return redirect("ui:settings")
+    if request.method == "POST" and can_admin:
+        action = (request.POST.get("_action") or "").strip()
+        if action == "member_add":
+            username = (request.POST.get("username") or "").strip()
+            role = (request.POST.get("role") or "member").strip()
+            role = role if role in {OrganizationMembership.ROLE_MEMBER, OrganizationMembership.ROLE_ADMIN, OrganizationMembership.ROLE_OWNER} else OrganizationMembership.ROLE_MEMBER
+            User = get_user_model()
+            u = User.objects.filter(username=username).first()
+            if not u:
+                _set_flash("Member not added", "User not found.")
+            else:
+                OrganizationMembership.objects.update_or_create(organization=org, user=u, defaults={"role": role})
+                _audit_event(
+                    request=request,
+                    org=org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="core.OrganizationMembership",
+                    object_pk=f"{org.id}:{u.id}",
+                    summary=f"Added/updated member '{u.username}' with role '{role}'.",
+                )
+                _set_flash("Member added", f"Added '{u.username}' as {role}.")
+            return redirect("ui:settings")
 
-    if request.method == "POST" and request.POST.get("_action") == "api_token_hide":
-        request.session.pop("homeglue_show_api_token", None)
-        return redirect("ui:settings")
+        if action == "member_set_role":
+            mid = (request.POST.get("membership_id") or "").strip()
+            role = (request.POST.get("role") or "member").strip()
+            role = role if role in {OrganizationMembership.ROLE_MEMBER, OrganizationMembership.ROLE_ADMIN, OrganizationMembership.ROLE_OWNER} else OrganizationMembership.ROLE_MEMBER
+            if mid.isdigit():
+                m = OrganizationMembership.objects.filter(id=int(mid), organization=org).select_related("user").first()
+                if m:
+                    m.role = role
+                    m.save(update_fields=["role"])
+                    _audit_event(
+                        request=request,
+                        org=org,
+                        action=AuditEvent.ACTION_UPDATE,
+                        model="core.OrganizationMembership",
+                        object_pk=str(m.id),
+                        summary=f"Changed role for '{m.user.username}' to '{role}'.",
+                    )
+            return redirect("ui:settings")
 
-    if request.method == "POST" and request.POST.get("_action") == "api_token_rotate":
-        Token.objects.filter(user=request.user).delete()
-        tok = Token.objects.create(user=request.user)
-        request.session["homeglue_show_api_token"] = True
-        request.session["homeglue_new_api_token"] = tok.key
-        return redirect("ui:settings")
+        if action == "member_remove":
+            mid = (request.POST.get("membership_id") or "").strip()
+            if mid.isdigit():
+                m = OrganizationMembership.objects.filter(id=int(mid), organization=org).select_related("user").first()
+                if m:
+                    _audit_event(
+                        request=request,
+                        org=org,
+                        action=AuditEvent.ACTION_DELETE,
+                        model="core.OrganizationMembership",
+                        object_pk=str(m.id),
+                        summary=f"Removed member '{m.user.username}' from org '{org.name}'.",
+                    )
+                    m.delete()
+            return redirect("ui:settings")
 
-    if request.method == "POST" and request.POST.get("_action") == "set_default_org":
-        profile.default_organization = org
-        profile.save(update_fields=["default_organization", "updated_at"])
-        return redirect("ui:settings")
-
-    memberships = None
-    if _is_org_admin(request.user, org):
-        memberships = (
-            OrganizationMembership.objects.filter(organization=org)
-            .select_related("user")
-            .order_by("role", "user__username")
-        )
-
-    api_tok = Token.objects.filter(user=request.user).first()
-    show_api_tok = bool(request.session.get("homeglue_show_api_token"))
-    new_api_tok = request.session.pop("homeglue_new_api_token", None)
-    api_token_value = None
-    if show_api_tok:
-        if api_tok:
-            api_token_value = api_tok.key
-        else:
-            api_tok = Token.objects.create(user=request.user)
-            api_token_value = api_tok.key
+    memberships = list(
+        OrganizationMembership.objects.filter(organization=org).select_related("user").order_by("role", "user__username")[:5000]
+    )
 
     return render(
         request,
         "ui/settings.html",
         {
             "org": org,
-            "crumbs": _crumbs(("Settings", None)),
-            "default_org": default_org,
+            "crumbs": _crumbs(("Org settings", None)),
             "memberships": memberships,
-            "api_token_exists": bool(api_tok),
-            "api_token_value": api_token_value,
-            "api_token_new_value": new_api_tok,
+            "can_admin": can_admin,
+            "is_superuser": bool(getattr(request.user, "is_superuser", False)),
+            "flash": flash,
         },
     )
 
@@ -6872,7 +7044,7 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
                 continue
         if not token:
             raise PermissionDenied("Unable to create share link (try again).")
-        base_url = (getattr(settings, "HOMEGLUE_BASE_URL", "") or "").strip().rstrip("/")
+        base_url = (get_base_url() or "").strip().rstrip("/")
         if not base_url:
             base_url = request.build_absolute_uri("/").rstrip("/")
         request.session[sess_key_share] = f"{base_url}{reverse('public:file_share', kwargs={'token': token})}"
@@ -7969,7 +8141,7 @@ def password_detail(request: HttpRequest, password_id: int) -> HttpResponse:
                 continue
         if not token:
             raise PermissionDenied("Unable to create share link (try again).")
-        base_url = (getattr(settings, "HOMEGLUE_BASE_URL", "") or "").strip().rstrip("/")
+        base_url = (get_base_url() or "").strip().rstrip("/")
         if not base_url:
             base_url = request.build_absolute_uri("/").rstrip("/")
         share_url = f"{base_url}{reverse('public:password_share', kwargs={'token': token})}"

@@ -530,6 +530,29 @@ class UserProfile(models.Model):
         return f"Profile({self.user})"
 
 
+class SystemSettings(models.Model):
+    """
+    Singleton-ish system settings that can be configured from the HomeGlue UI.
+
+    These values are safe to store in DB (non-secret). Secrets should remain env-backed
+    until we have encrypted settings storage.
+    """
+
+    # Optional base URL for building absolute links in notifications/shares.
+    base_url = models.CharField(max_length=500, blank=True, default="")
+
+    # IP access control (optional). Mirrors env vars but can be edited from UI.
+    ip_allowlist = models.TextField(blank=True, default="", help_text="Comma-separated CIDRs/IPs.")
+    ip_blocklist = models.TextField(blank=True, default="", help_text="Comma-separated CIDRs/IPs.")
+    trust_x_forwarded_for = models.BooleanField(default=False)
+    trusted_proxy_cidrs = models.TextField(blank=True, default="", help_text="Comma-separated CIDRs/IPs.")
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return "SystemSettings"
+
+
 class SavedView(models.Model):
     """
     Saved list filters per org per object type (NetBox-ish).

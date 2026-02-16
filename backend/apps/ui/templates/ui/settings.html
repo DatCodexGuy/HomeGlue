@@ -5,8 +5,8 @@
     {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
     <div class="listhead">
       <div>
-        <h1 class="h2">Settings</h1>
-        <div class="sub">Org-scoped preferences and visibility.</div>
+        <h1 class="h2">Org Settings</h1>
+        <div class="sub">Org administration and configuration for {{ org.name }}.</div>
       </div>
       <div class="listhead__actions">
         <a class="btn btn--ghost btn--sm" href="{% url 'ui:dashboard' %}">
@@ -18,93 +18,129 @@
 
     <div class="split">
       <div class="split__main">
-        <h3 class="h3">Default Org</h3>
-        <div class="mini">
-          <div class="muted">Your current default:</div>
-          <div class="mono" style="margin-top:6px">
-            {% if default_org %}{{ default_org.name }}{% else %}<span class="muted">None</span>{% endif %}
+        {% if flash %}
+          <div class="warn" style="margin-top:12px">
+            <div class="warn__title">{{ flash.title }}</div>
+            <div class="warn__body">{{ flash.body }}</div>
           </div>
-          <form method="post" style="margin-top:12px">
-            {% csrf_token %}
-            <input type="hidden" name="_action" value="set_default_org" />
-            <button class="btn" type="submit">
-              <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
-              Set {{ org.name }} as default
-            </button>
-          </form>
-        </div>
+        {% endif %}
 
-        <h3 class="h3" style="margin-top:16px">API Token</h3>
+        <h3 class="h3">Organization</h3>
         <div class="mini">
-          <div class="muted">Use a personal token for scripting against the API.</div>
-
-          {% if api_token_new_value %}
-            <div class="warn" style="margin-top:12px">
-              <div class="warn__title">New token</div>
-              <div class="warn__body">This token is shown once. Copy it now.</div>
-              <div class="secretbox" style="margin-top:10px">
-                <div class="secretbox__label">Token</div>
-                <div class="secretbox__value mono" data-copy>{{ api_token_new_value }}</div>
-                <div class="muted">Click to copy</div>
-              </div>
-            </div>
-          {% elif api_token_value %}
-            <div class="secretbox" style="margin-top:12px">
-              <div class="secretbox__label">Token</div>
-              <div class="secretbox__value mono" data-copy>{{ api_token_value }}</div>
-              <div class="muted">Click to copy</div>
+          <div class="mini__row">
+            <div class="muted">Name</div>
+            <div class="mono">{{ org.name }}</div>
+          </div>
+          {% if org.description %}
+            <div class="mini__row">
+              <div class="muted">Description</div>
+              <div class="muted">{{ org.description }}</div>
             </div>
           {% endif %}
+          {% if is_superuser %}
+            <div class="mini__row">
+              <div class="muted">Admin</div>
+              <div>
+                <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_org_detail' org_id=org.id %}">
+                  Manage in Admin
+                </a>
+              </div>
+            </div>
+          {% else %}
+            <div class="muted" style="margin-top:8px">Org name/description are managed by a superuser.</div>
+          {% endif %}
+        </div>
 
-          <div class="mini__actions">
-            {% if api_token_value %}
-              <form method="post" style="display:inline">
-                {% csrf_token %}
-                <input type="hidden" name="_action" value="api_token_hide" />
-                <button class="btn btn--ghost btn--sm" type="submit">Hide</button>
-              </form>
-            {% else %}
-              <form method="post" style="display:inline">
-                {% csrf_token %}
-                <input type="hidden" name="_action" value="api_token_reveal" />
-                <button class="btn btn--ghost btn--sm" type="submit">{% if api_token_exists %}Reveal{% else %}Create{% endif %}</button>
-              </form>
-            {% endif %}
-            <form method="post" style="display:inline">
+        <h3 class="h3" style="margin-top:16px">Members</h3>
+        <div class="mini">
+          {% if can_admin %}
+            <form method="post">
               {% csrf_token %}
-              <input type="hidden" name="_action" value="api_token_rotate" />
-              <button class="btn btn--danger btn--sm" type="submit">{% if api_token_exists %}Rotate{% else %}Create and show{% endif %}</button>
+              <input type="hidden" name="_action" value="member_add" />
+              <div class="grid2">
+                <label class="field">
+                  <div class="field__label">Username</div>
+                  <input class="input" type="text" name="username" placeholder="existing user" required />
+                </label>
+                <label class="field">
+                  <div class="field__label">Role</div>
+                  <select class="input" name="role">
+                    <option value="member">member</option>
+                    <option value="admin">admin</option>
+                    <option value="owner">owner</option>
+                  </select>
+                </label>
+              </div>
+              <div style="margin-top:10px">
+                <button class="btn btn--ghost btn--sm" type="submit">
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+                  Add member
+                </button>
+              </div>
             </form>
-          </div>
+            <div class="muted" style="margin-top:10px">Tip: if the user doesn't exist yet, a superuser can create them from the Admin dashboard.</div>
+          {% else %}
+            <div class="muted">Only org admins can manage membership.</div>
+          {% endif %}
+        </div>
 
-          <div class="muted" style="margin-top:12px">
-            Example:
-            <span class="mono" data-copy>curl -H "Authorization: Token &lt;TOKEN&gt;" http://localhost:8080/api/me/</span>
+        <div class="table" style="margin-top:12px">
+          <div class="row row--head" style="grid-template-columns:2fr 1.2fr 1fr">
+            <div>User</div><div>Role</div><div></div>
           </div>
-          <div class="muted" style="margin-top:8px">
-            Org-scoped calls:
-            <span class="mono" data-copy>curl -H "Authorization: Token &lt;TOKEN&gt;" http://localhost:8080/api/orgs/{{ org.id }}/assets/</span>
-          </div>
+          {% for m in memberships %}
+            <div class="row row--static" style="grid-template-columns:2fr 1.2fr 1fr">
+              <div class="mono">{{ m.user.username }}</div>
+              <div>
+                {% if can_admin %}
+                  <form method="post" style="display:flex; gap:8px; align-items:center">
+                    {% csrf_token %}
+                    <input type="hidden" name="_action" value="member_set_role" />
+                    <input type="hidden" name="membership_id" value="{{ m.id }}" />
+                    <select class="input" name="role" style="max-width:160px">
+                      <option value="member" {% if m.role == 'member' %}selected{% endif %}>member</option>
+                      <option value="admin" {% if m.role == 'admin' %}selected{% endif %}>admin</option>
+                      <option value="owner" {% if m.role == 'owner' %}selected{% endif %}>owner</option>
+                    </select>
+                    <button class="btn btn--ghost btn--sm" type="submit">Save</button>
+                  </form>
+                {% else %}
+                  <span class="pill pill--tiny">{{ m.role }}</span>
+                {% endif %}
+              </div>
+              <div>
+                {% if can_admin %}
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="_action" value="member_remove" />
+                    <input type="hidden" name="membership_id" value="{{ m.id }}" />
+                    <button class="btn btn--danger btn--sm" type="submit">Remove</button>
+                  </form>
+                {% endif %}
+              </div>
+            </div>
+          {% empty %}
+            <div class="empty">
+              <div class="empty__title">No members</div>
+              <div class="empty__body">Add a member above.</div>
+            </div>
+          {% endfor %}
         </div>
       </div>
 
       <div class="split__side">
-        <h3 class="h3">Membership</h3>
+        <h3 class="h3">Admin Shortcuts</h3>
         <div class="mini">
-          {% if memberships is not None %}
-            {% for m in memberships %}
-              <div class="mini__row">
-                <div class="mini__top">
-                  <span class="mono">{{ m.user.username }}</span>
-                  <span class="pill pill--tiny">{{ m.role }}</span>
-                </div>
-              </div>
-            {% empty %}
-              <div class="muted">No members.</div>
-            {% endfor %}
-          {% else %}
-            <div class="muted">Membership list is visible to org admins and superusers.</div>
-          {% endif %}
+          <a class="btn btn--ghost btn--sm" href="{% url 'ui:custom_fields_list' %}">Custom fields</a>
+          <a class="btn btn--ghost btn--sm" href="{% url 'ui:relationship_types_list' %}" style="margin-left:6px">Relationship types</a>
+          <div style="margin-top:10px">
+            <a class="btn btn--ghost btn--sm" href="{% url 'ui:workflows_list' %}">Workflows</a>
+            <a class="btn btn--ghost btn--sm" href="{% url 'ui:integrations_list' %}" style="margin-left:6px">Integrations</a>
+          </div>
+          <div style="margin-top:10px">
+            <a class="btn btn--ghost btn--sm" href="{% url 'ui:backups_list' %}">Backups</a>
+            <a class="btn btn--ghost btn--sm" href="{% url 'ui:audit_log' %}" style="margin-left:6px">Audit log</a>
+          </div>
         </div>
       </div>
     </div>

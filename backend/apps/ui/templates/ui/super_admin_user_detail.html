@@ -1,0 +1,90 @@
+{% extends "ui/base.html" %}
+{% block title %}Admin | {{ target.username }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ target.username }}</h1>
+        <div class="sub">User administration.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_users_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    {% if flash %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">{{ flash.title }}</div>
+        <div class="warn__body">{{ flash.body }}</div>
+        {% if flash.secret %}
+          <div class="secretbox" style="margin-top:10px">
+            <div class="secretbox__label">{{ flash.secret_label|default:"Secret" }}</div>
+            <div class="secretbox__value mono" data-copy>{{ flash.secret }}</div>
+            <div class="muted">Click to copy</div>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="split" style="margin-top:14px">
+      <div class="split__main">
+        <h3 class="h3">Profile</h3>
+        <div class="mini">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="save_profile" />
+            <label class="field">
+              <div class="field__label">Email</div>
+              <input class="input" type="email" name="email" value="{{ target.email }}" />
+            </label>
+            <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
+              <input type="checkbox" name="is_active" value="1" {% if target.is_active %}checked{% endif %} />
+              <div class="muted">Active (can log in)</div>
+            </label>
+            <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
+              <input type="checkbox" name="is_superuser" value="1" {% if target.is_superuser %}checked{% endif %} />
+              <div class="muted">Superuser</div>
+            </label>
+            <div style="margin-top:10px">
+              <button class="btn" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Reset Password</h3>
+        <div class="mini">
+          <div class="muted">Generates a new temporary password and shows it once.</div>
+          <form method="post" style="margin-top:10px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="reset_password" />
+            <button class="btn btn--danger btn--sm" type="submit">Reset password</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Organizations</h3>
+        <div class="mini">
+          {% for m in memberships %}
+            <div class="mini__row">
+              <div class="mini__top">
+                <a class="link mono" href="{% url 'ui:super_admin_org_detail' org_id=m.organization_id %}">{{ m.organization.name }}</a>
+                <span class="pill pill--tiny">{{ m.role }}</span>
+              </div>
+            </div>
+          {% empty %}
+            <div class="muted">Not a member of any org.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
