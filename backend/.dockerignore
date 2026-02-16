@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.git/
+.DS_Store
+
+venv/
+.venv/
+env/
+.env
+
+*.sqlite3
+*.db
+
+# Do not ignore /apps or /homeglue; those are the application source.
