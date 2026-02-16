@@ -2,6 +2,8 @@
 
 HomeGlue backups are **organization snapshot bundles**: a zip file containing your org data (as a Django fixture) plus your attachments under `media/`.
 
+Backups are intentionally **org-scoped**. There is no combined-org “export everything” view.
+
 ## Creating Snapshots
 
 Go to `Backups` in the left sidebar.
@@ -38,10 +40,39 @@ High-level steps:
 Example:
 
 ```bash
-docker compose exec -T web sh -lc 'python manage.py loaddata /path/to/fixture.json'
+docker compose exec -T web python manage.py loaddata /path/to/fixture.json
 ```
 
 Notes:
 
 - Restoring into a non-empty database can cause primary key conflicts.
 - The UI restore wizard helps validate/extract; full automated restore is still tracked under backups parity v2.
+
+### Recommended “Fresh Stack” Restore (Operator Workflow)
+
+This is the safest approach today.
+
+1. Bring down the stack and remove volumes (this deletes current DB + media):
+
+```bash
+cd /opt/homeglue
+docker compose down -v
+docker compose up -d --build
+docker compose exec -T web python manage.py migrate --noinput
+```
+
+2. Restore media:
+
+- Use the UI restore wizard to extract media into `/data/media`, or copy it manually into the media volume.
+
+3. Restore DB data (fixture):
+
+```bash
+docker compose exec -T web python manage.py loaddata /path/to/fixture.json
+```
+
+4. Verify:
+
+- login
+- enter the org
+- spot-check a few docs/assets/passwords and confirm attachments are downloadable

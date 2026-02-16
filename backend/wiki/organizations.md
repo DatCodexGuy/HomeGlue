@@ -27,5 +27,4 @@ Use “Switch Org” in the sidebar to leave the current org.
 
 ## Default Organization
 
-Users can set a default org in Settings. This is used by the API when an explicit org is not provided.
-
+Users can set a default org in `Account`. This is used by the API when an explicit org is not provided.

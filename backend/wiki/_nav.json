@@ -6,7 +6,9 @@
       "title": "Getting Started",
       "items": [
         { "slug": "documentation", "title": "HomeGlue Documentation" },
+        { "slug": "installation", "title": "Installation, Upgrade, and Uninstall" },
         { "slug": "organizations", "title": "Organizations and Memberships" },
+        { "slug": "admin", "title": "Admin, Settings, and Operations" },
         { "slug": "security", "title": "Security" }
       ]
     },
@@ -17,7 +19,10 @@
         { "slug": "config-items", "title": "Configuration Items" },
         { "slug": "docs", "title": "Documents and Templates" },
         { "slug": "passwords", "title": "Passwords and Folders" },
-        { "slug": "relationships", "title": "Relationships" }
+        { "slug": "relationships", "title": "Relationships" },
+        { "slug": "domains-ssl", "title": "Domains and SSL Certificates" },
+        { "slug": "files", "title": "Files and Attachments" },
+        { "slug": "audit", "title": "Audit Log and History" }
       ]
     },
     {
@@ -32,7 +37,8 @@
       "title": "Integrations and API",
       "items": [
         { "slug": "integrations-proxmox", "title": "Proxmox Integration" },
-        { "slug": "api", "title": "API" }
+        { "slug": "api", "title": "API" },
+        { "slug": "troubleshooting", "title": "Troubleshooting" }
       ]
     }
   ]

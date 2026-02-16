@@ -10,12 +10,20 @@ HomeGlue is an IT documentation system inspired by IT Glue, optimized for a calm
 - API docs: `/api/docs/`
 - Admin: `/admin/`
 
+## Getting Started
+
+Start here:
+
+- Installation and upgrades: see `Installation, Upgrade, and Uninstall`
+- Organizations and memberships: see `Organizations and Memberships`
+- Admin and settings: see `Admin, Settings, and Operations`
+- Security model: see `Security`
+- Backups: see `Backups and Restore`
+
 ## Requirements
 
 - Docker Engine + Docker Compose plugin
 - A generated `HOMEGLUE_FERNET_KEY` (used for secrets encryption)
-
-## Setup / Installation (Docker Compose)
 
 ### One-Liner Install
 
@@ -132,3 +140,9 @@ Configure webhook endpoints in the UI:
 If a secret is set on the endpoint, payloads are signed:
 
 - `X-HomeGlue-Signature: sha256=<hex>`
+
+## Where To Configure Things
+
+- User-level: `/app/account/`
+- Org-level: `/app/settings/`
+- System-level (superuser): `/app/admin/`

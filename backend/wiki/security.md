@@ -1,5 +1,7 @@
 # Security
 
+This page documents the security posture and key security-related features.
+
 ## IP Access Control
 
 HomeGlue supports optional IP allowlist/blocklist enforcement for the entire app (UI + API).
@@ -78,3 +80,25 @@ The API uses a short-lived re-auth token:
 ### Configuration
 
 - `HOMEGLUE_REAUTH_TTL_SECONDS` (default: `900`)
+
+## Password Storage
+
+Passwords are stored encrypted at rest using a Fernet key (`HOMEGLUE_FERNET_KEY`).
+
+Important notes:
+
+- Do not rotate `HOMEGLUE_FERNET_KEY` casually; you will lose the ability to decrypt existing secrets unless you implement a proper re-encryption migration.
+- Treat `.env` as sensitive and store it securely (permissions, backups, secrets management).
+
+## Sharing Sensitive Data (SafeShare)
+
+HomeGlue supports restricted share links for passwords and files.
+
+Typical controls:
+
+- expiry
+- one-time use
+- passphrase requirement
+- max-download limits (files)
+
+Share links should be treated as secrets. Revoke them when no longer needed.
