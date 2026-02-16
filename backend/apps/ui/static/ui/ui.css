@@ -297,6 +297,14 @@ html[data-theme="dark"] .top__center{color: rgba(231,240,236,.70)}
 .md h3{font-size: 18px}
 .md p{margin: 10px 0}
 .md ul,.md ol{margin: 10px 0; padding-left: 22px}
+.md ul ul{list-style-type: circle}
+.md ul ul ul{list-style-type: square}
+.md ol{list-style-type: decimal}
+.md ol ol{list-style-type: lower-alpha}
+.md ol ol ol{list-style-type: lower-roman}
+.md ul ol{list-style-type: decimal}
+.md ul ol ol{list-style-type: lower-alpha}
+.md ul ol ol ol{list-style-type: lower-roman}
 .md li{margin: 6px 0}
 .md a{
   color: var(--accent2);

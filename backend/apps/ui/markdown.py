@@ -47,6 +47,7 @@ ALLOWED_ATTRS: Final[dict[str, list[str]]] = {
 # browsers typically render it fine, but downstream escaping/copy flows can surface the entity.
 _CODE_TAG_RE: Final[re.Pattern[str]] = re.compile(r"(<code\b[^>]*>)(.*?)(</code>)", re.IGNORECASE | re.DOTALL)
 _MD_LIST_LINE_RE: Final[re.Pattern[str]] = re.compile(r"^\s*(?:[-*+]\s+|\d+\.\s+)")
+_MD_LIST_LINE_CAP_RE: Final[re.Pattern[str]] = re.compile(r"^(\s*)(?:[-*+]\s+|\d+\.\s+)")
 
 
 def _fix_code_entities(html_in: str) -> str:
@@ -81,28 +82,62 @@ def _normalize_markdown_for_renderer(md: str) -> str:
     lines = (md or "").splitlines()
     out: list[str] = []
     in_code = False
-    prev_nonempty = ""
 
-    for raw in lines:
+    # Track the most recent list marker line so we can normalize nested-list spacing.
+    prev_list_indent: int | None = None
+    prev_line_was_list = False
+
+    for i, raw in enumerate(lines):
         line = raw.rstrip("\n")
         s = line.strip()
 
         if s.startswith("```"):
             out.append(line)
             in_code = not in_code
-            prev_nonempty = s if s else prev_nonempty
+            prev_list_indent = None
+            prev_line_was_list = False
             continue
 
-        if not in_code and _MD_LIST_LINE_RE.match(line):
-            # Ensure a blank line before a list when the previous non-empty line is
-            # plain text (not a heading, not already part of a list).
-            if out:
-                prev = out[-1]
-                if prev.strip() and not prev.strip().startswith("#") and not _MD_LIST_LINE_RE.match(prev):
-                    out.append("")
+        if not in_code:
+            # Python-Markdown + sane_lists + nl2br can *break* nested lists if there is a blank
+            # line between a parent list item and its nested list. Collapse that blank line.
+            if not s and prev_line_was_list and prev_list_indent is not None and i + 1 < len(lines):
+                nxt = lines[i + 1].rstrip("\n")
+                nm = _MD_LIST_LINE_CAP_RE.match(nxt)
+                if nm:
+                    nxt_indent = len(nm.group(1) or "")
+                    if nxt_indent and nxt_indent % 4 != 0 and nxt_indent % 2 == 0:
+                        nxt_indent = (nxt_indent // 2) * 4
+                    if nxt_indent > prev_list_indent:
+                        continue
+
+            m = _MD_LIST_LINE_CAP_RE.match(line)
+            if m:
+                indent = len(m.group(1) or "")
+
+                # Normalize common "2 space per level" nested list indentation to Markdown's
+                # more reliable 4-space indentation (only when indent isn't already 4-aligned).
+                if indent and indent % 4 != 0 and indent % 2 == 0:
+                    level = indent // 2
+                    indent = level * 4
+                    line = (" " * indent) + line.lstrip()
+
+                # Ensure a blank line before a list when the previous line is plain text
+                # (not a heading, not already part of a list). This helps list boundaries.
+                if out:
+                    prev = out[-1]
+                    if prev.strip() and not prev.strip().startswith("#") and not _MD_LIST_LINE_RE.match(prev):
+                        out.append("")
+
+                out.append(line)
+                prev_list_indent = indent
+                prev_line_was_list = True
+                continue
+
         out.append(line)
         if s:
-            prev_nonempty = s
+            prev_line_was_list = False
+            prev_list_indent = None
 
     return "\n".join(out)
 

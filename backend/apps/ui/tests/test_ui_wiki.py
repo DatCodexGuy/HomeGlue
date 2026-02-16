@@ -31,3 +31,6 @@ class UiWikiTests(TestCase):
         self.assertContains(r, "<h1", status_code=200)
         # Bold should render (this used to fail with the minimal renderer).
         self.assertContains(r, "<strong>", status_code=200)
+        # Nested lists should render as nested <ul> blocks (regression for 2-space indentation).
+        self.assertContains(r, "Inventory:<ul>", status_code=200)
+        self.assertContains(r, "<li>Assets</li>", status_code=200)

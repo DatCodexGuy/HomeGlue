@@ -81,40 +81,40 @@ DJANGO_SUPERUSER_USERNAME=admin DJANGO_SUPERUSER_EMAIL=admin@example.local DJANG
 - **Org-first navigation**: you must enter an Organization before viewing org-scoped objects.
 - **Org scoping** applies to UI and API. There are no combined cross-org views.
 - **Roles**:
-  - Superuser: global admin (can create orgs and access all)
-  - Org admin/owner: manages org configuration (relationship types, custom field definitions, workflows)
-  - Org member: day-to-day usage (assets, docs, passwords, checklists)
+    - Superuser: global admin (can create orgs and access all)
+    - Org admin/owner: manages org configuration (relationship types, custom field definitions, workflows)
+    - Org member: day-to-day usage (assets, docs, passwords, checklists)
 
 ## Features (High Level)
 
 - Inventory:
-  - Assets
-  - Config Items
-  - Flexible Assets (custom types)
+    - Assets
+    - Config Items
+    - Flexible Assets (custom types)
 - Documentation:
-  - Documents + Templates
-  - Version history + restore
-  - Attachments, notes, tags, relationships
-  - Document flags
+    - Documents + Templates
+    - Version history + restore
+    - Attachments, notes, tags, relationships
+    - Document flags
 - Secrets:
-  - Encrypted password entries
-  - Password folders (nested)
-  - Visibility/ACL (org/admins/private/shared)
+    - Encrypted password entries
+    - Password folders (nested)
+    - Visibility/ACL (org/admins/private/shared)
 - Domains / SSL:
-  - Expiry tracking and linking
-  - Public lookup (one-click "Lookup" on create)
+    - Expiry tracking and linking
+    - Public lookup (one-click "Lookup" on create)
 - Checklists:
-  - Templates (runbooks)
-  - Runs (execution instances)
-  - Schedules (basic recurring cadence)
+    - Templates (runbooks)
+    - Runs (execution instances)
+    - Schedules (basic recurring cadence)
 - Workflows:
-  - Rule engine + per-user notifications
-  - Delivery via email (optional) and webhooks (optional)
+    - Rule engine + per-user notifications
+    - Delivery via email (optional) and webhooks (optional)
 - Integrations:
-  - Proxmox sync (nodes, guests, storage, networks, etc.)
+    - Proxmox sync (nodes, guests, storage, networks, etc.)
 - API:
-  - Token/JWT/session auth
-  - Org-scoped endpoints
+    - Token/JWT/session auth
+    - Org-scoped endpoints
 
 ## Email Notifications (Optional)
 
