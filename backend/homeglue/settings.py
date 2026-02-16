@@ -164,6 +164,7 @@ else:
 
 # Webhook delivery (workflows notifications)
 HOMEGLUE_WEBHOOK_TIMEOUT_SECONDS = env.int("HOMEGLUE_WEBHOOK_TIMEOUT_SECONDS", default=8)
+HOMEGLUE_SMTP_TIMEOUT_SECONDS = env.int("HOMEGLUE_SMTP_TIMEOUT_SECONDS", default=10)
 
 # IP access control (optional)
 HOMEGLUE_IP_ALLOWLIST = env("HOMEGLUE_IP_ALLOWLIST", default="").strip()

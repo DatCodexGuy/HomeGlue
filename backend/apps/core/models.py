@@ -552,6 +552,12 @@ class SystemSettings(models.Model):
     cors_allowed_origins = models.TextField(blank=True, default="", help_text="Comma-separated origins (e.g. https://app.example.com).")
     csrf_trusted_origins = models.TextField(blank=True, default="", help_text="Comma-separated origins (e.g. https://homeglue.example.com).")
 
+    # Hosts and operational tuning (non-secret).
+    allowed_hosts = models.TextField(blank=True, default="", help_text="Comma-separated hosts (mirrors HOMEGLUE_ALLOWED_HOSTS).")
+    reauth_ttl_seconds = models.IntegerField(default=900)
+    webhook_timeout_seconds = models.IntegerField(default=8)
+    smtp_timeout_seconds = models.IntegerField(default=10)
+
     # Email settings.
     # We support env-backed defaults, but allow a DB-backed override for convenience.
     EMAIL_SOURCE_ENV = "env"

@@ -203,6 +203,11 @@
                 <div class="field__label">CSRF Trusted Origins (comma-separated, optional)</div>
                 <textarea class="input" name="csrf_trusted_origins" rows="2" placeholder="https://homeglue.example.com">{{ sys_obj.csrf_trusted_origins }}</textarea>
               </label>
+              <label class="field" style="margin-top:10px">
+                <div class="field__label">ALLOWED_HOSTS override (comma-separated, optional)</div>
+                <textarea class="input" name="allowed_hosts" rows="2" placeholder="homeglue.example.com,10.0.0.10">{{ sys_obj.allowed_hosts }}</textarea>
+                <div class="muted">Leave empty to use env-backed `HOMEGLUE_ALLOWED_HOSTS`.</div>
+              </label>
               <div style="margin-top:10px">
                 <button class="btn" type="submit">Save</button>
                 <a class="btn btn--ghost" href="{% url 'ui:super_admin_setup' %}?step=4" style="margin-left:6px">Continue</a>

@@ -80,6 +80,51 @@ def get_csrf_trusted_origins_raw() -> str:
     return (getattr(settings, "HOMEGLUE_CSRF_TRUSTED_ORIGINS", "") or "").strip()
 
 
+def get_allowed_hosts_raw() -> str:
+    obj = get_system_settings()
+    if obj and getattr(obj, "allowed_hosts", "").strip():
+        return str(obj.allowed_hosts).strip()
+    # Fall back to env-backed value (already parsed into ALLOWED_HOSTS by Django settings module).
+    try:
+        hosts = list(getattr(settings, "ALLOWED_HOSTS", []) or [])
+        return ",".join([str(h).strip() for h in hosts if str(h).strip()])
+    except Exception:
+        return ""
+
+
+def get_reauth_ttl_seconds() -> int:
+    obj = get_system_settings()
+    if obj is not None:
+        try:
+            v = int(getattr(obj, "reauth_ttl_seconds", 900) or 900)
+            return max(60, min(v, 86400))
+        except Exception:
+            return 900
+    return int(getattr(settings, "HOMEGLUE_REAUTH_TTL_SECONDS", 900) or 900)
+
+
+def get_webhook_timeout_seconds() -> int:
+    obj = get_system_settings()
+    if obj is not None:
+        try:
+            v = int(getattr(obj, "webhook_timeout_seconds", 8) or 8)
+            return max(1, min(v, 120))
+        except Exception:
+            return 8
+    return int(getattr(settings, "HOMEGLUE_WEBHOOK_TIMEOUT_SECONDS", 8) or 8)
+
+
+def get_smtp_timeout_seconds() -> int:
+    obj = get_system_settings()
+    if obj is not None:
+        try:
+            v = int(getattr(obj, "smtp_timeout_seconds", 10) or 10)
+            return max(1, min(v, 120))
+        except Exception:
+            return 10
+    return int(getattr(settings, "HOMEGLUE_SMTP_TIMEOUT_SECONDS", 10) or 10)
+
+
 def get_email_settings() -> dict[str, object]:
     """
     Return effective email settings.

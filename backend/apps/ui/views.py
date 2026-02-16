@@ -2144,6 +2144,7 @@ def super_admin_setup(request: HttpRequest) -> HttpResponse:
             proxies = (request.POST.get("trusted_proxy_cidrs") or "").strip()
             cors_allowed_origins = (request.POST.get("cors_allowed_origins") or "").strip()
             csrf_trusted_origins = (request.POST.get("csrf_trusted_origins") or "").strip()
+            allowed_hosts = (request.POST.get("allowed_hosts") or "").strip()
             sys_obj.base_url = base_url
             sys_obj.ip_allowlist = ip_allowlist
             sys_obj.ip_blocklist = ip_blocklist
@@ -2151,6 +2152,7 @@ def super_admin_setup(request: HttpRequest) -> HttpResponse:
             sys_obj.trusted_proxy_cidrs = proxies
             sys_obj.cors_allowed_origins = cors_allowed_origins
             sys_obj.csrf_trusted_origins = csrf_trusted_origins
+            sys_obj.allowed_hosts = allowed_hosts
             sys_obj.save()
             _set_flash(title="Saved", body="System settings saved.")
             return redirect(reverse("ui:super_admin_setup") + "?step=3")
@@ -2952,6 +2954,10 @@ def super_admin_system_settings(request: HttpRequest) -> HttpResponse:
         proxies = (request.POST.get("trusted_proxy_cidrs") or "").strip()
         cors_allowed_origins = (request.POST.get("cors_allowed_origins") or "").strip()
         csrf_trusted_origins = (request.POST.get("csrf_trusted_origins") or "").strip()
+        allowed_hosts = (request.POST.get("allowed_hosts") or "").strip()
+        reauth_ttl = (request.POST.get("reauth_ttl_seconds") or "").strip()
+        webhook_timeout = (request.POST.get("webhook_timeout_seconds") or "").strip()
+        smtp_timeout = (request.POST.get("smtp_timeout_seconds") or "").strip()
         obj.base_url = base_url
         obj.ip_allowlist = ip_allowlist
         obj.ip_blocklist = ip_blocklist
@@ -2959,6 +2965,19 @@ def super_admin_system_settings(request: HttpRequest) -> HttpResponse:
         obj.trusted_proxy_cidrs = proxies
         obj.cors_allowed_origins = cors_allowed_origins
         obj.csrf_trusted_origins = csrf_trusted_origins
+        obj.allowed_hosts = allowed_hosts
+        try:
+            obj.reauth_ttl_seconds = int(reauth_ttl or 900)
+        except Exception:
+            obj.reauth_ttl_seconds = 900
+        try:
+            obj.webhook_timeout_seconds = int(webhook_timeout or 8)
+        except Exception:
+            obj.webhook_timeout_seconds = 8
+        try:
+            obj.smtp_timeout_seconds = int(smtp_timeout or 10)
+        except Exception:
+            obj.smtp_timeout_seconds = 10
         obj.save()
         saved = True
         _audit_event(
@@ -2967,7 +2986,7 @@ def super_admin_system_settings(request: HttpRequest) -> HttpResponse:
             action=AuditEvent.ACTION_UPDATE,
             model="system.SystemSettings",
             object_pk=str(obj.id),
-            summary="Updated system settings (base url / ip access control / cors / csrf).",
+            summary="Updated system settings (base url / ip access control / cors / csrf / hosts / timeouts).",
         )
 
     return render(
@@ -2988,6 +3007,10 @@ def super_admin_system_settings(request: HttpRequest) -> HttpResponse:
                     "trusted_proxy_cidrs": "",
                     "cors_allowed_origins": "",
                     "csrf_trusted_origins": "",
+                    "allowed_hosts": "",
+                    "reauth_ttl_seconds": 900,
+                    "webhook_timeout_seconds": 8,
+                    "smtp_timeout_seconds": 10,
                 },
             )(),
             "saved": saved,

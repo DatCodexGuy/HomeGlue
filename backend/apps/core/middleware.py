@@ -24,6 +24,7 @@ class DynamicDbSettingsMiddleware:
             from django.conf import settings
 
             from .system_settings import get_cors_allowed_origins_raw, get_csrf_trusted_origins_raw
+            from .system_settings import get_allowed_hosts_raw, get_reauth_ttl_seconds, get_webhook_timeout_seconds, get_smtp_timeout_seconds
 
             def _split(raw: str) -> list[str]:
                 return [p.strip() for p in (raw or "").split(",") if p.strip()]
@@ -32,6 +33,15 @@ class DynamicDbSettingsMiddleware:
             settings.CORS_ALLOWED_ORIGINS = _split(get_cors_allowed_origins_raw())
             # Django CSRF middleware reads this from settings.
             settings.CSRF_TRUSTED_ORIGINS = _split(get_csrf_trusted_origins_raw())
+            # Host validation (CommonMiddleware / HttpRequest.get_host).
+            ah = _split(get_allowed_hosts_raw())
+            if ah:
+                settings.ALLOWED_HOSTS = ah
+
+            # Operational knobs used throughout the app.
+            settings.HOMEGLUE_REAUTH_TTL_SECONDS = int(get_reauth_ttl_seconds() or 900)
+            settings.HOMEGLUE_WEBHOOK_TIMEOUT_SECONDS = int(get_webhook_timeout_seconds() or 8)
+            settings.HOMEGLUE_SMTP_TIMEOUT_SECONDS = int(get_smtp_timeout_seconds() or 10)
         except Exception:
             pass
         return self.get_response(request)

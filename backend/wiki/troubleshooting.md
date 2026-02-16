@@ -105,6 +105,7 @@ If you are behind a reverse proxy:
 
 - you must configure trusted proxies (`HOMEGLUE_TRUST_X_FORWARDED_FOR` + `HOMEGLUE_TRUSTED_PROXY_CIDRS`) or the app will evaluate the proxy IP instead of the client IP.
 - if you see CSRF errors, configure CSRF trusted origins (UI: `/app/admin/system/`).
+- if you see “Invalid HTTP_HOST header”, add the hostname to ALLOWED_HOSTS (UI: `/app/admin/system/` or env: `HOMEGLUE_ALLOWED_HOSTS`).
 
 ## Proxmox sync does not show anything
 

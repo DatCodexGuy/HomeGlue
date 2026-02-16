@@ -109,6 +109,49 @@
             </div>
           </form>
         </div>
+
+        <h3 class="h3" style="margin-top:16px">Hosts &amp; Timeouts</h3>
+        <div class="mini">
+          <div class="muted">
+            These settings affect host validation and operational behavior. Changes apply immediately.
+            If you set ALLOWED_HOSTS incorrectly, you may lock yourself out.
+          </div>
+          <form method="post" style="margin-top:10px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="save" />
+            <label class="field">
+              <div class="field__label">ALLOWED_HOSTS override (comma-separated)</div>
+              <textarea class="input" name="allowed_hosts" rows="2" placeholder="homeglue.example.com,10.0.0.10">{{ obj.allowed_hosts }}</textarea>
+              <div class="muted">Leave empty to use env-backed `HOMEGLUE_ALLOWED_HOSTS`.</div>
+            </label>
+
+            <div class="grid2" style="margin-top:10px">
+              <label class="field">
+                <div class="field__label">Re-auth TTL (seconds)</div>
+                <input class="input" type="number" name="reauth_ttl_seconds" min="60" max="86400" value="{{ obj.reauth_ttl_seconds }}" />
+                <div class="muted">Sensitive actions (reveal password, OTP codes).</div>
+              </label>
+              <label class="field">
+                <div class="field__label">Webhook timeout (seconds)</div>
+                <input class="input" type="number" name="webhook_timeout_seconds" min="1" max="120" value="{{ obj.webhook_timeout_seconds }}" />
+                <div class="muted">Outbound webhook delivery.</div>
+              </label>
+            </div>
+
+            <label class="field" style="margin-top:10px">
+              <div class="field__label">SMTP timeout (seconds)</div>
+              <input class="input" type="number" name="smtp_timeout_seconds" min="1" max="120" value="{{ obj.smtp_timeout_seconds }}" />
+              <div class="muted">Email delivery timeout for SMTP backend.</div>
+            </label>
+
+            <div style="margin-top:10px">
+              <button class="btn" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <div class="split__side">
