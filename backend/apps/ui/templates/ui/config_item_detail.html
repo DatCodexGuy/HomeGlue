@@ -1,0 +1,124 @@
+{% extends "ui/base.html" %}
+{% load ui_extras %}
+{% block title %}{{ item.name }} | Config | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ item.name }}</h1>
+        <div class="sub">
+          {{ item.get_ci_type_display }}
+          {% if item.archived_at %}<span class="pill pill--tiny pill--ghost">Archived</span>{% endif %}
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:config_items_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        {% if edit_mode %}
+          <a class="btn btn--ghost btn--sm" href="{{ view_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-close"/></svg>
+            Cancel
+          </a>
+        {% else %}
+          <a class="btn btn--ghost btn--sm" href="{{ edit_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-edit"/></svg>
+            Edit
+          </a>
+        {% endif %}
+        {% if can_admin %}
+          {% if item.archived_at %}
+            <form method="post" action="{% url 'ui:object_restore' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ref" value="{{ note_ref }}" />
+              <button class="btn btn--ghost btn--sm" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Restore
+              </button>
+            </form>
+          {% else %}
+            <a class="btn btn--danger btn--sm" href="{% url 'ui:config_item_delete' item_id=item.id %}">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+              Archive
+            </a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {% if edit_mode %}
+      <form method="post" class="form form--grid">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+          Save
+        </button>
+      </form>
+    {% else %}
+      <h3 class="h3">Details</h3>
+      <div class="mini">
+        <div class="mini__row"><div class="muted">Type</div><div>{{ item.get_ci_type_display }}</div></div>
+        {% if item.hostname %}<div class="mini__row"><div class="muted">Hostname</div><div class="mono">{{ item.hostname }}</div></div>{% endif %}
+        {% if item.primary_ip %}<div class="mini__row"><div class="muted">Primary IP</div><div class="mono">{{ item.primary_ip }}</div></div>{% endif %}
+        {% if item.operating_system %}<div class="mini__row"><div class="muted">OS</div><div>{{ item.operating_system }}</div></div>{% endif %}
+        {% if item.notes %}<div class="mini__row"><div class="muted">Notes</div><div class="md">{{ item.notes|markdown }}</div></div>{% endif %}
+      </div>
+    {% endif %}
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Custom Fields</h3>
+      {% include "ui/_custom_fields.html" with custom_fields=custom_fields custom_values=custom_values %}
+    </div>
+
+    {% if proxmox_guest %}
+      <div style="margin-top:18px">
+        <h3 class="h3">Proxmox</h3>
+        <div class="mini">
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="mono">{{ proxmox_guest.guest_type }} {{ proxmox_guest.vmid }}</span>
+              <span class="pill pill--tiny">{% if proxmox_guest.status %}{{ proxmox_guest.status }}{% else %}...{% endif %}</span>
+            </div>
+            <div class="muted">{% if proxmox_guest.name %}{{ proxmox_guest.name }}{% endif %}{% if proxmox_guest.node %} on {{ proxmox_guest.node }}{% endif %}</div>
+            {% if proxmox_guest.ip_addrs and proxmox_guest.ip_addrs|length %}
+              <div class="muted">IP: <span class="mono">{{ proxmox_guest.ip_addrs.0 }}</span></div>
+            {% endif %}
+            <div class="muted">
+              <a class="link mono" href="{% url 'ui:proxmox_guest_detail' conn_id=proxmox_guest.connection_id guest_id=proxmox_guest.id %}">Open Proxmox guest</a>
+              <span class="dot"></span>
+              <a class="link mono" href="{% url 'ui:proxmox_detail' conn_id=proxmox_guest.connection_id %}">Connection</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Relationships</h3>
+      {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Attachments</h3>
+      {% include "ui/_attachments.html" with attachments=attachments %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Notes</h3>
+      {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Activity</h3>
+      {% include "ui/_activity.html" with activity=activity %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Versions</h3>
+      {% include "ui/_versions.html" with versions=versions can_restore=can_restore %}
+    </div>
+  </section>
+{% endblock %}

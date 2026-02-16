@@ -1,0 +1,43 @@
+{% extends "ui/base.html" %}
+{% block title %}Saved Views | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Saved Views</h1>
+        <div class="sub">Named filters per list, scoped to <strong>{{ org.name }}</strong>.</div>
+      </div>
+    </div>
+
+    <div class="table table--views">
+      <div class="row row--head">
+        <div>Name</div><div>Type</div><div>Filter</div><div></div>
+      </div>
+      {% for v in items %}
+        <div class="row row--static">
+          <div class="titlecell">
+            {% if v.apply_url %}
+              <a class="row__link" href="{{ v.apply_url }}">{{ v.name }}</a>
+            {% else %}
+              {{ v.name }}
+            {% endif %}
+          </div>
+          <div class="muted">{{ v.model_label }}</div>
+          <div class="mono muted">{% if v.q %}q={{ v.q }}{% else %}...{% endif %}</div>
+          <div>
+            <a class="btn btn--danger btn--sm" href="{{ v.delete_url }}">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+              Delete
+            </a>
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No saved views yet</div>
+          <div class="empty__body">Go to a list page (Assets, Docs, etc), search, then click <strong>Save current</strong>.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

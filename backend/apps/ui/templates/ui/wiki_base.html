@@ -1,0 +1,46 @@
+{% extends "ui/base.html" %}
+{% block content %}
+  <section class="panel reveal wiki">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="wiki__shell">
+      <aside class="wiki__nav" aria-label="Wiki navigation">
+        <div class="wiki__navhead">
+          <div class="wiki__navtitle">Wiki</div>
+          <div class="wiki__navsub">Help and documentation</div>
+        </div>
+
+        <form class="wiki__search" method="get" action="{% url 'ui:wiki_index' %}">
+          <input class="wiki__searchinput" type="text" name="q" value="{{ wiki_q }}" placeholder="Search docs..." />
+          <button class="btn btn--ghost btn--sm" type="submit">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+            Search
+          </button>
+        </form>
+
+        <nav class="wiki__navlist">
+          {% for sec in wiki_nav %}
+            <div class="wiki__section">
+              <div class="wiki__sectiontitle">{{ sec.title }}</div>
+              {% for it in sec.items %}
+                <a class="wiki__link {% if it.active %}is-active{% endif %}" href="{{ it.url }}">{{ it.title }}</a>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </nav>
+
+        <div class="wiki__navfoot">
+          <a class="btn btn--ghost btn--sm" href="{% url 'ui:dashboard' %}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+            Back
+          </a>
+        </div>
+      </aside>
+
+      <div class="wiki__content">
+        {% block wiki_content %}{% endblock %}
+      </div>
+    </div>
+  </section>
+{% endblock %}
+

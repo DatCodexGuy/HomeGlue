@@ -1,0 +1,170 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}HomeGlue{% endblock %}</title>
+    <script>
+      (() => {
+        try {
+          const t = localStorage.getItem("homeglue_theme");
+          if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+        } catch {}
+      })();
+    </script>
+    <link rel="stylesheet" href="{% static 'ui/ui.css' %}" />
+    <script defer src="{% static 'ui/ui.js' %}"></script>
+  </head>
+  <body class="{% if user.is_authenticated and org %}has-org{% endif %}">
+    <div class="bg"></div>
+    <svg aria-hidden="true" style="position:absolute; width:0; height:0; overflow:hidden">
+      <symbol id="i-menu" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6v-2z"/></symbol>
+      <symbol id="i-back" viewBox="0 0 24 24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8l8 8l1.41-1.41L7.83 13H20v-2z"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3h6l1 1h5v2H3V4h5l1-1zm1 6h2v10h-2V9zm4 0h2v10h-2V9z"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path fill="currentColor" d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zM5 5h10v4H5V5zm7 14a3 3 0 1 1 0-6a3 3 0 0 1 0 6z"/></symbol>
+      <symbol id="i-dashboard" viewBox="0 0 24 24"><path fill="currentColor" d="M4 13h7V4H4v9zm0 7h7v-5H4v5zm9 0h7V11h-7v9zm0-16v5h7V4h-7z"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><path fill="currentColor" d="M10 4a6 6 0 1 1 0 12a6 6 0 0 1 0-12m0-2a8 8 0 1 0 4.9 14.3l5.4 5.4l1.4-1.4l-5.4-5.4A8 8 0 0 0 10 2z"/></symbol>
+      <symbol id="i-asset" viewBox="0 0 24 24"><path fill="currentColor" d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-5l1.5 2H18v2H6v-2h1.5L9 17H6a2 2 0 0 1-2-2V6zm2 0v9h12V6H6z"/></symbol>
+      <symbol id="i-config" viewBox="0 0 24 24"><path fill="currentColor" d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.1 7.1 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 1h-3.8a.5.5 0 0 0-.49.42l-.36 2.54c-.58.22-1.12.52-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.71 7.48a.5.5 0 0 0 .12.64L4.86 9.7c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.3.6.22l2.39-.96c.5.42 1.05.72 1.63.94l.36 2.54c.04.24.25.42.49.42h3.8c.24 0 .45-.18.49-.42l.36-2.54c.58-.22 1.12-.52 1.63-.94l2.39.96c.22.08.47 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><path fill="currentColor" d="M7 14a5 5 0 1 1 4.58 2.96L10 18.54V21H8v-2H6v-2.46L7.54 15H7zm5-9a3 3 0 1 0 0 6a3 3 0 0 0 0-6z"/></symbol>
+      <symbol id="i-doc" viewBox="0 0 24 24"><path fill="currentColor" d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM7 12h10v2H7v-2zm0 4h10v2H7v-2z"/></symbol>
+      <symbol id="i-template" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16v6H4V4zm0 8h10v8H4v-8zm12 0h4v8h-4v-8z"/></symbol>
+      <symbol id="i-people" viewBox="0 0 24 24"><path fill="currentColor" d="M16 11a4 4 0 1 0-8 0a4 4 0 0 0 8 0zm-10 9a6 6 0 0 1 12 0v2H6v-2z"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zm0 9.5A2.5 2.5 0 1 0 12 6a2.5 2.5 0 0 0 0 5.5z"/></symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24"><path fill="currentColor" d="M20.59 13.41L12 22l-8-8V4h10l8.59 8.59a2 2 0 0 1 0 2.82zM7.5 9A1.5 1.5 0 1 0 7.5 6a1.5 1.5 0 0 0 0 3z"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path fill="currentColor" d="M10.59 13.41a1 1 0 0 1 0-1.41l2.83-2.83a1 1 0 0 1 1.41 1.41l-2.83 2.83a1 1 0 0 1-1.41 0zM8 17a5 5 0 0 1 0-7.07l1.41-1.41l1.41 1.41L9.41 11.34a3 3 0 0 0 0 4.24a3 3 0 0 0 4.24 0l1.41-1.41l1.41 1.41L15.07 17A5 5 0 0 1 8 17zm8-10a3 3 0 0 0-4.24 0L10.34 8.41L8.93 7l1.41-1.41a5 5 0 0 1 7.07 7.07L16 14.07l-1.41-1.41L16 11.24A3 3 0 0 0 16 7z"/></symbol>
+      <symbol id="i-shapes" viewBox="0 0 24 24"><path fill="currentColor" d="M7 3a4 4 0 1 0 0 8a4 4 0 0 0 0-8zm10 2l4 7h-8l4-7zM4 14h8v8H4v-8zm10 1h7v7h-7v-7z"/></symbol>
+      <symbol id="i-gear" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8a4 4 0 0 0 0-8zm9.4 4a7.9 7.9 0 0 0-.1-1l2-1.6l-2-3.4l-2.4 1a8.6 8.6 0 0 0-1.7-1L16.8 3h-3.6L12.5 0h-1l-.7 3h-3.6l-.4 2.9a8.6 8.6 0 0 0-1.7 1l-2.4-1l-2 3.4l2 1.6a7.9 7.9 0 0 0 0 2l-2 1.6l2 3.4l2.4-1a8.6 8.6 0 0 0 1.7 1l.4 2.9h3.6l.7 3h1l.7-3h3.6l.4-2.9a8.6 8.6 0 0 0 1.7-1l2.4 1l2-3.4l-2-1.6c.1-.3.1-.7.1-1z"/></symbol>
+      <symbol id="i-switch" viewBox="0 0 24 24"><path fill="currentColor" d="M7 7h11l-3-3l1.4-1.4L22.8 9l-6.4 6.4L15 14l3-3H7V7zm10 10H6l3 3l-1.4 1.4L1.2 15l6.4-6.4L9 10l-3 3h11v4z"/></symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24"><path fill="currentColor" d="M10 17v-3H3v-4h7V7l5 5l-5 5zm9-14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7v-2h7V5h-7V3h7z"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2l8 4v6c0 5-3.4 9.4-8 10c-4.6-.6-8-5-8-10V6l8-4z"/></symbol>
+      <symbol id="i-api" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5L3 12l5 7h3l-5-7l5-7H8zm8 0h-3l5 7l-5 7h3l5-7l-5-7z"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path fill="currentColor" d="M5 20h14v-2H5v2zM11 4h2v8h3l-4 4l-4-4h3V4z"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><path fill="currentColor" d="M12 18a6 6 0 1 1 0-12a6 6 0 0 1 0 12zm0-16h2v3h-2V2zM12 19h2v3h-2v-3zM4.22 5.64l1.42-1.42L7.76 6.34L6.34 7.76L4.22 5.64zM16.24 17.66l1.42-1.42l2.12 2.12l-1.42 1.42l-2.12-2.12zM2 12h3v2H2v-2zm19 0h3v2h-3v-2zM4.22 18.36l2.12-2.12l1.42 1.42l-2.12 2.12l-1.42-1.42zM16.24 6.34l2.12-2.12l1.42 1.42l-2.12 2.12l-1.42-1.42z"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a9 9 0 0 0 0 18a9 9 0 0 0 8.94-8A7.5 7.5 0 0 1 12 2z"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13 2L3 14h7l-1 8l10-12h-7l1-8z"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20a10 10 0 0 0 0-20zm1 11h5v-2h-4V6h-2v7z"/></symbol>
+    </svg>
+
+    <div class="shell">
+      {% if user.is_authenticated %}
+        <div class="backdrop js-backdrop"></div>
+        <aside class="side js-side">
+          <div class="side__brand">
+            <a class="logo" href="{% url 'ui:home' %}">HomeGlue</a>
+            <div class="logo__meta">
+              <span class="mono">{{ user.get_username }}</span>
+              {% if org %}<span class="dot"></span><span class="mono">{{ org.name }}</span>{% endif %}
+            </div>
+          </div>
+
+          {% if org %}
+            <nav class="side__nav">
+              <a class="side__link {% if request.path == '/app/dashboard/' %}is-active{% endif %}" href="{% url 'ui:dashboard' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-dashboard"/></svg>Dashboard</a>
+              <a class="side__link {% if request.path|slice:':12' == '/app/search/' %}is-active{% endif %}" href="{% url 'ui:search' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search</a>
+              <a class="side__link {% if request.path|slice:':13' == '/app/reports/' %}is-active{% endif %}" href="{% url 'ui:reports' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Reports</a>
+              <a class="side__link {% if request.path|slice:':19' == '/app/notifications/' %}is-active{% endif %}" href="{% url 'ui:notifications_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Notifications</a>
+              <a class="side__link {% if request.path|slice:':15' == '/app/workflows/' %}is-active{% endif %}" href="{% url 'ui:workflows_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Workflows</a>
+              <a class="side__link {% if request.path|slice:':18' == '/app/integrations/' %}is-active{% endif %}" href="{% url 'ui:integrations_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>Integrations</a>
+              <button class="side__link side__link--btn js-cmdk" type="button"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Quick<span class="kbd">Ctrl K</span></button>
+              <a class="side__link {% if request.path|slice:':11' == '/app/views/' %}is-active{% endif %}" href="{% url 'ui:saved_views_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Saved Views</a>
+              <a class="side__link {% if request.path|slice:':10' == '/app/wiki/' %}is-active{% endif %}" href="{% url 'ui:wiki_index' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Wiki</a>
+              <a class="side__link {% if request.path|slice:':11' == '/app/files/' %}is-active{% endif %}" href="{% url 'ui:files_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>Files</a>
+	              <button class="side__link side__link--btn js-theme" type="button"><svg class="ico" viewBox="0 0 24 24"><use href="#i-moon"/></svg><span class="js-theme-label">Dark</span></button>
+              <div class="side__sep"></div>
+              <a class="side__link {% if request.path|slice:':12' == '/app/assets/' %}is-active{% endif %}" href="{% url 'ui:assets_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-asset"/></svg>Assets</a>
+              <a class="side__link {% if request.path|slice:':16' == '/app/flex-types/' or request.path|slice:':10' == '/app/flex/' %}is-active{% endif %}" href="{% url 'ui:flex_types_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Flexible</a>
+              <a class="side__link {% if request.path|slice:':17' == '/app/config-items/' %}is-active{% endif %}" href="{% url 'ui:config_items_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-config"/></svg>Config Items</a>
+              <a class="side__link {% if request.path|slice:':15' == '/app/passwords/' %}is-active{% endif %}" href="{% url 'ui:passwords_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-key"/></svg>Passwords</a>
+              <a class="side__link {% if request.path|slice:':14' == '/app/documents/' %}is-active{% endif %}" href="{% url 'ui:documents_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Docs</a>
+              <a class="side__link {% if request.path|slice:':15' == '/app/checklists/' %}is-active{% endif %}" href="{% url 'ui:checklists_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Checklists</a>
+              <a class="side__link {% if request.path|slice:':20' == '/app/checklist-runs/' %}is-active{% endif %}" href="{% url 'ui:checklist_runs_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Checklist Runs</a>
+              <a class="side__link {% if request.path|slice:':25' == '/app/checklist-schedules/' %}is-active{% endif %}" href="{% url 'ui:checklist_schedules_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-clock"/></svg>Checklist Schedules</a>
+              <a class="side__link {% if request.path|slice:':13' == '/app/domains/' %}is-active{% endif %}" href="{% url 'ui:domains_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>Domains</a>
+              <a class="side__link {% if request.path|slice:':15' == '/app/ssl-certs/' %}is-active{% endif %}" href="{% url 'ui:sslcerts_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>SSL Certs</a>
+              <a class="side__link {% if request.path|slice:':11' == '/app/notes/' %}is-active{% endif %}" href="{% url 'ui:notes_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Notes</a>
+              <a class="side__link {% if request.path|slice:':14' == '/app/templates/' %}is-active{% endif %}" href="{% url 'ui:templates_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-template"/></svg>Templates</a>
+              <a class="side__link {% if request.path|slice:':13' == '/app/contacts/' %}is-active{% endif %}" href="{% url 'ui:contacts_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-people"/></svg>Contacts</a>
+              <a class="side__link {% if request.path|slice:':14' == '/app/locations/' %}is-active{% endif %}" href="{% url 'ui:locations_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-pin"/></svg>Locations</a>
+              <a class="side__link {% if request.path|slice:':9' == '/app/tags' %}is-active{% endif %}" href="{% url 'ui:tags_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-tag"/></svg>Tags</a>
+              <a class="side__link {% if request.path|slice:':19' == '/app/custom-fields/' %}is-active{% endif %}" href="{% url 'ui:custom_fields_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Custom Fields</a>
+              <div class="side__sep"></div>
+              <a class="side__link {% if request.path|slice:':18' == '/app/relationships/' %}is-active{% endif %}" href="{% url 'ui:relationships_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>Relationships</a>
+              <a class="side__link {% if request.path|slice:':23' == '/app/relationship-types/' %}is-active{% endif %}" href="{% url 'ui:relationship_types_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Relationship Types</a>
+              <div class="side__sep"></div>
+              <a class="side__link side__link--muted {% if request.path|slice:':13' == '/app/backups/' %}is-active{% endif %}" href="{% url 'ui:backups_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>Backups</a>
+              <a class="side__link side__link--muted {% if request.path|slice:':14' == '/app/settings/' %}is-active{% endif %}" href="{% url 'ui:settings' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</a>
+              <a class="side__link side__link--muted" href="{% url 'ui:leave_org' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-switch"/></svg>Switch Org</a>
+              <a class="side__link side__link--muted" href="/accounts/logout/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-logout"/></svg>Logout</a>
+              {% if user.is_superuser %}
+                <div class="side__sep"></div>
+                <a class="side__link side__link--muted" href="/admin/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>System</a>
+                <a class="side__link side__link--muted" href="/api/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>API</a>
+              {% endif %}
+            </nav>
+          {% else %}
+            <nav class="side__nav">
+              <a class="side__link" href="{% url 'ui:home' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-switch"/></svg>Select Organization</a>
+              <a class="side__link side__link--muted" href="/accounts/logout/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-logout"/></svg>Logout</a>
+            </nav>
+          {% endif %}
+        </aside>
+      {% endif %}
+
+      <div class="content">
+        {% if user.is_authenticated %}
+          <header class="top top--mobile">
+            <button class="iconbtn js-menu" type="button" aria-label="Menu">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-menu"/></svg>
+              <span class="sr">Menu</span>
+            </button>
+            <button class="iconbtn js-cmdk" type="button" aria-label="Quick">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+              Quick
+            </button>
+            <div class="top__center">
+              {% if org %}
+                <span class="mono">{{ org.name }}</span>
+              {% else %}
+                <span class="mono">Select org</span>
+              {% endif %}
+            </div>
+            <button class="iconbtn js-theme" type="button" aria-label="Theme">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-moon"/></svg>
+              Theme
+            </button>
+            <a class="iconbtn" href="/accounts/logout/">Logout</a>
+          </header>
+        {% endif %}
+
+        <main class="main">
+          {% block content %}{% endblock %}
+        </main>
+
+        {% if user.is_authenticated and org %}
+          <div class="cmdk js-cmdk-modal" aria-hidden="true">
+            <div class="cmdk__backdrop js-cmdk-close"></div>
+            <div class="cmdk__panel" role="dialog" aria-modal="true" aria-label="Quick">
+              <div class="cmdk__top">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+                <input class="cmdk__input js-cmdk-input" type="text" placeholder="Type to search, or pick an action..." autocomplete="off" />
+                <span class="cmdk__hint mono">Esc</span>
+              </div>
+              <div class="cmdk__list js-cmdk-list"></div>
+              <div class="cmdk__foot">
+                <span class="mono muted">Enter</span><span class="muted">open</span>
+                <span class="mono muted">↑↓</span><span class="muted">navigate</span>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
+        <footer class="foot">
+          <span class="foot__brand mono">HomeGlue</span>
+        </footer>
+      </div>
+    </div>
+  </body>
+</html>

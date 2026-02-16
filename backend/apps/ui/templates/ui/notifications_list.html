@@ -1,0 +1,62 @@
+{% extends "ui/base.html" %}
+{% block title %}Notifications | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Notifications</h1>
+        <div class="sub">
+          {% if unread_count %}
+            <span class="pill pill--tiny pill--warn">{{ unread_count }} unread</span>
+          {% else %}
+            <span class="muted">All caught up.</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="?unread={% if only_unread %}{% else %}1{% endif %}">
+          {% if only_unread %}Show all{% else %}Show unread{% endif %}
+        </a>
+        <form method="post" action="{% url 'ui:notifications_mark_all_read' %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+          <button class="btn btn--ghost btn--sm" type="submit">Mark all read</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="mini">
+      {% for n in items %}
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="pill pill--tiny {% if n.level == 'danger' %}pill--danger{% elif n.level == 'warn' %}pill--warn{% else %}pill--ghost{% endif %}">{{ n.level }}</span>
+            <span class="muted">{{ n.created_at|date:"Y-m-d H:i" }}</span>
+          </div>
+          <div class="mini__body">
+            <div class="mono">{{ n.title }}</div>
+            {% if n.body %}<div class="muted">{{ n.body }}</div>{% endif %}
+            {% if n.content_type_id and n.object_id %}
+              <div class="muted">Ref: <span class="mono">{{ n.content_type.app_label }}.{{ n.content_type.model }}:{{ n.object_id }}</span></div>
+            {% endif %}
+          </div>
+          <div class="mini__actions">
+            {% if not n.read_at %}
+              <form method="post" action="{% url 'ui:notification_mark_read' notification_id=n.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+                <button class="btn btn--ghost btn--sm" type="submit">Mark read</button>
+              </form>
+            {% else %}
+              <span class="muted">Read</span>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div class="muted">No notifications yet.</div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+

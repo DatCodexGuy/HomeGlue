@@ -1,0 +1,37 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ field.name }} | Custom Fields | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ field.name }}</h1>
+        <div class="sub">
+          <span class="mono">{{ field.key }}</span>
+          <span class="muted">for</span>
+          <span class="mono">{{ field.content_type.app_label }}.{{ field.content_type.model }}</span>
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:custom_fields_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <a class="btn btn--danger btn--sm" href="{% url 'ui:custom_field_delete' field_id=field.id %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+          Delete
+        </a>
+      </div>
+    </div>
+
+    <form method="post" class="form form--grid">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+        Save
+      </button>
+    </form>
+  </section>
+{% endblock %}
+

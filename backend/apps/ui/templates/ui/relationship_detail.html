@@ -1,0 +1,63 @@
+{% extends "ui/base.html" %}
+{% block title %}Relationship #{{ rel.id }} | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Relationship</h1>
+        <div class="sub"><span class="pill pill--tiny">{{ rel.relationship_type.name }}</span> created {{ rel.created_at|date:"Y-m-d H:i" }}</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:relationships_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <a class="btn btn--danger btn--sm" href="{% url 'ui:relationship_delete' relationship_id=rel.id %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+          Delete
+        </a>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="split__main">
+        <h3 class="h3">Endpoints</h3>
+        <div class="mini">
+          <div class="mini__row">
+            <div class="muted">Source</div>
+            <div class="mono" style="margin-top:6px">
+              {% if src.url %}<a class="link" href="{{ src.url }}">{{ src.label }}</a>{% else %}{{ src.label }}{% endif %}
+            </div>
+            <div class="muted mono">{{ src.ref }}</div>
+          </div>
+          <div class="mini__row">
+            <div class="muted">Target</div>
+            <div class="mono" style="margin-top:6px">
+              {% if tgt.url %}<a class="link" href="{{ tgt.url }}">{{ tgt.label }}</a>{% else %}{{ tgt.label }}{% endif %}
+            </div>
+            <div class="muted mono">{{ tgt.ref }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Notes</h3>
+        <form method="post" class="form form--grid">
+          {% csrf_token %}
+          <p>
+            <label for="id_notes">Notes</label>
+            <textarea name="notes" id="id_notes" class="js-md" rows="8" placeholder="Markdown supported">{{ rel.notes }}</textarea>
+          </p>
+          <button class="btn" type="submit">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+            Save
+          </button>
+        </form>
+        <div class="muted" style="margin-top:10px">
+          {% if rel.created_by %}Created by {{ rel.created_by.username }}{% else %}Creator unknown{% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

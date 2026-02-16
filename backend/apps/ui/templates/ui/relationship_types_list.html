@@ -1,0 +1,34 @@
+{% extends "ui/base.html" %}
+{% block title %}Relationship Types | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    {% include "ui/_list_header.html" with title="Relationship Types" subtitle="Define the verbs your graph uses." new_url=relationship_types_new_url %}
+
+    <div class="table">
+      <div class="row row--head">
+        <div>Name</div><div>Inverse</div><div>Symmetric</div><div>Created</div>
+      </div>
+      {% for t in types %}
+        <div class="row row--static">
+          <div class="mono">{{ t.name }}</div>
+          <div class="muted">{% if t.inverse_name %}{{ t.inverse_name }}{% else %}...{% endif %}</div>
+          <div>{% if t.symmetric %}Yes{% else %}No{% endif %}</div>
+          <div class="muted">
+            {{ t.created_at|date:"Y-m-d" }}
+            {% if can_manage %}
+              <a class="link" style="margin-left:10px" href="{% url 'ui:relationship_type_delete' reltype_id=t.id %}">Delete</a>
+            {% endif %}
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No relationship types yet</div>
+          {% if can_manage %}
+            <div class="empty__body"><a class="link" href="{% url 'ui:relationship_types_new' %}">Create your first type</a>.</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "ui/wiki_base.html" %}
+{% block title %}{{ title }} | Wiki | {{ org.name }}{% endblock %}
+{% block wiki_content %}
+  <div class="listhead">
+    <div>
+      <h1 class="h2">{{ title }}</h1>
+      <div class="sub">Documentation</div>
+    </div>
+    <div class="listhead__actions">
+      <a class="btn btn--ghost btn--sm" href="{% url 'ui:wiki_index' %}">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+        Home
+      </a>
+    </div>
+  </div>
+
+  <div class="md">
+    {{ body_html|safe }}
+  </div>
+{% endblock %}

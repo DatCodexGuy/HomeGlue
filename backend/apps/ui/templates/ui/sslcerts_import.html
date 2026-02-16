@@ -1,0 +1,56 @@
+{% extends "ui/base.html" %}
+{% block title %}Import SSL Certificates | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Import SSL certificates (CSV)</h1>
+        <div class="sub">Upsert by fingerprint (preferred) or common_name+not_after within {{ org.name }}.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:sslcerts_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    <div class="warn">
+      <div class="warn__title">CSV format</div>
+      <div class="warn__body">
+        Headers:
+        <span class="mono" data-copy>common_name,subject_alt_names,issuer,serial_number,fingerprint_sha256,not_before,not_after,domains,notes</span>
+        <div class="muted" style="margin-top:6px">Dates must be ISO (<span class="mono">YYYY-MM-DD</span>). domains is a comma-separated list; missing domains will be created.</div>
+      </div>
+    </div>
+
+    <form method="post" class="form" enctype="multipart/form-data">
+      {% csrf_token %}
+      <p>
+        <label for="id_file">CSV file</label>
+        <input id="id_file" type="file" name="file" accept=".csv,text/csv" required />
+      </p>
+      <button class="btn" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+        Import
+      </button>
+    </form>
+
+    {% if created is not None %}
+      <div class="mini" style="margin-top:16px">
+        <div class="mini__row"><span class="mono">Created</span> <span class="pill pill--tiny">{{ created }}</span></div>
+        <div class="mini__row"><span class="mono">Updated</span> <span class="pill pill--tiny">{{ updated }}</span></div>
+      </div>
+    {% endif %}
+
+    {% if errors %}
+      <div class="mini" style="margin-top:16px">
+        {% for e in errors %}
+          <div class="mini__row">{{ e }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}
+

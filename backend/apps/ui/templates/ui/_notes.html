@@ -1,0 +1,50 @@
+{% load ui_extras %}
+{% if notes %}
+  <div class="mini">
+    {% for n in notes %}
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">{% if n.title %}{{ n.title }}{% else %}Note{% endif %}</span>
+          <span class="muted">
+            {{ n.created_at|date:"Y-m-d H:i" }}{% if n.created_by %} by {{ n.created_by.username }}{% endif %}
+          </span>
+        </div>
+        {% if n.body %}
+          <div class="mini__body md">{{ n.body|markdown }}</div>
+        {% endif %}
+        <div class="mini__actions">
+          <form method="post" action="{% url 'ui:note_delete' note_id=n.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}{% if request.META.QUERY_STRING %}?{{ request.META.QUERY_STRING }}{% endif %}">
+            <button class="btn btn--ghost btn--sm" type="submit">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+              Delete
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="muted">No notes yet.</div>
+{% endif %}
+
+<div style="margin-top:12px">
+  <form method="post" action="{% url 'ui:notes_add' %}" class="form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.path }}{% if request.META.QUERY_STRING %}?{{ request.META.QUERY_STRING }}{% endif %}">
+    {% if note_ref %}<input type="hidden" name="ref" value="{{ note_ref }}">{% endif %}
+    <p>
+      <label for="note_title">Title (optional)</label>
+      <input id="note_title" type="text" name="title" placeholder="e.g. Vendor call notes">
+    </p>
+    <p>
+      <label for="note_body">Body</label>
+      <textarea id="note_body" class="js-md" name="body" rows="5" placeholder="Write a note... (Markdown supported)"></textarea>
+    </p>
+    <button class="btn btn--sm" type="submit">
+      <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+      Add note
+    </button>
+  </form>
+</div>

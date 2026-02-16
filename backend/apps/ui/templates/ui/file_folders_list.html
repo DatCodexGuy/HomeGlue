@@ -1,0 +1,69 @@
+{% extends "ui/base.html" %}
+{% block title %}File Folders | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    {% include "ui/_list_header.html" with title="File Folders" subtitle="Organize files." new_url=new_url %}
+
+    <div class="viewbar" style="margin-top:10px">
+      <div class="viewbar__left">
+        <div class="viewbar__label">Items</div>
+        <div class="viewbar__pills">
+          <a class="pill pill--tiny {% if not show_archived %}pill--active{% endif %}" href="{{ active_url }}">Active</a>
+          <a class="pill pill--tiny {% if show_archived %}pill--active{% endif %}" href="{{ archived_url }}">Archived</a>
+        </div>
+      </div>
+      <div class="viewbar__right">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:files_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    <form class="search" method="get">
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search folders..." />
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Search
+      </button>
+    </form>
+
+    <form class="js-bulk" method="post" action="{{ bulk_url }}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+      <div class="table">
+        <div class="row row--head" style="grid-template-columns:34px 2.3fr 1.2fr">
+          <div><input class="chk js-bulk-all" type="checkbox" aria-label="Select all" /></div>
+          <div>Name</div><div>Parent</div>
+        </div>
+        {% for f in folders %}
+          <div class="row row--click" style="grid-template-columns:34px 2.3fr 1.2fr" data-href="{% url 'ui:file_folder_detail' folder_id=f.id %}">
+            <div><input class="chk js-bulk-item" type="checkbox" name="ids" value="{{ f.id }}" aria-label="Select {{ f.name }}" /></div>
+            <div class="titlecell">
+              <a class="row__link" href="{% url 'ui:file_folder_detail' folder_id=f.id %}">{{ f.name }}</a>
+            </div>
+            <div class="muted">{% if f.parent %}{{ f.parent.name }}{% else %}...{% endif %}</div>
+          </div>
+        {% empty %}
+          <div class="empty">
+            <div class="empty__title">No folders yet</div>
+            <div class="empty__body"><a class="link" href="{% url 'ui:file_folder_new' %}">Create your first folder</a>.</div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="bulkbar js-bulkbar">
+        <div class="bulkbar__left">
+          <span class="pill pill--tiny"><span class="js-bulk-count">0</span> selected</span>
+        </div>
+        <div class="bulkbar__right">
+          {% if can_admin %}
+            <button class="btn btn--danger btn--sm js-bulk-delete" type="submit" name="action" value="archive">Archive</button>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </section>
+{% endblock %}
+

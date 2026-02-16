@@ -1,0 +1,57 @@
+{% extends "ui/base.html" %}
+{% block title %}Import Contacts | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Import Contacts (CSV)</h1>
+        <div class="sub">Upsert by <strong>email</strong> when present. Rows with no email are created without dedupe.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:contacts_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    <div class="mini" style="margin-bottom:12px">
+      <div class="muted">Expected headers:</div>
+      <div class="mono" style="margin-top:6px" data-copy>first_name,last_name,email,phone,title</div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="form">
+      {% csrf_token %}
+      <p>
+        <label for="id_file">CSV file</label>
+        <input id="id_file" type="file" name="file" accept=".csv,text/csv" required />
+      </p>
+      <button class="btn" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+        Import
+      </button>
+    </form>
+
+    {% if created is not None %}
+      <div class="warn" style="margin-top:14px">
+        <div class="warn__title">Import result</div>
+        <div class="warn__body">Created: <strong>{{ created }}</strong>. Updated: <strong>{{ updated }}</strong>.</div>
+      </div>
+    {% endif %}
+
+    {% if errors %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">Warnings / errors</div>
+        <div class="warn__body">
+          <ul style="margin:8px 0 0; padding-left:18px">
+            {% for e in errors %}
+              <li class="mono">{{ e }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}
+

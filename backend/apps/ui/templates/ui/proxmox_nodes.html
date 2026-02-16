@@ -1,0 +1,72 @@
+{% extends "ui/base.html" %}
+{% block title %}Nodes | {{ conn.name }} | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Nodes</h1>
+        <div class="sub mono">{{ conn.name }}</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:proxmox_detail' conn_id=conn.id %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Connection
+        </a>
+      </div>
+    </div>
+
+    <form method="get" class="form form--grid" style="margin-top:14px">
+      <p>
+        <label>Search</label>
+        <input name="q" value="{{ q }}" placeholder="node name" />
+      </p>
+      <p style="display:flex; gap:10px; align-items:end">
+        <button class="btn btn--sm" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+          Filter
+        </button>
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:proxmox_nodes' conn_id=conn.id %}">Clear</a>
+      </p>
+    </form>
+
+    <div class="tablewrap" style="margin-top:14px">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Status</th>
+            <th>Resources</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for n in nodes %}
+            <tr>
+              <td class="mono">
+                <a class="link" href="{% url 'ui:proxmox_node_detail' conn_id=conn.id node_id=n.id %}">{{ n.node }}</a>
+              </td>
+              <td><span class="pill pill--tiny {% if n.status == 'online' %}pill--ok{% endif %}">{{ n.status|default:"" }}</span></td>
+              <td class="mono">CPU: {{ n.maxcpu|default:"?" }} Mem: {{ n.maxmem|default:"?" }} Disk: {{ n.maxdisk|default:"?" }}</td>
+              <td class="mono">{{ n.updated_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="muted">No nodes found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="muted" style="margin-top:10px">
+      Showing page {{ page.page }}. Total {{ page.total }}.
+      {% if page.has_prev %}
+        <a class="link" href="?q={{ q|urlencode }}&page={{ page.page|add:"-1" }}">Prev</a>
+      {% endif %}
+      {% if page.has_next %}
+        <a class="link" href="?q={{ q|urlencode }}&page={{ page.page|add:"1" }}">Next</a>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}
+

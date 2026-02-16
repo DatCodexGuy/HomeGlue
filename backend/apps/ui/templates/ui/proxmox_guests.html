@@ -1,0 +1,140 @@
+{% extends "ui/base.html" %}
+{% block title %}Guests | {{ conn.name }} | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Guests</h1>
+        <div class="sub mono">{{ conn.name }}</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:proxmox_detail' conn_id=conn.id %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Connection
+        </a>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <div class="card">
+        <div class="card__title">Totals</div>
+        <div class="card__meta">
+          <span class="pill pill--tiny">Guests: {{ counts.guests }}</span>
+          <span class="pill pill--tiny pill--ok">Running: {{ counts.running }}</span>
+          <span class="pill pill--tiny pill--warn">Stopped: {{ counts.stopped }}</span>
+        </div>
+      </div>
+    </div>
+
+    <form method="get" class="form form--grid" style="margin-top:14px">
+      <p>
+        <label>Search</label>
+        <input name="q" value="{{ q }}" placeholder="name, node, vmid" />
+      </p>
+      <p>
+        <label>Status</label>
+        <select name="status">
+          <option value="">Any</option>
+          <option value="running" {% if status == 'running' %}selected{% endif %}>running</option>
+          <option value="stopped" {% if status == 'stopped' %}selected{% endif %}>stopped</option>
+        </select>
+      </p>
+      <p>
+        <label>Type</label>
+        <select name="type">
+          <option value="">Any</option>
+          <option value="qemu" {% if type == 'qemu' %}selected{% endif %}>VM</option>
+          <option value="lxc" {% if type == 'lxc' %}selected{% endif %}>Container</option>
+        </select>
+      </p>
+      <p>
+        <label>Node</label>
+        <select name="node">
+          <option value="">Any</option>
+          {% for n in node_choices %}
+            <option value="{{ n }}" {% if node == n %}selected{% endif %}>{{ n }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p>
+        <label>Pool</label>
+        <select name="pool">
+          <option value="">Any</option>
+          {% for p in pool_choices %}
+            <option value="{{ p }}" {% if pool == p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p>
+        <label>Has IP</label>
+        <select name="has_ip">
+          <option value="">Any</option>
+          <option value="1" {% if has_ip %}selected{% endif %}>Yes</option>
+        </select>
+      </p>
+      <p style="display:flex; gap:10px; align-items:end">
+        <button class="btn btn--sm" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+          Filter
+        </button>
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:proxmox_guests' conn_id=conn.id %}">Clear</a>
+      </p>
+    </form>
+
+    <div class="tablewrap" style="margin-top:14px">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Guest</th>
+            <th>Node</th>
+            <th>Pool</th>
+            <th>Status</th>
+            <th>IP</th>
+            <th>CI</th>
+            <th>Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in guests %}
+            <tr>
+              <td>
+                <div class="mono">
+                  <a class="link" href="{% url 'ui:proxmox_guest_detail' conn_id=conn.id guest_id=g.id %}">
+                    {{ g.guest_type }} {{ g.vmid }}
+                  </a>
+                </div>
+                <div class="muted">{{ g.name|default:"" }}</div>
+              </td>
+              <td class="mono">{{ g.node|default:"" }}</td>
+              <td class="mono">{{ g.pool|default:"" }}</td>
+              <td><span class="pill pill--tiny {% if g.status == 'running' %}pill--ok{% elif g.status == 'stopped' %}pill--warn{% endif %}">{{ g.status|default:"" }}</span></td>
+              <td class="mono">{% if g.ip_addrs and g.ip_addrs|length %}{{ g.ip_addrs.0 }}{% endif %}</td>
+              <td>
+                {% if g.config_item_id %}
+                  <a class="link mono" href="{% url 'ui:config_item_detail' item_id=g.config_item_id %}">open</a>
+                {% else %}
+                  <span class="muted">-</span>
+                {% endif %}
+              </td>
+              <td class="mono">{{ g.updated_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="muted">No guests match your filters.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="muted" style="margin-top:10px">
+      Showing page {{ page.page }}. Total {{ page.total }}.
+      {% if page.has_prev %}
+        <a class="link" href="?q={{ q|urlencode }}&status={{ status|urlencode }}&type={{ type|urlencode }}&node={{ node|urlencode }}&pool={{ pool|urlencode }}&has_ip={{ has_ip|urlencode }}&page={{ page.page|add:"-1" }}">Prev</a>
+      {% endif %}
+      {% if page.has_next %}
+        <a class="link" href="?q={{ q|urlencode }}&status={{ status|urlencode }}&type={{ type|urlencode }}&node={{ node|urlencode }}&pool={{ pool|urlencode }}&has_ip={{ has_ip|urlencode }}&page={{ page.page|add:"1" }}">Next</a>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

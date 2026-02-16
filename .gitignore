@@ -1,0 +1,35 @@
+.env
+.env.*
+!.env.example
+
+# Internal notes (keep out of repo)
+docs/internal/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Django
+*.sqlite3
+local_settings.py
+
+# Media / backups (runtime volumes)
+media/
+backend/media/
+backend/staticfiles/
+data/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log

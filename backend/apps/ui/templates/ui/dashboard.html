@@ -1,0 +1,100 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ org.name }} | HomeGlue{% endblock %}
+{% block content %}
+  <section class="hero reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <h1 class="h1">{{ org.name }}</h1>
+    <p class="sub">A quick snapshot. Jump into a category or start creating records.</p>
+  </section>
+
+  <section class="panel reveal">
+    <div class="grid grid--stats">
+      <a class="stat" href="{% url 'ui:assets_list' %}">
+        <div class="stat__num">{{ counts.assets }}</div>
+        <div class="stat__label">Assets</div>
+      </a>
+      <a class="stat" href="{% url 'ui:documents_list' %}">
+        <div class="stat__num">{{ counts.documents }}</div>
+        <div class="stat__label">Docs</div>
+      </a>
+      <a class="stat" href="{% url 'ui:passwords_list' %}">
+        <div class="stat__num">{{ counts.passwords }}</div>
+        <div class="stat__label">Passwords</div>
+      </a>
+      <a class="stat" href="{% url 'ui:checklists_list' %}">
+        <div class="stat__num">{{ counts.checklists }}</div>
+        <div class="stat__label">Checklists</div>
+      </a>
+      <a class="stat" href="{% url 'ui:domains_list' %}">
+        <div class="stat__num">{{ counts.domains }}</div>
+        <div class="stat__label">Domains</div>
+      </a>
+      <a class="stat" href="{% url 'ui:sslcerts_list' %}">
+        <div class="stat__num">{{ counts.sslcerts }}</div>
+        <div class="stat__label">SSL Certs</div>
+      </a>
+      <a class="stat" href="{% url 'ui:relationships_list' %}">
+        <div class="stat__num">{{ counts.relationships }}</div>
+        <div class="stat__label">Relationships</div>
+      </a>
+    </div>
+  </section>
+
+  <section class="panel panel--cta reveal">
+    <div class="cta">
+      <div>
+        <div class="cta__title">Create something</div>
+        <div class="cta__sub">Fast paths for the happy flow.</div>
+      </div>
+      <div class="cta__actions">
+        <a class="btn" href="{% url 'ui:assets_new' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+          New asset
+        </a>
+        <a class="btn" href="{% url 'ui:documents_new' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+          New doc
+        </a>
+        <a class="btn" href="{% url 'ui:passwords_new' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+          New password
+        </a>
+        <a class="btn" href="{% url 'ui:checklists_new' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+          New checklist
+        </a>
+        <a class="btn btn--ghost" href="{% url 'ui:relationships_new' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+          New relationship
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel reveal">
+    <div class="listhead">
+      <div>
+        <h2 class="h2">Recent Activity</h2>
+        <div class="sub">A quick changelog for {{ org.name }}.</div>
+      </div>
+    </div>
+    <div class="mini">
+      {% for e in recent %}
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="pill pill--tiny">{{ e.action }}</span>
+            <span class="muted">{{ e.ts|date:"Y-m-d H:i" }}</span>
+          </div>
+          <div class="mini__body">
+            <span class="mono">{{ e.model }}</span>
+            <span class="muted">#{{ e.object_pk }}</span>
+            {% if e.user %}<span class="muted">by {{ e.user.username }}</span>{% endif %}
+          </div>
+          {% if e.summary %}<div class="muted">{{ e.summary }}</div>{% endif %}
+        </div>
+      {% empty %}
+        <div class="muted">No activity recorded yet.</div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

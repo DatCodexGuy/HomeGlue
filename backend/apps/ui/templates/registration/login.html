@@ -1,0 +1,36 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login | HomeGlue</title>
+    <link rel="stylesheet" href="{% static 'ui/ui.css' %}" />
+    <script defer src="{% static 'ui/ui.js' %}"></script>
+  </head>
+  <body class="auth">
+    <div class="bg"></div>
+    <main class="main">
+      <section class="hero reveal">
+        <h1 class="h1">Welcome back</h1>
+        <p class="sub">Sign in to access your organizations.</p>
+      </section>
+
+      <section class="panel reveal">
+        <form method="post" class="form">
+          {% csrf_token %}
+          {{ form.as_p }}
+          {% if next %}<input type="hidden" name="next" value="{{ next }}" />{% endif %}
+          <button class="btn" type="submit">Sign in</button>
+        </form>
+
+        {% if HOMEGLUE_OIDC_ENABLED %}
+          <div class="hr" style="margin:14px 0"></div>
+          <a class="btn btn--ghost" href="/oidc/authenticate/">
+            Sign in with SSO
+          </a>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>

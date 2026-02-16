@@ -1,0 +1,125 @@
+{% extends "ui/base.html" %}
+{% load ui_extras %}
+{% block title %}Docs | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    {% include "ui/_list_header.html" with title="Docs" subtitle="Runbooks, notes, checklists, and templates." new_url=documents_new_url export_url=export_url import_url=import_url %}
+    {% include "ui/_views_bar.html" with saved_views=saved_views active_view=active_view save_view_url=save_view_url clear_view_url=clear_view_url %}
+
+    <div class="viewbar" style="margin-top:10px">
+      <div class="viewbar__left">
+        <div class="viewbar__label">Items</div>
+        <div class="viewbar__pills">
+          <a class="pill pill--tiny {% if not flagged_only %}pill--active{% endif %}" href="{{ all_url }}">All</a>
+          <a class="pill pill--tiny {% if flagged_only %}pill--active{% endif %}" href="{{ flagged_url }}">Flagged</a>
+          <a class="pill pill--tiny {% if not show_archived %}pill--active{% endif %}" href="{{ active_url }}">Active</a>
+          <a class="pill pill--tiny {% if show_archived %}pill--active{% endif %}" href="{{ archived_url }}">Archived</a>
+        </div>
+      </div>
+      <div class="viewbar__right">
+        {% if up_url %}
+          <a class="btn btn--ghost btn--sm" href="{{ up_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+            Up
+          </a>
+        {% endif %}
+        <a class="btn btn--ghost btn--sm" href="{{ folders_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>
+          Manage folders
+        </a>
+        <a class="btn btn--ghost btn--sm" href="{{ new_folder_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+          New folder
+        </a>
+      </div>
+    </div>
+
+    <form class="search" method="get">
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search this folder..." />
+      {% if flagged_only %}<input type="hidden" name="flagged" value="1" />{% endif %}
+      {% if show_archived %}<input type="hidden" name="archived" value="only" />{% endif %}
+      {% if request.GET.view %}<input type="hidden" name="view" value="{{ request.GET.view }}" />{% endif %}
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Search
+      </button>
+    </form>
+
+    <form class="js-bulk" method="post" action="{% url 'ui:documents_bulk' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+      <div class="table table--docs">
+        <div class="row row--head">
+          <div><input class="chk js-bulk-all" type="checkbox" aria-label="Select all" /></div>
+          <div>Name</div><div>Type</div><div>Updated</div><div>Template</div>
+        </div>
+
+        {% for f in child_folders %}
+          <div class="row row--click" data-href="{% url 'ui:documents_list' %}?folder={{ f.id }}">
+            <div></div>
+            <div class="titlecell">
+              <a class="row__link" href="{% url 'ui:documents_list' %}?folder={{ f.id }}">{{ f.name }}</a>
+            </div>
+            <div class="muted">Folder</div>
+            <div class="muted">...</div>
+            <div class="muted">...</div>
+          </div>
+        {% endfor %}
+
+        {% for d in documents %}
+          <div class="row row--click" data-href="{% url 'ui:document_detail' document_id=d.id %}">
+            <div><input class="chk js-bulk-item" type="checkbox" name="ids" value="{{ d.id }}" aria-label="Select {{ d.title }}" /></div>
+            {% with rc=rel_counts|get_item:d.id %}
+              <div class="titlecell cell-split">
+                <a class="row__link" href="{% url 'ui:document_detail' document_id=d.id %}">{{ d.title }}</a>
+                {% if d.flagged_at %}
+                  <span class="pill pill--tiny pill--warn">Flag</span>
+                {% endif %}
+                {% if rc %}
+                  <span class="pill pill--tiny pill--click" role="link" tabindex="0" aria-label="View relationships" data-href="{% url 'ui:relationships_list' %}?ref={{ ref_prefix }}{{ d.id }}">Rel {{ rc }}</span>
+                {% endif %}
+              </div>
+            {% endwith %}
+            <div class="muted">Doc</div>
+            <div class="muted">{{ d.updated_at|date:"Y-m-d H:i" }}</div>
+            <div>{% if d.template %}{{ d.template.name }}{% else %}<span class="muted">None</span>{% endif %}</div>
+          </div>
+        {% empty %}
+          {% if not child_folders %}
+            <div class="empty">
+              <div class="empty__title">Nothing here yet</div>
+              <div class="empty__body"><a class="link" href="{{ documents_new_url }}">Create a document</a> or <a class="link" href="{{ new_folder_url }}">create a folder</a>.</div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      <div class="bulkbar js-bulkbar">
+        <div class="bulkbar__left">
+          <span class="pill pill--tiny"><span class="js-bulk-count">0</span> selected</span>
+        </div>
+        <div class="bulkbar__right">
+          <select class="bulkbar__select" name="tag_id">
+            <option value="">Add tag...</option>
+            {% for t in tags_for_bulk %}
+              <option value="{{ t.id }}">{{ t.name }}{% if t.organization_id %} (org){% else %} (global){% endif %}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn--ghost btn--sm" type="submit" name="action" value="tag_add">Add Tag</button>
+          <select class="bulkbar__select" name="folder_id">
+            <option value="">Move to folder...</option>
+            <option value="0">(No folder)</option>
+            {% for f in folders_for_move %}
+              <option value="{{ f.id }}">{{ f.label }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn--ghost btn--sm" type="submit" name="action" value="move_folder">Move</button>
+          {% if can_admin %}
+            <button class="btn btn--danger btn--sm js-bulk-delete" type="submit" name="action" value="archive">Archive</button>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </section>
+{% endblock %}

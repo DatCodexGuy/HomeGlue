@@ -1,0 +1,77 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ type.name }} | Flexible Assets | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ type.name }}</h1>
+        <div class="sub">{% if type.description %}{{ type.description }}{% else %}<span class="muted">No description.</span>{% endif %}</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{{ assets_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-asset"/></svg>
+          View Assets
+        </a>
+        {% if can_admin %}
+          <a class="btn btn--ghost btn--sm" href="{{ custom_fields_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>
+            Custom Fields
+          </a>
+          <a class="btn btn--danger btn--sm" href="{% url 'ui:flex_type_delete' type_id=type.id %}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+            Delete
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="split__main">
+        {% if can_admin and form %}
+          <h3 class="h3">Edit Type</h3>
+          <form method="post" class="form form--grid">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="btn" type="submit">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+              Save
+            </button>
+          </form>
+        {% else %}
+          <div class="mini">
+            <div class="mini__row">
+              <div class="mini__top">
+                <span class="mono">Type details</span>
+                {% if type.archived %}
+                  <span class="pill pill--tiny pill--warn">Archived</span>
+                {% else %}
+                  <span class="pill pill--tiny pill--ok">Active</span>
+                {% endif %}
+              </div>
+              <div class="muted">Editing is restricted to org admins.</div>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">How Fields Work</h3>
+        <div class="mini">
+          <div class="mini__row">
+            <div class="muted">
+              Flexible Asset fields are defined in <span class="mono">Custom Fields</span>.
+              Create a Custom Field for content type <span class="mono">FlexibleAsset</span> and set
+              <span class="mono">flexible_asset_type</span> to this type.
+            </div>
+          </div>
+          <div class="mini__row">
+            <a class="link" href="{{ assets_url }}">Open assets for this type</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+

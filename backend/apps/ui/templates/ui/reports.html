@@ -1,0 +1,101 @@
+{% extends "ui/base.html" %}
+{% block title %}Reports | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Reports</h1>
+        <div class="sub">Quick “what’s missing / expiring soon” views for {{ org.name }}.</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top"><span class="mono">Domains expiring in 30 days</span><span class="pill pill--tiny">{{ domains_30|length }}</span></div>
+        </div>
+        {% for d in domains_30|slice:":10" %}
+          <div class="mini__row"><a class="link mono" href="{% url 'ui:domain_detail' domain_id=d.id %}">{{ d.name }}</a> <span class="muted">{{ d.expires_on|date:"Y-m-d" }}</span></div>
+        {% empty %}
+          <div class="mini__row"><span class="muted">None.</span></div>
+        {% endfor %}
+      </div>
+
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top"><span class="mono">SSL certs expiring in 30 days</span><span class="pill pill--tiny">{{ certs_30|length }}</span></div>
+        </div>
+        {% for c in certs_30|slice:":10" %}
+          <div class="mini__row"><a class="link mono" href="{% url 'ui:sslcert_detail' sslcert_id=c.id %}">{% if c.common_name %}{{ c.common_name }}{% else %}Cert {{ c.id }}{% endif %}</a> <span class="muted">{{ c.not_after|date:"Y-m-d" }}</span></div>
+        {% empty %}
+          <div class="mini__row"><span class="muted">None.</span></div>
+        {% endfor %}
+      </div>
+
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top"><span class="mono">Assets missing location</span><span class="pill pill--tiny">{{ assets_no_location|length }}</span></div>
+        </div>
+        {% for a in assets_no_location|slice:":10" %}
+          <div class="mini__row"><a class="link mono" href="{% url 'ui:asset_detail' asset_id=a.id %}">{{ a.name }}</a></div>
+        {% empty %}
+          <div class="mini__row"><span class="muted">None.</span></div>
+        {% endfor %}
+      </div>
+
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top"><span class="mono">Passwords missing URL</span><span class="pill pill--tiny">{{ passwords_no_url|length }}</span></div>
+        </div>
+        {% for p in passwords_no_url|slice:":10" %}
+          <div class="mini__row"><a class="link mono" href="{% url 'ui:password_detail' password_id=p.id %}">{{ p.name }}</a></div>
+        {% empty %}
+          <div class="mini__row"><span class="muted">None.</span></div>
+        {% endfor %}
+      </div>
+
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top"><span class="mono">Password rotations due in 30 days</span><span class="pill pill--tiny">{{ pw_rotation_due|length }}</span></div>
+        </div>
+        {% for r in pw_rotation_due|slice:":10" %}
+          <div class="mini__row">
+            <a class="link mono" href="{% url 'ui:password_detail' password_id=r.entry.id %}">{{ r.entry.name }}</a>
+            <span class="muted">{{ r.due_on|date:"Y-m-d" }}</span>
+            {% if r.overdue %}<span class="pill pill--tiny pill--danger">overdue</span>{% endif %}
+          </div>
+        {% empty %}
+          <div class="mini__row"><span class="muted">None.</span></div>
+        {% endfor %}
+      </div>
+
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top"><span class="mono">Checklist runs overdue</span><span class="pill pill--tiny">{{ runs_overdue|length }}</span></div>
+        </div>
+        {% for r in runs_overdue|slice:":10" %}
+          <div class="mini__row"><a class="link mono" href="{% url 'ui:checklist_run_detail' run_id=r.id %}">{{ r.name }}</a> <span class="muted">{{ r.due_on|date:"Y-m-d" }}</span></div>
+        {% empty %}
+          <div class="mini__row"><span class="muted">None.</span></div>
+        {% endfor %}
+      </div>
+
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top"><span class="mono">Checklist runs due in 7 days</span><span class="pill pill--tiny">{{ runs_due7|length }}</span></div>
+        </div>
+        {% for r in runs_due7|slice:":10" %}
+          <div class="mini__row"><a class="link mono" href="{% url 'ui:checklist_run_detail' run_id=r.id %}">{{ r.name }}</a> <span class="muted">{{ r.due_on|date:"Y-m-d" }}</span></div>
+        {% empty %}
+          <div class="mini__row"><span class="muted">None.</span></div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="warn" style="margin-top:16px">
+      <div class="warn__title">MVP</div>
+      <div class="warn__body">This page is intentionally simple for now. Next up would be: filters, export, and more report types (warranty, EOL, missing relationships, etc.).</div>
+    </div>
+  </section>
+{% endblock %}

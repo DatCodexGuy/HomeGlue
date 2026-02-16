@@ -1,0 +1,19 @@
+<div class="mini">
+  {% if activity %}
+    {% for e in activity %}
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">{{ e.action }}</span>
+          <span class="muted">{{ e.ts|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="mini__body">
+          {% if e.user %}<span class="muted">by {{ e.user.username }}</span>{% else %}<span class="muted">by system</span>{% endif %}
+        </div>
+        {% if e.summary %}<div class="muted">{{ e.summary }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="muted">No activity recorded yet.</div>
+  {% endif %}
+</div>
+

@@ -1,0 +1,176 @@
+{% extends "ui/base.html" %}
+{% block title %}Files | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Files</h1>
+        <div class="sub">Attachments and uploaded files in {{ org.name }}.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{{ folders_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>
+          Folders
+        </a>
+      </div>
+    </div>
+
+    {% if filter_invalid %}
+      <div class="warn">
+        <div class="warn__title">Invalid filter</div>
+        <div class="warn__body">Expected a ref like <span class="mono">assets.asset:1</span>.</div>
+      </div>
+    {% endif %}
+
+    <div class="mini" style="margin-bottom:14px">
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">Upload</span>
+          <span class="muted">Org file (not attached)</span>
+        </div>
+        <div class="mini__body">
+          <form method="post" enctype="multipart/form-data" class="form" style="max-width:860px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="upload" />
+            <div class="grid" style="grid-template-columns:1.4fr .9fr .9fr; gap:10px">
+              <div>
+                <label for="id_file">File</label>
+                <input id="id_file" type="file" name="file" required />
+              </div>
+              <div>
+                <label for="id_folder">Folder</label>
+                <select id="id_folder" name="folder_id">
+                  <option value="">(none)</option>
+                  {% for f in folders %}
+                    <option value="{{ f.id }}">{{ f.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label for="id_tags">Tags</label>
+                <select id="id_tags" name="tag_ids" multiple size="3">
+                  {% for t in tags %}
+                    <option value="{{ t.id }}">{{ t.name }}{% if t.organization_id %} (org){% else %} (global){% endif %}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px">
+              <button class="btn btn--sm" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+                Upload
+              </button>
+              <div class="muted sub">For object attachments, upload from the object detail page.</div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <form class="search" method="get" style="margin-bottom:10px">
+      <input type="hidden" name="q" value="{{ q }}" />
+      {% if filter_ref %}<input type="hidden" name="ref" value="{{ filter_ref }}" />{% endif %}
+      <select class="bulkbar__select" name="folder" aria-label="Folder filter" style="max-width:360px">
+        <option value="">All folders</option>
+        {% for f in folders %}
+          <option value="{{ f.id }}" {% if folder_id == f.id %}selected{% endif %}>{{ f.name }}</option>
+        {% endfor %}
+      </select>
+      <select class="bulkbar__select" name="tag" aria-label="Tag filter" style="max-width:360px">
+        <option value="">All tags</option>
+        {% for t in tags %}
+          <option value="{{ t.id }}" {% if tag_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn--ghost btn--sm" type="submit">Apply</button>
+      <a class="btn btn--ghost btn--sm" href="{% url 'ui:files_list' %}">Clear</a>
+    </form>
+
+    <form class="search" method="get">
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search filenames..." />
+      {% if filter_ref %}<input type="hidden" name="ref" value="{{ filter_ref }}" />{% endif %}
+      {% if folder_id %}<input type="hidden" name="folder" value="{{ folder_id }}" />{% endif %}
+      {% if tag_id %}<input type="hidden" name="tag" value="{{ tag_id }}" />{% endif %}
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Search
+      </button>
+    </form>
+
+    <form class="js-bulk" method="post" action="{{ bulk_url }}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+      <div class="table">
+        <div class="row row--head" style="grid-template-columns:34px 2.0fr 1fr 1fr 1.2fr 1fr 0.8fr">
+          <div><input class="chk js-bulk-all" type="checkbox" aria-label="Select all" /></div>
+          <div>File</div><div>Folder</div><div>Tags</div><div>Attached to</div><div>Uploaded</div><div></div>
+        </div>
+        {% for it in items %}
+          <div class="row row--click" style="grid-template-columns:34px 2.0fr 1fr 1fr 1.2fr 1fr 0.8fr" data-href="{{ it.detail_url }}">
+            <div><input class="chk js-bulk-item" type="checkbox" name="ids" value="{{ it.id }}" aria-label="Select {{ it.filename }}" /></div>
+            <div class="titlecell">
+              <a class="row__link mono" href="{{ it.detail_url }}">{{ it.filename }}</a>
+              {% if it.size %}<div class="muted mono" style="margin-top:6px">{{ it.size }} bytes</div>{% endif %}
+            </div>
+            <div class="muted">{% if it.folder %}{{ it.folder.name }}{% else %}...{% endif %}</div>
+            <div class="muted">
+              {% for t in it.tags %}
+                <span class="pill pill--tiny">{{ t.name }}</span>
+              {% empty %}
+                ...
+              {% endfor %}
+            </div>
+            <div class="muted">
+              {% if it.attached_url %}
+                <a class="link mono" href="{{ it.attached_url }}">{{ it.attached_label }}</a>
+              {% else %}
+                <span class="mono">{{ it.attached_label|default:"(org)" }}</span>
+              {% endif %}
+            </div>
+            <div class="muted mono">{{ it.created_at|date:"Y-m-d H:i" }}</div>
+            <div style="display:flex; justify-content:flex-end">
+              <a class="btn btn--ghost btn--sm" href="{{ it.download_url }}">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+                Download
+              </a>
+            </div>
+          </div>
+        {% empty %}
+          <div class="empty">
+            <div class="empty__title">No files found</div>
+            <div class="empty__body">Upload attachments from any object (assets, docs, passwords, etc.) and they’ll show up here.</div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="bulkbar js-bulkbar">
+        <div class="bulkbar__left">
+          <span class="pill pill--tiny"><span class="js-bulk-count">0</span> selected</span>
+        </div>
+        <div class="bulkbar__right">
+          <select class="bulkbar__select" name="folder_id">
+            <option value="__keep__">Move to folder...</option>
+            <option value="">(none)</option>
+            {% for f in folders %}
+              <option value="{{ f.id }}">{{ f.name }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn--ghost btn--sm" type="submit" name="action" value="move_folder">Move</button>
+
+          <select class="bulkbar__select" name="tag_id">
+            <option value="">Add tag...</option>
+            {% for t in tags %}
+              <option value="{{ t.id }}">{{ t.name }}{% if t.organization_id %} (org){% else %} (global){% endif %}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn--ghost btn--sm" type="submit" name="action" value="tag_add">Add Tag</button>
+
+          {% if can_admin %}
+            <button class="btn btn--danger btn--sm js-bulk-delete" type="submit" name="action" value="delete">Delete</button>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </section>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "ui/base.html" %}
+{% block title %}Flexible Assets | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Flexible Assets</h1>
+        <div class="sub">Define types, then track instances with custom fields.</div>
+      </div>
+      <div class="listhead__actions">
+        {% if can_admin %}
+          <a class="btn btn--sm" href="{{ new_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+            New Type
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <form class="search" method="get">
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search types..." />
+      <input type="hidden" name="archived" value="{% if show_archived %}1{% endif %}" />
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Search
+      </button>
+      <a class="btn btn--ghost btn--sm" href="?{% if q %}q={{ q|urlencode }}&{% endif %}archived={% if show_archived %}{% else %}1{% endif %}">
+        {% if show_archived %}Hide archived{% else %}Show archived{% endif %}
+      </a>
+    </form>
+
+    <div class="grid" style="margin-top:12px">
+      {% for t in types %}
+        <a class="card" href="{% url 'ui:flex_type_detail' type_id=t.id %}">
+          <div class="card__title">{{ t.name }}</div>
+          <div class="card__meta">{% if t.description %}{{ t.description|truncatechars:110 }}{% else %}<span class="muted">No description.</span>{% endif %}</div>
+          <div class="card__meta">
+            {% if t.archived %}
+              <span class="pill pill--tiny pill--warn">Archived</span>
+            {% else %}
+              <span class="pill pill--tiny pill--ok">Active</span>
+            {% endif %}
+          </div>
+        </a>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No flexible asset types yet</div>
+          <div class="empty__body">
+            {% if can_admin %}
+              <a class="link" href="{{ new_url }}">Create your first type</a>.
+            {% else %}
+              Ask an org admin to create a type.
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+

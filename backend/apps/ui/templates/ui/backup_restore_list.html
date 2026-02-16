@@ -1,0 +1,79 @@
+{% extends "ui/base.html" %}
+{% block title %}Restore | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Restore</h1>
+        <div class="sub">Upload a backup zip to validate and extract its <span class="mono">media/</span> contents.</div>
+      </div>
+    </div>
+
+    {% if error %}
+      <div class="warn" style="margin-bottom:12px">
+        <div class="warn__title">Upload failed</div>
+        <div class="warn__body">{{ error }}</div>
+      </div>
+    {% endif %}
+
+    <div class="mini" style="margin-bottom:14px">
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">Step 1</span>
+          <span class="muted">Upload bundle</span>
+        </div>
+        <div class="mini__body">
+          <form method="post" enctype="multipart/form-data" class="form" style="max-width:720px">
+            {% csrf_token %}
+            <label for="id_file">Backup zip</label>
+            <input id="id_file" type="file" name="file" accept=".zip,application/zip" required />
+            <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap">
+              <button class="btn btn--sm" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Upload
+              </button>
+              <div class="muted sub">
+                This does not modify your database. Media extraction is a separate action.
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="table">
+      <div class="row row--head" style="grid-template-columns:1.2fr 0.7fr 1fr 0.9fr 0.8fr">
+        <div>Filename</div><div>Status</div><div>Created</div><div>Size</div><div></div>
+      </div>
+      {% for b in bundles %}
+        <div class="row" style="grid-template-columns:1.2fr 0.7fr 1fr 0.9fr 0.8fr">
+          <div class="mono">
+            <a class="link" href="{% url 'ui:backup_restore_detail' bundle_id=b.id %}">
+              {{ b.filename|default:"(upload)" }}
+            </a>
+            {% if b.status == 'invalid' and b.error %}
+              <div class="sub" style="margin-top:6px">{{ b.error }}</div>
+            {% endif %}
+          </div>
+          <div class="muted mono">{{ b.status }}</div>
+          <div class="muted mono">{{ b.created_at|date:"Y-m-d H:i" }}</div>
+          <div class="muted mono">{% if b.bytes %}{{ b.bytes }} bytes{% else %}...{% endif %}</div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap">
+            <a class="btn btn--ghost btn--sm" href="{% url 'ui:backup_restore_detail' bundle_id=b.id %}">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+              Open
+            </a>
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No uploaded restore bundles yet</div>
+          <div class="empty__body">Upload a backup zip to validate it and extract media.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+

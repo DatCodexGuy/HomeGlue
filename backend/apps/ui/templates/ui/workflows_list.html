@@ -1,0 +1,51 @@
+{% extends "ui/base.html" %}
+{% block title %}Workflows | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Workflows</h1>
+        <div class="sub">Rules that generate notifications (expiry, hygiene checks, etc.).</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{{ endpoints_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>
+          Webhooks
+        </a>
+        <a class="btn btn--sm" href="{{ new_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+          New rule
+        </a>
+      </div>
+    </div>
+
+    <div class="table">
+      <div class="row row--head" style="grid-template-columns:2.2fr 1.1fr 1fr 1fr 1.1fr">
+        <div>Name</div><div>Kind</div><div>Audience</div><div>Schedule</div><div>Last run</div>
+      </div>
+      {% for r in items %}
+        <a class="row row--click" style="grid-template-columns:2.2fr 1.1fr 1fr 1fr 1.1fr" href="{{ r.detail_url }}">
+          <div class="cell-split">
+            <span class="mono">{{ r.name }}</span>
+            {% if not r.enabled %}<span class="pill pill--tiny pill--ghost">disabled</span>{% endif %}
+            {% if r.last_run_ok == False and r.last_run_at %}<span class="pill pill--tiny pill--danger">error</span>{% endif %}
+          </div>
+          <div class="muted">{{ r.kind }}</div>
+          <div class="muted">{{ r.audience }}</div>
+          <div class="muted">
+            {% if r.days %}{{ r.days }}d{% else %}...{% endif %}
+            <span class="dot"></span>
+            {{ r.run_interval_minutes }}m
+          </div>
+          <div class="muted">{% if r.last_run_at %}{{ r.last_run_at|date:"Y-m-d H:i" }}{% else %}...{% endif %}</div>
+        </a>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No workflow rules yet</div>
+          <div class="empty__body"><a class="link" href="{{ new_url }}">Create a rule</a> to generate notifications.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

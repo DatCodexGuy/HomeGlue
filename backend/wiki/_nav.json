@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "home": "documentation",
+  "sections": [
+    {
+      "title": "Getting Started",
+      "items": [
+        { "slug": "documentation", "title": "HomeGlue Documentation" },
+        { "slug": "organizations", "title": "Organizations and Memberships" },
+        { "slug": "security", "title": "Security" }
+      ]
+    },
+    {
+      "title": "Core Features",
+      "items": [
+        { "slug": "assets", "title": "Assets and Inventory" },
+        { "slug": "config-items", "title": "Configuration Items" },
+        { "slug": "docs", "title": "Documents and Templates" },
+        { "slug": "passwords", "title": "Passwords and Folders" },
+        { "slug": "relationships", "title": "Relationships" }
+      ]
+    },
+    {
+      "title": "Automation",
+      "items": [
+        { "slug": "checklists", "title": "Checklists" },
+        { "slug": "backups", "title": "Backups and Restore" },
+        { "slug": "workflows", "title": "Workflows and Notifications" }
+      ]
+    },
+    {
+      "title": "Integrations and API",
+      "items": [
+        { "slug": "integrations-proxmox", "title": "Proxmox Integration" },
+        { "slug": "api", "title": "API" }
+      ]
+    }
+  ]
+}

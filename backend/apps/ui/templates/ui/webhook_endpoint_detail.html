@@ -1,0 +1,45 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ endpoint.name }} | Webhook | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ endpoint.name }}</h1>
+        <div class="sub">
+          {% if endpoint.enabled %}<span class="pill pill--tiny">On</span>{% else %}<span class="pill pill--tiny pill--ghost">Off</span>{% endif %}
+          <span class="dot"></span>
+          <span class="muted mono">{{ endpoint.url }}</span>
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:webhook_endpoints_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <a class="btn btn--danger btn--sm" href="{{ delete_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+          Delete
+        </a>
+      </div>
+    </div>
+
+    <h3 class="h3">Edit</h3>
+    <form method="post" class="form form--grid">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+        Save
+      </button>
+    </form>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Sample Payload</h3>
+      <pre class="code" style="white-space:pre-wrap; overflow:auto; max-height:320px">{{ sample_payload_json }}</pre>
+      <div class="muted" style="margin-top:8px">
+        Signature header: <span class="mono">X-HomeGlue-Signature: sha256=...</span> (only if a secret is set).
+      </div>
+    </div>
+  </section>
+{% endblock %}

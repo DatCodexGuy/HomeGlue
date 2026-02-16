@@ -1,0 +1,65 @@
+{% extends "ui/base.html" %}
+{% block title %}Search | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Search</h1>
+        <div class="sub">Search across assets, config items, docs, passwords, contacts, and more.</div>
+      </div>
+    </div>
+
+    <form class="search" method="get">
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Type to search..." autofocus />
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Search
+      </button>
+    </form>
+
+    {% if q %}
+      <div class="table">
+        <div class="row row--head">
+          <div>Type</div><div>Result</div><div>Meta</div><div>Rel</div>
+        </div>
+        {% for r in results %}
+          {% if r.url %}
+            <a class="row" href="{{ r.url }}">
+              <div><span class="pill pill--tiny">{{ r.type }}</span></div>
+              <div class="mono">{{ r.label }}</div>
+              <div class="muted">{{ r.meta }}</div>
+              <div>
+                {% if r.rel_count and r.ref %}
+                  <span class="pill pill--tiny pill--click" role="link" tabindex="0" aria-label="View relationships" data-href="{% url 'ui:relationships_list' %}?ref={{ r.ref|urlencode }}">Rel {{ r.rel_count }}</span>
+                {% elif r.rel_count %}
+                  <span class="pill pill--tiny">Rel {{ r.rel_count }}</span>
+                {% endif %}
+              </div>
+            </a>
+          {% else %}
+            <div class="row row--static">
+              <div><span class="pill pill--tiny">{{ r.type }}</span></div>
+              <div class="mono">{{ r.label }}</div>
+              <div class="muted">{{ r.meta }}</div>
+              <div>
+                {% if r.rel_count and r.ref %}
+                  <span class="pill pill--tiny pill--click" role="link" tabindex="0" aria-label="View relationships" data-href="{% url 'ui:relationships_list' %}?ref={{ r.ref|urlencode }}">Rel {{ r.rel_count }}</span>
+                {% elif r.rel_count %}
+                  <span class="pill pill--tiny">Rel {{ r.rel_count }}</span>
+                {% endif %}
+              </div>
+            </div>
+          {% endif %}
+        {% empty %}
+          <div class="empty">
+            <div class="empty__title">No results</div>
+            <div class="empty__body">Try a different query.</div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="muted">Tip: try searching for a hostname, a serial number, or an email address.</div>
+    {% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "ui/base.html" %}
+{% block title %}Backups | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Backups</h1>
+        <div class="sub">Org snapshot bundles (data + attachments).</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:backup_restore_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-switch"/></svg>
+          Restore wizard
+        </a>
+        <form method="post" action="{{ create_url }}">
+          {% csrf_token %}
+          <input type="hidden" name="_action" value="create" />
+          <button class="btn btn--ghost btn--sm" type="submit">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+            Create snapshot
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:1fr; gap:12px; margin-bottom:14px">
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="pill pill--tiny">Automation</span>
+            <span class="muted">Schedule snapshots + retention</span>
+          </div>
+          <div class="mini__body">
+            <form method="post" action="{{ create_url }}" class="form" style="max-width:680px">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="policy_save" />
+              <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap:10px">
+                <div>
+                  <label for="id_enabled">Enabled</label>
+                  <select id="id_enabled" name="enabled">
+                    <option value="0" {% if not policy.enabled %}selected{% endif %}>No</option>
+                    <option value="1" {% if policy.enabled %}selected{% endif %}>Yes</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="id_interval">Interval</label>
+                  <select id="id_interval" name="interval_hours">
+                    <option value="6" {% if policy.interval_hours == 6 %}selected{% endif %}>Every 6 hours</option>
+                    <option value="12" {% if policy.interval_hours == 12 %}selected{% endif %}>Every 12 hours</option>
+                    <option value="24" {% if policy.interval_hours == 24 %}selected{% endif %}>Daily</option>
+                    <option value="168" {% if policy.interval_hours == 168 %}selected{% endif %}>Weekly</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="id_retention">Retention</label>
+                  <input id="id_retention" type="number" min="0" name="retention_count" value="{{ policy.retention_count }}" />
+                </div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px">
+                <button class="btn btn--sm" type="submit">
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                  Save policy
+                </button>
+                <div class="muted mono">
+                  Next: {% if policy.next_run_at %}{{ policy.next_run_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
+                </div>
+              </div>
+              <div class="sub" style="margin-top:10px">
+                Automated snapshots are scheduled by the <span class="mono">worker</span> container and won’t stack up if one is already pending/running.
+              </div>
+            </form>
+            <form method="post" action="{{ create_url }}" style="margin-top:10px">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="schedule_now" />
+              <button class="btn btn--ghost btn--sm" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-clock"/></svg>
+                Enqueue snapshot
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="warn" style="margin-bottom:14px">
+      <div class="warn__title">Note</div>
+      <div class="warn__body">
+        Snapshots are built by the background worker. If a snapshot stays <span class="mono">pending</span>, confirm the <span class="mono">worker</span> container is running.
+      </div>
+    </div>
+
+    <div class="mini" style="margin-bottom:14px">
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">Restore</span>
+          <span class="muted">Current restore is manual (guided steps)</span>
+        </div>
+        <div class="mini__body">
+          <div class="sub">
+            Recommended restore target is a fresh HomeGlue stack (empty DB + media). Then:
+          </div>
+          <ol class="sub" style="margin:10px 0 0 18px">
+            <li>Extract the zip.</li>
+            <li>Copy <span class="mono">media/</span> into <span class="mono">MEDIA_ROOT</span> (default: <span class="mono">/data/media</span> inside containers).</li>
+            <li>Load <span class="mono">fixture.json</span> via <span class="mono">loaddata</span>.</li>
+          </ol>
+          <div class="sub" style="margin-top:10px">
+            Example (run from the host where <span class="mono">docker compose</span> is available):
+          </div>
+          <pre class="mono" style="white-space:pre-wrap; margin-top:8px">docker compose exec -T web bash -lc 'python manage.py loaddata /path/to/fixture.json'</pre>
+          <div class="sub">
+            Full “one-click restore” is not implemented yet; this is tracked in parity as Automated backups v2.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table">
+      <div class="row row--head" style="grid-template-columns:1.2fr 1fr 1fr 0.9fr 0.8fr">
+        <div>Filename</div><div>Status</div><div>Created</div><div>Size</div><div></div>
+      </div>
+      {% for b in items %}
+        <div class="row" style="grid-template-columns:1.2fr 1fr 1fr 0.9fr 0.8fr">
+          <div class="mono">{{ b.filename|default:"(building…)" }}</div>
+          <div class="muted mono">
+            {{ b.status }}
+            {% if b.status == 'failed' and b.error %}<div class="sub" style="margin-top:6px">{{ b.error }}</div>{% endif %}
+          </div>
+          <div class="muted mono">{{ b.created_at|date:"Y-m-d H:i" }}</div>
+          <div class="muted mono">{% if b.bytes %}{{ b.bytes }} bytes{% else %}...{% endif %}</div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap">
+            {% if b.status == 'success' %}
+              <a class="btn btn--ghost btn--sm" href="{% url 'ui:backup_download' backup_id=b.id %}">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+                Download
+              </a>
+            {% endif %}
+            <a class="btn btn--danger btn--sm" href="{% url 'ui:backup_delete' backup_id=b.id %}">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+              Delete
+            </a>
+          </div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No backups yet</div>
+          <div class="empty__body">Create a snapshot to export org data and attachments into a zip bundle.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

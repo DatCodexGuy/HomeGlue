@@ -1,0 +1,24 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Signed out | HomeGlue</title>
+    <link rel="stylesheet" href="{% static 'ui/ui.css' %}" />
+    <script defer src="{% static 'ui/ui.js' %}"></script>
+  </head>
+  <body class="auth">
+    <div class="bg"></div>
+    <main class="main">
+      <section class="hero reveal">
+        <h1 class="h1">Signed out</h1>
+        <p class="sub">You are signed out of HomeGlue.</p>
+      </section>
+
+      <section class="panel reveal">
+        <a class="btn" href="/accounts/login/">Sign in again</a>
+      </section>
+    </main>
+  </body>
+</html>

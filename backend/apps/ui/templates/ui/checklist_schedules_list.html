@@ -1,0 +1,63 @@
+{% extends "ui/base.html" %}
+{% block title %}Checklist Schedules | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    {% include "ui/_list_header.html" with title="Checklist Schedules" subtitle="Recurring checklist runs." new_url=new_url %}
+
+    <div class="viewbar" style="margin-top:10px">
+      <div class="viewbar__left">
+        <div class="viewbar__label">Views</div>
+        <div class="viewbar__pills">
+          <a class="pill pill--tiny" href="{% url 'ui:checklists_list' %}">Templates</a>
+          <a class="pill pill--tiny" href="{% url 'ui:checklist_runs_list' %}">Runs</a>
+          <a class="pill pill--tiny pill--active" href="{% url 'ui:checklist_schedules_list' %}">Schedules</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="viewbar" style="margin-top:10px">
+      <div class="viewbar__left">
+        <div class="viewbar__label">Items</div>
+        <div class="viewbar__pills">
+          <a class="pill pill--tiny {% if not show_archived %}pill--active{% endif %}" href="{{ active_url }}">Active</a>
+          <a class="pill pill--tiny {% if show_archived %}pill--active{% endif %}" href="{{ archived_url }}">Archived</a>
+        </div>
+      </div>
+    </div>
+
+    <form class="search" method="get">
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search schedules..." />
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Search
+      </button>
+    </form>
+
+    <div class="table">
+      <div class="row row--head" style="grid-template-columns:2.2fr 1.8fr 1fr 1.2fr 1.4fr 0.8fr">
+        <div>Name</div><div>Checklist</div><div>Every</div><div>Next</div><div>Assigned</div><div>On</div>
+      </div>
+      {% for s in items %}
+        <div class="row row--click" style="grid-template-columns:2.2fr 1.8fr 1fr 1.2fr 1.4fr 0.8fr" data-href="{% url 'ui:checklist_schedule_detail' schedule_id=s.id %}">
+          <div class="titlecell">
+            <a class="row__link" href="{% url 'ui:checklist_schedule_detail' schedule_id=s.id %}">{{ s.name }}</a>
+            {% if s.archived_at %}<span class="pill pill--tiny pill--ghost">Archived</span>{% endif %}
+            {% if not s.enabled %}<span class="pill pill--tiny pill--ghost">Off</span>{% endif %}
+          </div>
+          <div class="muted">{% if s.checklist %}{{ s.checklist.name }}{% else %}-{% endif %}</div>
+          <div class="muted">{{ s.every_days }}d</div>
+          <div class="muted">{% if s.next_run_on %}{{ s.next_run_on|date:"Y-m-d" }}{% else %}-{% endif %}</div>
+          <div class="muted">{% if s.assigned_to %}{{ s.assigned_to.username }}{% else %}-{% endif %}</div>
+          <div>{% if s.enabled and not s.archived_at %}<span class="pill pill--tiny">On</span>{% else %}<span class="pill pill--tiny pill--ghost">Off</span>{% endif %}</div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No schedules yet</div>
+          <div class="empty__body"><a class="link" href="{{ new_url }}">Create a schedule</a>.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+

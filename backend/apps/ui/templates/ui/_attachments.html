@@ -1,0 +1,42 @@
+<div class="mini">
+  {% if attachments %}
+    {% for a in attachments %}
+      <div class="mini__row">
+        <div class="mini__top">
+          <a class="link mono" href="{% url 'ui:file_detail' attachment_id=a.id %}">{{ a.filename|default:"download" }}</a>
+          <span class="muted">{{ a.created_at|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="muted" style="margin-top:6px">
+          {% if a.uploaded_by %}Uploaded by {{ a.uploaded_by.username }}{% else %}Uploaded{% endif %}
+        </div>
+        <div class="mini__actions">
+          <a class="btn btn--ghost btn--sm" href="{% url 'ui:file_download' attachment_id=a.id %}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+            Download
+          </a>
+          <a class="btn btn--danger btn--sm" href="{% url 'ui:attachment_delete' attachment_id=a.id %}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+            Delete
+          </a>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="muted">No attachments yet.</div>
+  {% endif %}
+
+  <div class="mini__actions" style="margin-top:12px">
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="_action" value="upload_attachment" />
+      <p>
+        <label>Upload</label>
+        <input type="file" name="file" required />
+      </p>
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+        Add file
+      </button>
+    </form>
+  </div>
+</div>

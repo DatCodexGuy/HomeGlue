@@ -1,0 +1,26 @@
+{% extends "ui/base.html" %}
+{% block title %}Select Org | HomeGlue{% endblock %}
+{% block content %}
+  <section class="hero reveal">
+    <h1 class="h1">Pick an organization</h1>
+    <p class="sub">Everything in HomeGlue is viewed through an org lens. Enter an org to continue.</p>
+  </section>
+
+  <section class="panel reveal">
+    {% if orgs %}
+      <div class="grid">
+        {% for o in orgs %}
+          <a class="card" href="{% url 'ui:enter_org' org_id=o.id %}{{ next_qs }}">
+            <div class="card__title">{{ o.name }}</div>
+            <div class="card__meta">Enter org</div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="empty__title">No organizations</div>
+        <div class="empty__body">Ask an admin to add you to an organization.</div>
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}

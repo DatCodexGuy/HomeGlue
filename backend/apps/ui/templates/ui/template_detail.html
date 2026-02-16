@@ -1,0 +1,126 @@
+{% extends "ui/base.html" %}
+{% load ui_extras %}
+{% block title %}{{ template.name }} | Templates | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ template.name }}</h1>
+        <div class="sub">
+          Doc template in {{ org.name }}
+          {% if template.archived_at %}<span class="pill pill--tiny pill--ghost">Archived</span>{% endif %}
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:templates_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        {% if edit_mode %}
+          <a class="btn btn--ghost btn--sm" href="{{ view_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-close"/></svg>
+            Cancel
+          </a>
+        {% else %}
+          <a class="btn btn--ghost btn--sm" href="{{ edit_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-edit"/></svg>
+            Edit
+          </a>
+        {% endif %}
+        {% if can_admin %}
+          {% if template.archived_at %}
+            <form method="post" action="{% url 'ui:object_restore' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ref" value="{{ note_ref }}" />
+              <button class="btn btn--ghost btn--sm" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Restore
+              </button>
+            </form>
+          {% else %}
+            <a class="btn btn--danger btn--sm" href="{% url 'ui:template_delete' template_id=template.id %}">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+              Archive
+            </a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {% if edit_mode %}
+      <form method="post" class="form form--grid">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button class="btn" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+          Save
+        </button>
+      </form>
+    {% else %}
+      <h3 class="h3">Template Body</h3>
+      <div class="mini">
+        {% if template.body %}
+          <div class="mini__row">
+            <div class="muted">Body</div>
+            <div class="md">{{ template.body|markdown }}</div>
+          </div>
+        {% else %}
+          <div class="muted">No template body.</div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Documents Using This Template</h3>
+      <div class="mini">
+        {% for d in documents %}
+          <div class="mini__row">
+            <div class="mini__top">
+              <a class="link mono" href="{% url 'ui:document_detail' document_id=d.id %}">{{ d.title }}</a>
+              <span class="muted">{{ d.updated_at|date:"Y-m-d H:i" }}</span>
+            </div>
+          </div>
+        {% empty %}
+          <div class="muted">No documents use this template yet.</div>
+        {% endfor %}
+        <div class="mini__actions">
+          <a class="btn btn--ghost btn--sm" href="{% url 'ui:documents_new' %}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+            New doc
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Custom Fields</h3>
+      {% include "ui/_custom_fields.html" with custom_fields=custom_fields custom_values=custom_values %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Relationships</h3>
+      {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Attachments</h3>
+      {% include "ui/_attachments.html" with attachments=attachments %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Notes</h3>
+      {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Activity</h3>
+      {% include "ui/_activity.html" with activity=activity %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Versions</h3>
+      {% include "ui/_versions.html" with versions=versions can_restore=can_restore %}
+    </div>
+  </section>
+{% endblock %}

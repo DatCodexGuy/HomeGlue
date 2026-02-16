@@ -1,0 +1,143 @@
+{% extends "ui/base.html" %}
+{% block title %}Restore Bundle {{ bundle.id }} | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Restore bundle #{{ bundle.id }}</h1>
+        <div class="sub">Validate and extract contents from an uploaded backup zip.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:backup_restore_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <a class="btn btn--danger btn--sm" href="{{ delete_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+          Delete
+        </a>
+      </div>
+    </div>
+
+    {% if request.GET.extracted %}
+      <div class="warn" style="margin-bottom:12px">
+        <div class="warn__title">Media extracted</div>
+        <div class="warn__body">
+          Extracted {{ request.GET.extracted }} file(s) into <span class="mono">MEDIA_ROOT</span>.
+        </div>
+      </div>
+    {% endif %}
+
+    {% if bundle.status == "invalid" %}
+      <div class="warn" style="margin-bottom:12px">
+        <div class="warn__title">Bundle invalid</div>
+        <div class="warn__body">{{ bundle.error|default:"Validation failed." }}</div>
+      </div>
+    {% endif %}
+
+    <div class="grid" style="grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px">
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="pill pill--tiny">Info</span>
+            <span class="muted">Bundle metadata</span>
+          </div>
+          <div class="mini__body">
+            <div class="sub"><span class="muted">Filename:</span> <span class="mono">{{ bundle.filename|default:"(unknown)" }}</span></div>
+            <div class="sub" style="margin-top:6px"><span class="muted">SHA256:</span> <span class="mono">{{ bundle.sha256|default:"-" }}</span></div>
+            <div class="sub" style="margin-top:6px"><span class="muted">Bytes:</span> <span class="mono">{% if bundle.bytes %}{{ bundle.bytes }}{% else %}-{% endif %}</span></div>
+            <div class="sub" style="margin-top:6px"><span class="muted">Status:</span> <span class="mono">{{ bundle.status }}</span></div>
+            <div class="sub" style="margin-top:6px"><span class="muted">Validated:</span> <span class="mono">{% if bundle.validated_at %}{{ bundle.validated_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</span></div>
+            <div class="sub" style="margin-top:6px"><span class="muted">Media extracted:</span> <span class="mono">{% if bundle.media_extracted_at %}{{ bundle.media_extracted_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="pill pill--tiny">Contents</span>
+            <span class="muted">Derived from zip</span>
+          </div>
+          <div class="mini__body">
+            <div class="sub"><span class="muted">Org in manifest:</span> <span class="mono">{{ manifest.organization_name|default:"-" }}</span> (id {{ manifest.organization_id|default:"-" }})</div>
+            <div class="sub" style="margin-top:6px"><span class="muted">Backup version:</span> <span class="mono">{{ manifest.homeglue_backup_version|default:"-" }}</span></div>
+            <div class="sub" style="margin-top:6px"><span class="muted">Fixture size:</span> <span class="mono">{{ derived.fixture_bytes|default:"-" }} bytes</span></div>
+            <div class="sub" style="margin-top:6px"><span class="muted">Media files:</span> <span class="mono">{{ derived.media_files|default:"-" }}</span></div>
+            <div class="sub" style="margin-top:6px"><span class="muted">Media bytes:</span> <span class="mono">{{ derived.media_bytes|default:"-" }} bytes</span></div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
+              <a class="btn btn--ghost btn--sm" href="{{ manifest_url }}">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+                manifest.json
+              </a>
+              <a class="btn btn--ghost btn--sm" href="{{ fixture_url }}">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+                fixture.json
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mini" style="margin-bottom:14px">
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">Step 2</span>
+          <span class="muted">Extract media (safe)</span>
+        </div>
+        <div class="mini__body">
+          <div class="sub">
+            This copies files from <span class="mono">media/</span> inside the zip into this instance’s <span class="mono">MEDIA_ROOT</span>.
+            It does not change the database.
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px">
+            {% if is_reauthed %}
+              <form method="post" action="{{ extract_url }}">
+                {% csrf_token %}
+                <button class="btn btn--sm" type="submit">
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                  Extract media
+                </button>
+              </form>
+            {% else %}
+              <a class="btn btn--sm" href="{{ reauth_url }}">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+                Re-auth to extract
+              </a>
+            {% endif %}
+            <div class="muted sub">Extraction is path-traversal protected and only touches <span class="mono">MEDIA_ROOT</span>.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="warn" style="margin-bottom:14px">
+      <div class="warn__title">Database restore</div>
+      <div class="warn__body">
+        Loading <span class="mono">fixture.json</span> into a non-empty database can cause conflicts or duplicate data.
+        Recommended: restore into a fresh HomeGlue stack.
+      </div>
+    </div>
+
+    <div class="mini">
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">Step 3</span>
+          <span class="muted">Fresh stack restore command</span>
+        </div>
+        <div class="mini__body">
+          <div class="sub">Run this from the host where <span class="mono">docker compose</span> is available:</div>
+          <pre class="mono" style="white-space:pre-wrap; margin-top:8px">{{ cmd }}</pre>
+          <div class="sub" style="margin-top:10px">
+            This command will extract media and run <span class="mono">loaddata</span>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+{% endblock %}
+

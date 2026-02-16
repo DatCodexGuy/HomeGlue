@@ -1,0 +1,43 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ tag.name }} | Tags | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ tag.name }}</h1>
+        <div class="sub">{% if tag.organization_id %}Org-scoped{% else %}Global{% endif %}</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:tags_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        {% if can_edit %}
+          <a class="btn btn--danger btn--sm" href="{% url 'ui:tag_delete' tag_id=tag.id %}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+            Delete
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if not can_edit %}
+      <div class="warn">
+        <div class="warn__title">Read-only</div>
+        <div class="warn__body">Global tags can only be edited by superusers.</div>
+      </div>
+    {% endif %}
+
+    <form method="post" class="form form--grid">
+      {% csrf_token %}
+      {{ form.as_p }}
+      {% if can_edit %}
+        <button class="btn" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+          Save
+        </button>
+      {% endif %}
+    </form>
+  </section>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "ui/base.html" %}
+{% load ui_extras %}
+{% block title %}Contacts | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    {% include "ui/_list_header.html" with title="Contacts" subtitle="People and points of contact." new_url=contacts_new_url %}
+    {% include "ui/_views_bar.html" with saved_views=saved_views active_view=active_view save_view_url=save_view_url clear_view_url=clear_view_url %}
+
+    <div class="viewbar" style="margin-top:10px">
+      <div class="viewbar__left">
+        <div class="viewbar__label">Items</div>
+        <div class="viewbar__pills">
+          <a class="pill pill--tiny {% if not show_archived %}pill--active{% endif %}" href="{{ active_url }}">Active</a>
+          <a class="pill pill--tiny {% if show_archived %}pill--active{% endif %}" href="{{ archived_url }}">Archived</a>
+        </div>
+      </div>
+    </div>
+
+    <form class="search" method="get">
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search contacts..." />
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Search
+      </button>
+    </form>
+
+    <form class="js-bulk" method="post" action="{% url 'ui:contacts_bulk' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+      <div class="table table--contacts">
+        <div class="row row--head">
+          <div><input class="chk js-bulk-all" type="checkbox" aria-label="Select all" /></div>
+          <div>Name</div><div>Email</div><div>Phone</div><div>Title</div>
+        </div>
+        {% for c in contacts %}
+          <div class="row row--click" data-href="{% url 'ui:contact_detail' contact_id=c.id %}">
+            <div><input class="chk js-bulk-item" type="checkbox" name="ids" value="{{ c.id }}" aria-label="Select {{ c }}" /></div>
+            {% with rc=rel_counts|get_item:c.id %}
+              <div class="titlecell cell-split">
+                <a class="row__link" href="{% url 'ui:contact_detail' contact_id=c.id %}">{{ c.first_name }} {{ c.last_name }}</a>
+                {% if rc %}
+                  <span class="pill pill--tiny pill--click" role="link" tabindex="0" aria-label="View relationships" data-href="{% url 'ui:relationships_list' %}?ref={{ ref_prefix }}{{ c.id }}">Rel {{ rc }}</span>
+                {% endif %}
+              </div>
+            {% endwith %}
+            <div class="muted">{% if c.email %}{{ c.email }}{% else %}...{% endif %}</div>
+            <div class="muted">{% if c.phone %}{{ c.phone }}{% else %}...{% endif %}</div>
+            <div class="muted">{% if c.title %}{{ c.title }}{% else %}...{% endif %}</div>
+          </div>
+        {% empty %}
+          <div class="empty">
+            <div class="empty__title">No contacts yet</div>
+            <div class="empty__body"><a class="link" href="{% url 'ui:contacts_new' %}">Create your first contact</a>.</div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="bulkbar js-bulkbar">
+        <div class="bulkbar__left">
+          <span class="pill pill--tiny"><span class="js-bulk-count">0</span> selected</span>
+        </div>
+        <div class="bulkbar__right">
+          <select class="bulkbar__select" name="tag_id">
+            <option value="">Add tag...</option>
+            {% for t in tags_for_bulk %}
+              <option value="{{ t.id }}">{{ t.name }}{% if t.organization_id %} (org){% else %} (global){% endif %}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn--ghost btn--sm" type="submit" name="action" value="tag_add">Add Tag</button>
+          {% if can_admin %}
+            <button class="btn btn--danger btn--sm js-bulk-delete" type="submit" name="action" value="archive">Archive</button>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </section>
+{% endblock %}

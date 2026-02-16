@@ -1,0 +1,43 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ title }} | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% if crumbs %}{% include "ui/_crumbs_simple.html" with crumbs=crumbs %}{% endif %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ title }}</h1>
+        <div class="sub">Saved into <strong>{{ org.name }}</strong>.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:dashboard' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    {% if notice %}
+      <div class="warn" style="margin-bottom:14px">
+        {% if notice.title %}<div class="warn__title">{{ notice.title }}</div>{% endif %}
+        {% if notice.body %}<div class="warn__body">{{ notice.body }}</div>{% endif %}
+      </div>
+    {% endif %}
+
+    <form method="post" class="form form--grid">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <div style="display:flex; gap:10px; flex-wrap:wrap">
+        {% for b in secondary_submit_buttons %}
+          <button class="btn btn--ghost" type="submit" name="{{ b.name }}" value="{{ b.value }}">
+            {% if b.icon %}<svg class="ico" viewBox="0 0 24 24"><use href="{{ b.icon }}"/></svg>{% endif %}
+            {{ b.label }}
+          </button>
+        {% endfor %}
+        <button class="btn" type="submit" name="_action" value="{{ primary_action|default:'create' }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="{{ submit_icon|default:'#i-plus' }}"/></svg>
+          {{ submit_label|default:"Create" }}
+        </button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ folder.name }} | File Folders | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ folder.name }}</h1>
+        <div class="sub">
+          {% if folder.parent %}Parent: <span class="mono">{{ folder.parent.name }}</span>{% endif %}
+          {% if folder.archived_at %}<span class="pill pill--tiny pill--ghost">Archived</span>{% endif %}
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:file_folders_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <a class="btn btn--ghost btn--sm" href="{{ files_in_folder_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+          View files
+        </a>
+        {% if can_admin %}
+          {% if folder.archived_at %}
+            <form method="post" action="{% url 'ui:object_restore' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ref" value="core.filefolder:{{ folder.id }}" />
+              <button class="btn btn--ghost btn--sm" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Restore
+              </button>
+            </form>
+          {% else %}
+            <a class="btn btn--danger btn--sm" href="{% url 'ui:file_folder_delete' folder_id=folder.id %}">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+              Archive
+            </a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="split__main">
+        <h3 class="h3">Edit</h3>
+        <form method="post" class="form form--grid">
+          {% csrf_token %}
+          {{ form.as_p }}
+          <button class="btn" type="submit">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+            Save
+          </button>
+        </form>
+
+        <div style="margin-top:18px">
+          <h3 class="h3">Recent files in folder</h3>
+          <div class="mini">
+            {% for a in items %}
+              <div class="mini__row">
+                <a class="link mono" href="{% url 'ui:file_detail' attachment_id=a.id %}">{{ a.filename|default:"(file)" }}</a>
+                <span class="muted mono">{{ a.created_at|date:"Y-m-d H:i" }}</span>
+              </div>
+            {% empty %}
+              <div class="muted">No visible files in this folder.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="split__side">
+        <div class="warn">
+          <div class="warn__title">Tip</div>
+          <div class="warn__body">Folders are for organization. File access still inherits from the attached object (Docs/Passwords) when applicable.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+

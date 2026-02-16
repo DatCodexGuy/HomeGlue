@@ -1,0 +1,70 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ rule.name }} | Workflows | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ rule.name }}</h1>
+        <div class="sub">
+          {% if rule.enabled %}<span class="pill pill--tiny pill--ok">enabled</span>{% else %}<span class="pill pill--tiny pill--ghost">disabled</span>{% endif %}
+          <span class="dot"></span>
+          <span class="muted">{{ rule.get_kind_display }}</span>
+          <span class="dot"></span>
+          <span class="muted">{{ rule.get_audience_display }}</span>
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:workflows_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <form method="post" action="{% url 'ui:workflow_rule_detail' rule_id=rule.id %}">
+          {% csrf_token %}
+          <input type="hidden" name="_action" value="run_now" />
+          <button class="btn btn--ghost btn--sm" type="submit">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+            Run now
+          </button>
+        </form>
+        <a class="btn btn--danger btn--sm" href="{% url 'ui:workflow_rule_delete' rule_id=rule.id %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+          Delete
+        </a>
+      </div>
+    </div>
+
+    {% if notice %}
+      <div class="warn" style="margin-bottom:14px">
+        <div class="warn__title">{{ notice.title }}</div>
+        <div class="warn__body">{{ notice.body }}</div>
+      </div>
+    {% endif %}
+
+    {% if rule.last_run_at %}
+      <div class="mini" style="margin-bottom:14px">
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="mono">Last run</span>
+            <span class="muted">{{ rule.last_run_at|date:"Y-m-d H:i" }}</span>
+          </div>
+          {% if not rule.last_run_ok %}
+            <div class="muted">Last error: {{ rule.last_run_error }}</div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <h3 class="h3">Edit</h3>
+    <form method="post" class="form form--grid" action="{% url 'ui:workflow_rule_detail' rule_id=rule.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="_action" value="save" />
+      {{ form.as_p }}
+      <button class="btn" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+        Save
+      </button>
+    </form>
+  </section>
+{% endblock %}
+

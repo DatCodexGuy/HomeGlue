@@ -1,0 +1,195 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ conn.name }} | Integrations | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ conn.name }}</h1>
+        <div class="sub mono">{{ conn.base_url }}</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{{ guests_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>
+          Guests
+        </a>
+        <a class="btn btn--ghost btn--sm" href="{{ nodes_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>
+          Nodes
+        </a>
+        {% if can_admin %}
+          <form method="post" action="{% url 'ui:proxmox_sync' conn_id=conn.id %}">
+            {% csrf_token %}
+            <button class="btn btn--sm" type="submit">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+              Sync now
+            </button>
+          </form>
+          <a class="btn btn--danger btn--sm" href="{% url 'ui:proxmox_delete' conn_id=conn.id %}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+            Delete
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if conn.last_sync_at %}
+      <div class="warn">
+        <div class="warn__title">Last sync</div>
+        <div class="warn__body">
+          <span class="mono">{{ conn.last_sync_at|date:"Y-m-d H:i" }}</span>
+          {% if conn.last_sync_ok %}
+            <span class="pill pill--tiny pill--ok">OK</span>
+          {% else %}
+            <span class="pill pill--tiny pill--danger">FAILED</span>
+            {% if conn.last_sync_error %}<div class="muted" style="margin-top:6px">{{ conn.last_sync_error }}</div>{% endif %}
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="split">
+      <div class="split__main">
+        <h3 class="h3">Connection</h3>
+        {% if can_admin and form %}
+          <form method="post" class="form form--grid">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="save" />
+            {{ form.as_p }}
+            <div class="muted">Set <span class="mono">sync_interval_minutes</span> to something like <span class="mono">15</span> and start the worker service to enable background syncing.</div>
+            <button class="btn" type="submit">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+              Save
+            </button>
+          </form>
+        {% else %}
+          <div class="mini">
+            <div class="mini__row">
+              <div class="mini__top">
+                <span class="mono">Enabled</span>
+                {% if conn.enabled %}
+                  <span class="pill pill--tiny pill--ok">Yes</span>
+                {% else %}
+                  <span class="pill pill--tiny pill--warn">No</span>
+                {% endif %}
+              </div>
+              <div class="muted">Connection settings are editable by org admins.</div>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Nodes</h3>
+        <div class="mini">
+          {% for n in nodes %}
+            <div class="mini__row">
+              <div class="mini__top">
+                <span class="mono">{{ n.node }}</span>
+                <span class="pill pill--tiny">{% if n.status %}{{ n.status }}{% else %}...{% endif %}</span>
+              </div>
+              <div class="muted">CPU: {{ n.maxcpu|default:"?" }} Mem: {{ n.maxmem|default:"?" }} Disk: {{ n.maxdisk|default:"?" }}</div>
+            </div>
+          {% empty %}
+            <div class="mini__row"><span class="muted">No nodes yet. Run a sync.</span></div>
+          {% endfor %}
+          {% if nodes|length %}
+            <div class="mini__row"><a class="link" href="{{ nodes_url }}">Open nodes list</a></div>
+          {% endif %}
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Guests (VMs/CTs)</h3>
+        <div class="mini">
+          {% for g in guests|slice:":30" %}
+            <div class="mini__row">
+              <div class="mini__top">
+                <span class="mono">{{ g.guest_type }} {{ g.vmid }}</span>
+                <span class="pill pill--tiny">{% if g.status %}{{ g.status }}{% else %}...{% endif %}</span>
+              </div>
+              <div class="muted">{% if g.name %}{{ g.name }}{% endif %}{% if g.node %} on {{ g.node }}{% endif %}</div>
+              {% if g.ostype %}
+                <div class="muted">OS: <span class="mono">{{ g.ostype }}</span></div>
+              {% endif %}
+              {% if g.ip_addrs and g.ip_addrs|length %}
+                <div class="muted">IP: <span class="mono">{{ g.ip_addrs.0 }}</span></div>
+              {% endif %}
+              {% if g.proxmox_tags and g.proxmox_tags|length %}
+                <div class="muted">Tags: <span class="mono">{{ g.proxmox_tags|join:", " }}</span></div>
+              {% endif %}
+              {% if g.config_item_id %}
+                <div class="muted">CI: <a class="link mono" href="{% url 'ui:config_item_detail' item_id=g.config_item_id %}">open</a></div>
+              {% endif %}
+            </div>
+          {% empty %}
+            <div class="mini__row"><span class="muted">No guests yet. Run a sync.</span></div>
+          {% endfor %}
+          {% if guests|length > 30 %}
+            <div class="mini__row"><span class="muted">Showing first 30. (We can add paging/search next.)</span></div>
+          {% endif %}
+          {% if guests|length %}
+            <div class="mini__row"><a class="link" href="{{ guests_url }}">Open guests list</a></div>
+          {% endif %}
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Networks</h3>
+        <div class="mini">
+          {% for n in networks|slice:":25" %}
+            <div class="mini__row">
+              <div class="mini__top">
+                <span class="mono">{{ n.node }} {{ n.iface }}</span>
+                <span class="muted">{{ n.kind }}</span>
+              </div>
+              <div class="muted">{% if n.address %}{{ n.address }}{% else %}...{% endif %}</div>
+            </div>
+          {% empty %}
+            <div class="mini__row"><span class="muted">No networks yet. Run a sync.</span></div>
+          {% endfor %}
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Storages</h3>
+        <div class="mini">
+          {% for s in storages|slice:":25" %}
+            <div class="mini__row">
+              <div class="mini__top">
+                <span class="mono">{{ s.node }} {{ s.storage }}</span>
+                <span class="muted">{{ s.kind }}</span>
+              </div>
+              <div class="muted">{% if s.status %}{{ s.status }}{% else %}...{% endif %}</div>
+            </div>
+          {% empty %}
+            <div class="mini__row"><span class="muted">No storages yet. Run a sync.</span></div>
+          {% endfor %}
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Pools</h3>
+        <div class="mini">
+          {% for p in pools %}
+            <div class="mini__row">
+              <div class="mini__top">
+                <span class="mono">{{ p.poolid }}</span>
+                <span class="muted">{% if p.comment %}{{ p.comment }}{% else %}...{% endif %}</span>
+              </div>
+            </div>
+          {% empty %}
+            <div class="mini__row"><span class="muted">No pools found (or API not available).</span></div>
+          {% endfor %}
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">SDN VNets</h3>
+        <div class="mini">
+          {% for v in vnets %}
+            <div class="mini__row">
+              <div class="mini__top">
+                <span class="mono">{{ v.vnet }}</span>
+                <span class="muted">{% if v.zone %}{{ v.zone }}{% else %}...{% endif %}</span>
+              </div>
+              {% if v.tag %}<div class="muted">Tag: <span class="mono">{{ v.tag }}</span></div>{% endif %}
+            </div>
+          {% empty %}
+            <div class="mini__row"><span class="muted">No SDN VNets found (or SDN not enabled).</span></div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

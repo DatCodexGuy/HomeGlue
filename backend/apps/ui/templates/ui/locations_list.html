@@ -1,0 +1,71 @@
+{% extends "ui/base.html" %}
+{% load ui_extras %}
+{% block title %}Locations | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    {% include "ui/_list_header.html" with title="Locations" subtitle="Addresses and physical sites." new_url=locations_new_url %}
+    {% include "ui/_views_bar.html" with saved_views=saved_views active_view=active_view save_view_url=save_view_url clear_view_url=clear_view_url %}
+
+    <div class="viewbar" style="margin-top:10px">
+      <div class="viewbar__left">
+        <div class="viewbar__label">Items</div>
+        <div class="viewbar__pills">
+          <a class="pill pill--tiny {% if not show_archived %}pill--active{% endif %}" href="{{ active_url }}">Active</a>
+          <a class="pill pill--tiny {% if show_archived %}pill--active{% endif %}" href="{{ archived_url }}">Archived</a>
+        </div>
+      </div>
+    </div>
+
+    <form class="search" method="get">
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search locations..." />
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Search
+      </button>
+    </form>
+
+    <form class="js-bulk" method="post" action="{% url 'ui:locations_bulk' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+      <div class="table table--locations">
+        <div class="row row--head">
+          <div><input class="chk js-bulk-all" type="checkbox" aria-label="Select all" /></div>
+          <div>Name</div><div>Address</div><div></div><div></div>
+        </div>
+        {% for l in locations %}
+          <div class="row row--click" data-href="{% url 'ui:location_detail' location_id=l.id %}">
+            <div><input class="chk js-bulk-item" type="checkbox" name="ids" value="{{ l.id }}" aria-label="Select {{ l.name }}" /></div>
+            {% with rc=rel_counts|get_item:l.id %}
+              <div class="titlecell cell-split">
+                <a class="row__link" href="{% url 'ui:location_detail' location_id=l.id %}">{{ l.name }}</a>
+                {% if rc %}
+                  <span class="pill pill--tiny pill--click" role="link" tabindex="0" aria-label="View relationships" data-href="{% url 'ui:relationships_list' %}?ref={{ ref_prefix }}{{ l.id }}">Rel {{ rc }}</span>
+                {% endif %}
+              </div>
+            {% endwith %}
+            <div class="muted">{% if l.address %}{{ l.address|truncatechars:80 }}{% else %}...{% endif %}</div>
+            <div></div>
+            <div></div>
+          </div>
+        {% empty %}
+          <div class="empty">
+            <div class="empty__title">No locations yet</div>
+            <div class="empty__body"><a class="link" href="{% url 'ui:locations_new' %}">Create your first location</a>.</div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="bulkbar js-bulkbar">
+        <div class="bulkbar__left">
+          <span class="pill pill--tiny"><span class="js-bulk-count">0</span> selected</span>
+        </div>
+        <div class="bulkbar__right">
+          {% if can_admin %}
+            <button class="btn btn--danger btn--sm js-bulk-delete" type="submit" name="action" value="archive">Archive</button>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </section>
+{% endblock %}

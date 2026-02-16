@@ -1,0 +1,26 @@
+<div class="listhead">
+  <div>
+    <h1 class="h2">{{ title }}</h1>
+    {% if subtitle %}<div class="sub">{{ subtitle }}</div>{% endif %}
+  </div>
+  <div class="listhead__actions">
+    {% if export_url %}
+      <a class="btn btn--ghost btn--sm" href="{{ export_url }}">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+        Export CSV
+      </a>
+    {% endif %}
+    {% if import_url %}
+      <a class="btn btn--ghost btn--sm" href="{{ import_url }}">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+        Import CSV
+      </a>
+    {% endif %}
+    {% if new_url %}
+      <a class="btn btn--sm" href="{{ new_url }}">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+        New
+      </a>
+    {% endif %}
+  </div>
+</div>

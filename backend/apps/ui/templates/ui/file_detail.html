@@ -1,0 +1,112 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ filename }} | Files | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2 mono">{{ filename }}</h1>
+        <div class="sub">
+          Uploaded {{ a.created_at|date:"Y-m-d H:i" }}
+          {% if a.uploaded_by %}<span class="dot"></span>by <span class="mono">{{ a.uploaded_by.username }}</span>{% endif %}
+          {% if size %}<span class="dot"></span><span class="mono">{{ size }} bytes</span>{% endif %}
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:files_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <a class="btn btn--ghost btn--sm" href="{{ download_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+          Download
+        </a>
+        <a class="btn btn--danger btn--sm" href="{% url 'ui:attachment_delete' attachment_id=a.id %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+          Delete
+        </a>
+      </div>
+    </div>
+
+    <div class="mini">
+      <div class="mini__row">
+        <div class="muted">Attached to</div>
+        <div>
+          {% if attached_url %}
+            <a class="link mono" href="{{ attached_url }}">{{ attached_label }}</a>
+          {% else %}
+            <span class="mono">{{ attached_label|default:"(org)" }}</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="mini__row">
+        <div class="muted">Content type</div>
+        <div class="mono">{{ content_type }}</div>
+      </div>
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Filing</h3>
+      <form method="post" class="form" style="max-width:860px">
+        {% csrf_token %}
+        <input type="hidden" name="_action" value="save_meta" />
+        <div class="grid" style="grid-template-columns: 1fr 1.2fr; gap:12px">
+          <div>
+            <label for="id_folder">Folder</label>
+            <select id="id_folder" name="folder_id">
+              <option value="">(none)</option>
+              {% for f in folders %}
+                <option value="{{ f.id }}" {% if a.folder_id == f.id %}selected{% endif %}>
+                  {{ f.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="id_tags">Tags</label>
+            <select id="id_tags" name="tag_ids" multiple size="5">
+              {% for t in tags %}
+                <option value="{{ t.id }}" {% if t in a.tags.all %}selected{% endif %}>
+                  {{ t.name }}{% if t.organization_id %} (org){% else %} (global){% endif %}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px">
+          <button class="btn btn--sm" type="submit">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+            Save
+          </button>
+          <div class="muted sub">Folder and tag organization does not change access control.</div>
+        </div>
+      </form>
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Preview</h3>
+      {% if preview_kind == "image" %}
+        <div class="mini">
+          <div class="mini__row">
+            <img src="{{ inline_url }}" alt="{{ filename }}" style="max-width:100%; height:auto; border-radius:16px; border:1px solid var(--line)" />
+          </div>
+        </div>
+      {% elif preview_kind == "pdf" %}
+        <div class="mini">
+          <div class="mini__row">
+            <iframe src="{{ inline_url }}" title="{{ filename }}" style="width:100%; height:70vh; border:1px solid var(--line); border-radius:16px; background: var(--paper)"></iframe>
+          </div>
+        </div>
+      {% elif preview_kind == "text" %}
+        <div class="mini">
+          <div class="mini__row">
+            <pre class="mono" style="white-space:pre-wrap; margin:0">{% if preview_text %}{{ preview_text }}{% else %}(preview unavailable){% endif %}</pre>
+          </div>
+        </div>
+      {% else %}
+        <div class="muted">No preview available for this file type.</div>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

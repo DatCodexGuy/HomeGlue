@@ -1,0 +1,118 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ guest.name|default:"Guest" }} | {{ conn.name }} | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{% if guest.name %}{{ guest.name }}{% else %}{{ guest.guest_type }} {{ guest.vmid }}{% endif %}</h1>
+        <div class="sub mono">{{ guest.guest_type }} {{ guest.vmid }}{% if guest.node %} on {{ guest.node }}{% endif %}</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:proxmox_guests' conn_id=conn.id %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        {% if guest.config_item_id %}
+          <a class="btn btn--sm" href="{% url 'ui:config_item_detail' item_id=guest.config_item_id %}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-config"/></svg>
+            Open CI
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px">
+      <div class="card">
+        <div class="card__title">Status</div>
+        <div class="card__meta">
+          <span class="pill pill--tiny {% if guest.status == 'running' %}pill--ok{% elif guest.status == 'stopped' %}pill--warn{% endif %}">{{ guest.status|default:"" }}</span>
+          {% if guest.uptime is not None %}
+            <span class="pill pill--tiny">uptime: {{ guest.uptime }}</span>
+          {% endif %}
+          {% if guest.ostype %}
+            <span class="pill pill--tiny">os: <span class="mono">{{ guest.ostype }}</span></span>
+          {% endif %}
+          {% if guest.pool %}
+            <span class="pill pill--tiny">pool: <span class="mono">{{ guest.pool }}</span></span>
+          {% endif %}
+        </div>
+        {% if guest.agent_hostname %}
+          <div class="card__meta">Agent hostname: <span class="mono">{{ guest.agent_hostname }}</span></div>
+        {% endif %}
+        {% if guest.proxmox_tags and guest.proxmox_tags|length %}
+          <div class="card__meta">Tags: <span class="mono">{{ guest.proxmox_tags|join:", " }}</span></div>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <div class="card__title">Resources</div>
+        <div class="card__meta mono">
+          CPU: {{ guest.maxcpu|default:"?" }} Mem: {{ guest.maxmem|default:"?" }} Disk: {{ guest.maxdisk|default:"?" }}
+        </div>
+        <div class="card__meta mono">Updated: {{ guest.updated_at|date:"Y-m-d H:i" }}</div>
+      </div>
+
+      <div class="card">
+        <div class="card__title">IPs</div>
+        <div class="card__meta mono">
+          {% if guest.ip_addrs and guest.ip_addrs|length %}
+            {{ guest.ip_addrs|join:", " }}
+          {% else %}
+            <span class="muted">No IPs discovered yet.</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">IP History</h3>
+      <div class="tablewrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>IP</th>
+              <th>Source</th>
+              <th>First seen</th>
+              <th>Last seen</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ip in ip_history %}
+              <tr>
+                <td class="mono">{{ ip.ip }}</td>
+                <td><span class="pill pill--tiny">{{ ip.source }}</span></td>
+                <td class="mono">{{ ip.first_seen_at|date:"Y-m-d H:i" }}</td>
+                <td class="mono">{{ ip.last_seen_at|date:"Y-m-d H:i" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="muted">No history yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Relationships</h3>
+      {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Attachments</h3>
+      {% include "ui/_attachments.html" with attachments=attachments %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Notes</h3>
+      {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+    </div>
+
+    <details style="margin-top:18px">
+      <summary class="muted">Raw Proxmox payload</summary>
+      <pre class="mono" style="white-space:pre-wrap; margin-top:10px">{% firstof guest.raw "{}" %}</pre>
+      <pre class="mono" style="white-space:pre-wrap; margin-top:10px">{% firstof guest.config_raw "{}" %}</pre>
+    </details>
+  </section>
+{% endblock %}

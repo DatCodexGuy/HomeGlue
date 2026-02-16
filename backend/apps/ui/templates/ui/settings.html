@@ -1,0 +1,112 @@
+{% extends "ui/base.html" %}
+{% block title %}Settings | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Settings</h1>
+        <div class="sub">Org-scoped preferences and visibility.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:dashboard' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="split__main">
+        <h3 class="h3">Default Org</h3>
+        <div class="mini">
+          <div class="muted">Your current default:</div>
+          <div class="mono" style="margin-top:6px">
+            {% if default_org %}{{ default_org.name }}{% else %}<span class="muted">None</span>{% endif %}
+          </div>
+          <form method="post" style="margin-top:12px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="set_default_org" />
+            <button class="btn" type="submit">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+              Set {{ org.name }} as default
+            </button>
+          </form>
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">API Token</h3>
+        <div class="mini">
+          <div class="muted">Use a personal token for scripting against the API.</div>
+
+          {% if api_token_new_value %}
+            <div class="warn" style="margin-top:12px">
+              <div class="warn__title">New token</div>
+              <div class="warn__body">This token is shown once. Copy it now.</div>
+              <div class="secretbox" style="margin-top:10px">
+                <div class="secretbox__label">Token</div>
+                <div class="secretbox__value mono" data-copy>{{ api_token_new_value }}</div>
+                <div class="muted">Click to copy</div>
+              </div>
+            </div>
+          {% elif api_token_value %}
+            <div class="secretbox" style="margin-top:12px">
+              <div class="secretbox__label">Token</div>
+              <div class="secretbox__value mono" data-copy>{{ api_token_value }}</div>
+              <div class="muted">Click to copy</div>
+            </div>
+          {% endif %}
+
+          <div class="mini__actions">
+            {% if api_token_value %}
+              <form method="post" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="_action" value="api_token_hide" />
+                <button class="btn btn--ghost btn--sm" type="submit">Hide</button>
+              </form>
+            {% else %}
+              <form method="post" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="_action" value="api_token_reveal" />
+                <button class="btn btn--ghost btn--sm" type="submit">{% if api_token_exists %}Reveal{% else %}Create{% endif %}</button>
+              </form>
+            {% endif %}
+            <form method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="api_token_rotate" />
+              <button class="btn btn--danger btn--sm" type="submit">{% if api_token_exists %}Rotate{% else %}Create and show{% endif %}</button>
+            </form>
+          </div>
+
+          <div class="muted" style="margin-top:12px">
+            Example:
+            <span class="mono" data-copy>curl -H "Authorization: Token &lt;TOKEN&gt;" http://localhost:8080/api/me/</span>
+          </div>
+          <div class="muted" style="margin-top:8px">
+            Org-scoped calls:
+            <span class="mono" data-copy>curl -H "Authorization: Token &lt;TOKEN&gt;" http://localhost:8080/api/orgs/{{ org.id }}/assets/</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Membership</h3>
+        <div class="mini">
+          {% if memberships is not None %}
+            {% for m in memberships %}
+              <div class="mini__row">
+                <div class="mini__top">
+                  <span class="mono">{{ m.user.username }}</span>
+                  <span class="pill pill--tiny">{{ m.role }}</span>
+                </div>
+              </div>
+            {% empty %}
+              <div class="muted">No members.</div>
+            {% endfor %}
+          {% else %}
+            <div class="muted">Membership list is visible to org admins and superusers.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

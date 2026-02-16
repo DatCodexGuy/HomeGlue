@@ -1,0 +1,38 @@
+<div class="mini">
+  {% if relationships_view %}
+    {% for r in relationships_view %}
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">{{ r.type_name }}</span>
+          <span class="muted">{{ r.created_at|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="mini__body mono" style="margin-top:6px">
+          <a class="link" href="{% url 'ui:relationship_detail' relationship_id=r.id %}">{{ r.label }}</a>
+        </div>
+        {% if r.notes %}<div class="muted">{{ r.notes }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  {% elif relationships %}
+    {% for r in relationships %}
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">{{ r.relationship_type.name }}</span>
+          <span class="muted">{{ r.created_at|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="mini__body mono" style="margin-top:6px">
+          <a class="link" href="{% url 'ui:relationship_detail' relationship_id=r.id %}">{{ r.source_label }} -> {{ r.target_label }}</a>
+        </div>
+        {% if r.notes %}<div class="muted">{{ r.notes }}</div>{% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="muted">No relationships yet.</div>
+  {% endif %}
+
+  <div class="mini__actions">
+    <a class="btn btn--ghost btn--sm" href="{{ add_relationship_url }}">
+      <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+      Add relationship
+    </a>
+  </div>
+</div>

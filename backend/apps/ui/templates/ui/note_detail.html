@@ -1,0 +1,60 @@
+{% extends "ui/base.html" %}
+{% load ui_extras %}
+{% block title %}{% if note.title %}{{ note.title }}{% else %}Note{% endif %} | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{% if note.title %}{{ note.title }}{% else %}Note{% endif %}</h1>
+        <div class="sub">
+          {{ note.created_at|date:"Y-m-d H:i" }}
+          {% if note.created_by %} by {{ note.created_by.username }}{% endif %}
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:notes_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    {% if attached_label %}
+      <div class="mini" style="margin-bottom:12px">
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="pill pill--tiny">Attached</span>
+            <span class="muted">{{ note.content_type.app_label }}.{{ note.content_type.model }}:{{ note.object_id }}</span>
+          </div>
+          <div class="mini__body">
+            {% if attached_url %}
+              <a class="mono" href="{{ attached_url }}">{{ attached_label }}</a>
+            {% else %}
+              <span class="mono">{{ attached_label }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if note.body %}
+      <div class="md">{{ note.body|markdown }}</div>
+    {% else %}
+      <div class="muted">No body.</div>
+    {% endif %}
+
+    <div style="margin-top:14px">
+      <form method="post" action="{% url 'ui:note_delete' note_id=note.id %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'ui:notes_list' %}">
+        <button class="btn btn--ghost btn--sm" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+          Delete
+        </button>
+      </form>
+    </div>
+  </section>
+{% endblock %}
+

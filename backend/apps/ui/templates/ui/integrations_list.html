@@ -1,0 +1,45 @@
+{% extends "ui/base.html" %}
+{% block title %}Integrations | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Integrations</h1>
+        <div class="sub">Connect HomeGlue to external systems (Proxmox first).</div>
+      </div>
+      <div class="listhead__actions">
+        {% if can_admin %}
+          <a class="btn btn--sm" href="{{ proxmox_new_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+            New Proxmox
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="grid">
+      {% for c in proxmox %}
+        <a class="card" href="{% url 'ui:proxmox_detail' conn_id=c.id %}">
+          <div class="card__title">{{ c.name }}</div>
+          <div class="card__meta mono">{{ c.base_url }}</div>
+          <div class="card__meta">
+            {% if c.enabled %}
+              <span class="pill pill--tiny pill--ok">Enabled</span>
+            {% else %}
+              <span class="pill pill--tiny pill--warn">Disabled</span>
+            {% endif %}
+            {% if c.last_sync_at %}
+              <span class="pill pill--tiny">{% if c.last_sync_ok %}Synced{% else %}Failed{% endif %}</span>
+            {% endif %}
+          </div>
+        </a>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No integrations yet</div>
+          <div class="empty__body">Start by adding a Proxmox connection.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

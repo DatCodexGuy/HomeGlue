@@ -1,0 +1,28 @@
+<div class="mini">
+  {% if versions %}
+    {% for v in versions %}
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">{{ v.action }}</span>
+          <span class="muted">{{ v.created_at|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="mini__body">
+          {% if v.created_by %}<span class="muted">by {{ v.created_by.username }}</span>{% else %}<span class="muted">by system</span>{% endif %}
+          {% if v.summary %}<div class="muted">{{ v.summary }}</div>{% endif %}
+        </div>
+        {% if can_restore %}
+          <div class="mini__actions">
+            <form method="post" action="{% url 'ui:version_restore' version_id=v.id %}">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}" />
+              <button class="btn btn--ghost btn--sm" type="submit">Restore</button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="muted">No versions recorded yet.</div>
+  {% endif %}
+</div>
+

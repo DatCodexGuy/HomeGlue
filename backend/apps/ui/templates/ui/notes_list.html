@@ -1,0 +1,28 @@
+{% extends "ui/base.html" %}
+{% block title %}Notes | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Notes</h1>
+        <div class="sub">Quick notes for {{ org.name }}{% if filter_label %} filtered by {{ filter_label }}{% endif %}.</div>
+      </div>
+      <div class="listhead__actions">
+        {% if filter_ref %}
+          <a class="btn btn--ghost btn--sm" href="{% url 'ui:notes_list' %}">Clear filter</a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if filter_invalid %}
+      <div class="warn">
+        <div class="warn__title">Invalid filter</div>
+        <div class="warn__body">Expected a ref like <span class="mono">assets.asset:1</span>.</div>
+      </div>
+    {% endif %}
+
+    {% include "ui/_notes.html" with notes=notes note_ref=filter_ref %}
+  </section>
+{% endblock %}
+

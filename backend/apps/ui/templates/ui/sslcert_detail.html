@@ -1,0 +1,126 @@
+{% extends "ui/base.html" %}
+{% load ui_extras %}
+{% block title %}{% if cert.common_name %}{{ cert.common_name }}{% else %}Cert {{ cert.id }}{% endif %} | SSL Certificates | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{% if cert.common_name %}{{ cert.common_name }}{% else %}Cert {{ cert.id }}{% endif %}</h1>
+        <div class="sub">
+          {% if cert.not_after %}
+            Expires {{ cert.not_after|date:"Y-m-d" }}
+            {% if expiry_badge %}
+              <span class="pill pill--tiny pill--{{ expiry_badge.tone }}">{{ expiry_badge.label }}</span>
+            {% endif %}
+          {% else %}
+            <span class="muted">No expiry date</span>
+          {% endif %}
+          {% if cert.archived_at %}<span class="pill pill--tiny pill--ghost">Archived</span>{% endif %}
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <form method="post" action="{% url 'ui:sslcert_detail' sslcert_id=cert.id %}">
+          {% csrf_token %}
+          <input type="hidden" name="_action" value="refresh_public" />
+          <button class="btn btn--ghost btn--sm" type="submit">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+            Refresh
+          </button>
+        </form>
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:sslcerts_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        {% if edit_mode %}
+          <a class="btn btn--ghost btn--sm" href="{{ view_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-close"/></svg>
+            Cancel
+          </a>
+        {% else %}
+          <a class="btn btn--ghost btn--sm" href="{{ edit_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-edit"/></svg>
+            Edit
+          </a>
+        {% endif %}
+        {% if can_admin %}
+          {% if cert.archived_at %}
+            <form method="post" action="{% url 'ui:object_restore' %}">
+              {% csrf_token %}
+              <input type="hidden" name="ref" value="{{ note_ref }}" />
+              <button class="btn btn--ghost btn--sm" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Restore
+              </button>
+            </form>
+          {% else %}
+            <a class="btn btn--danger btn--sm" href="{% url 'ui:sslcert_delete' sslcert_id=cert.id %}">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+              Archive
+            </a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="split__main">
+        {% if edit_mode %}
+          <h3 class="h3">Edit</h3>
+          <form method="post" class="form form--grid">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button class="btn" type="submit">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+              Save
+            </button>
+          </form>
+        {% else %}
+          <h3 class="h3">Details</h3>
+          <div class="mini">
+            {% if cert.common_name %}<div class="mini__row"><div class="muted">Common name</div><div class="mono">{{ cert.common_name }}</div></div>{% endif %}
+            {% if cert.issuer %}<div class="mini__row"><div class="muted">Issuer</div><div>{{ cert.issuer }}</div></div>{% endif %}
+            {% if cert.not_before %}<div class="mini__row"><div class="muted">Valid from</div><div class="mono">{{ cert.not_before|date:"Y-m-d" }}</div></div>{% endif %}
+            {% if cert.not_after %}<div class="mini__row"><div class="muted">Valid to</div><div class="mono">{{ cert.not_after|date:"Y-m-d" }}</div></div>{% endif %}
+            {% if cert.serial_number %}<div class="mini__row"><div class="muted">Serial</div><div class="mono">{{ cert.serial_number }}</div></div>{% endif %}
+            {% if cert.notes %}<div class="mini__row"><div class="muted">Notes</div><div class="md">{{ cert.notes|markdown }}</div></div>{% endif %}
+          </div>
+        {% endif %}
+
+        <div style="margin-top:18px">
+          <h3 class="h3">Linked Domains</h3>
+          <div class="mini">
+            {% for d in cert.domains.all %}
+              <div class="mini__row">
+                <a class="link mono" href="{% url 'ui:domain_detail' domain_id=d.id %}">{{ d.name }}</a>
+                {% if d.expires_on %}<span class="muted">expires {{ d.expires_on|date:"Y-m-d" }}</span>{% endif %}
+              </div>
+            {% empty %}
+              <div class="muted">No domains linked.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Custom Fields</h3>
+        {% include "ui/_custom_fields.html" with custom_fields=custom_fields custom_values=custom_values %}
+
+        <h3 class="h3" style="margin-top:16px">Relationships</h3>
+        {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
+
+        <h3 class="h3" style="margin-top:16px">Attachments</h3>
+        {% include "ui/_attachments.html" with attachments=attachments %}
+
+        <h3 class="h3" style="margin-top:16px">Notes</h3>
+        {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+
+        <h3 class="h3" style="margin-top:16px">Activity</h3>
+        {% include "ui/_activity.html" with activity=activity %}
+
+        <h3 class="h3" style="margin-top:16px">Versions</h3>
+        {% include "ui/_versions.html" with versions=versions can_restore=can_restore %}
+      </div>
+    </div>
+  </section>
+{% endblock %}

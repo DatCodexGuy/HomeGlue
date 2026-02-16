@@ -1,0 +1,35 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ verb|default:"Delete" }} | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal" style="max-width:780px">
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ verb|default:"Delete" }} {{ kind }}</h1>
+        <div class="sub">{% if sub %}{{ sub }}{% else %}This action cannot be undone.{% endif %}</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{{ cancel_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Cancel
+        </a>
+      </div>
+    </div>
+
+    <div class="warn">
+      <div class="warn__title">You are {{ verb|default:"deleting"|lower }}:</div>
+      <div class="warn__body mono">{{ label }}</div>
+      {% if warning %}<div class="warn__body">{{ warning }}</div>{% endif %}
+    </div>
+
+    <form method="post" class="form form--grid">
+      {% csrf_token %}
+      <p>
+        <label><input type="checkbox" name="confirm" value="1" required /> Confirm {{ verb|default:"delete"|lower }}</label>
+      </p>
+      <button class="btn btn--danger" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+        {{ verb|default:"Delete" }}
+      </button>
+    </form>
+  </section>
+{% endblock %}

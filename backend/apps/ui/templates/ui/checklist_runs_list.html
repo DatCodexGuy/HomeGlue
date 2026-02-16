@@ -1,0 +1,64 @@
+{% extends "ui/base.html" %}
+{% load ui_extras %}
+{% block title %}Checklist Runs | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    {% include "ui/_list_header.html" with title="Checklist Runs" subtitle="Execution instances (track completion and due dates)." new_url=new_url %}
+
+    <div class="viewbar" style="margin-top:10px">
+      <div class="viewbar__left">
+        <div class="viewbar__label">Status</div>
+        <div class="viewbar__pills">
+          <a class="pill pill--tiny {% if not status %}pill--active{% endif %}" href="{% url 'ui:checklist_runs_list' %}">All</a>
+          <a class="pill pill--tiny {% if status == 'open' %}pill--active{% endif %}" href="{% url 'ui:checklist_runs_list' %}?status=open">Open</a>
+          <a class="pill pill--tiny {% if status == 'done' %}pill--active{% endif %}" href="{% url 'ui:checklist_runs_list' %}?status=done">Done</a>
+          <a class="pill pill--tiny {% if status == 'canceled' %}pill--active{% endif %}" href="{% url 'ui:checklist_runs_list' %}?status=canceled">Canceled</a>
+          <span class="dot"></span>
+          <a class="pill pill--tiny {% if not show_archived %}pill--active{% endif %}" href="{{ active_url }}">Active</a>
+          <a class="pill pill--tiny {% if show_archived %}pill--active{% endif %}" href="{{ archived_url }}">Archived</a>
+        </div>
+      </div>
+      <div class="viewbar__right">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:checklists_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Checklists
+        </a>
+      </div>
+    </div>
+
+    <form class="search" method="get">
+      {% if status %}<input type="hidden" name="status" value="{{ status }}" />{% endif %}
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search runs..." />
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Search
+      </button>
+    </form>
+
+    <div class="table">
+      <div class="row row--head" style="grid-template-columns:2.3fr 1.1fr 1fr 1fr 1fr">
+        <div>Name</div><div>Checklist</div><div>Due</div><div>Progress</div><div>Status</div>
+      </div>
+      {% for r in runs %}
+        {% with c=counts|get_item:r.id %}
+          <a class="row row--click" style="grid-template-columns:2.3fr 1.1fr 1fr 1fr 1fr" href="{% url 'ui:checklist_run_detail' run_id=r.id %}">
+            <div class="cell-split">
+              <span class="mono">{{ r.name }}</span>
+              {% if r.assigned_to %}<span class="pill pill--tiny">{{ r.assigned_to.username }}</span>{% endif %}
+            </div>
+            <div class="muted">{% if r.checklist %}{{ r.checklist.name }}{% else %}...{% endif %}</div>
+            <div class="muted">{% if r.due_on %}{{ r.due_on|date:"Y-m-d" }}{% else %}...{% endif %}</div>
+            <div class="muted">{% if c %}{{ c.done }}/{{ c.total }}{% else %}0/0{% endif %}</div>
+            <div><span class="pill pill--tiny">{{ r.status }}</span></div>
+          </a>
+        {% endwith %}
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No runs yet</div>
+          <div class="empty__body">Start a run from a checklist, or <a class="link" href="{% url 'ui:checklist_runs_new' %}">create one</a>.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

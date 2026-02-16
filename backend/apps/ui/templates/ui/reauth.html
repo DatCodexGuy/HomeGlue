@@ -1,0 +1,35 @@
+{% extends "ui/base.html" %}
+{% block title %}Re-authenticate | HomeGlue{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Re-authenticate</h1>
+        <div class="sub">Confirm your password to continue.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{{ next_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Cancel
+        </a>
+      </div>
+    </div>
+
+    {% if error %}
+      <div class="warn" style="margin-bottom:14px">
+        <div class="warn__title">Re-auth failed</div>
+        <div class="warn__body">{{ error }}</div>
+      </div>
+    {% endif %}
+
+    <form method="post" class="form form--grid">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button class="btn" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+        Continue
+      </button>
+    </form>
+  </section>
+{% endblock %}
+

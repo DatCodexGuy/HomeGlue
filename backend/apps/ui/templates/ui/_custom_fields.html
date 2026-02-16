@@ -1,0 +1,47 @@
+{% load ui_extras %}
+{% if custom_fields %}
+  <div class="mini">
+    <form method="post" class="form form--grid">
+      {% csrf_token %}
+      <input type="hidden" name="_action" value="save_custom_fields" />
+      {% for f in custom_fields %}
+        {% with val=custom_values|get_item:f.id %}
+          <p>
+            <label for="id_cf_{{ f.id }}">{{ f.name }}</label>
+            {% if f.field_type == "textarea" %}
+              <textarea name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" rows="5">{% if val %}{{ val }}{% endif %}</textarea>
+            {% elif f.field_type == "number" %}
+              <input type="number" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+            {% elif f.field_type == "date" %}
+              <input type="date" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+            {% elif f.field_type == "url" %}
+              <input type="url" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+            {% elif f.field_type == "boolean" %}
+              <div style="padding-top:10px">
+                <label style="text-transform:none; letter-spacing:0; font-family:var(--ui); display:flex; gap:10px; align-items:center">
+                  <input type="checkbox" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="1" {% if val %}checked{% endif %} />
+                  <span class="muted">{% if f.help_text %}{{ f.help_text }}{% else %}Enabled{% endif %}</span>
+                </label>
+              </div>
+            {% else %}
+              <input type="text" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+            {% endif %}
+            {% if f.help_text and f.field_type != "boolean" %}<span class="helptext">{{ f.help_text }}</span>{% endif %}
+          </p>
+        {% endwith %}
+      {% endfor %}
+      <button class="btn" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+        Save custom fields
+      </button>
+    </form>
+  </div>
+{% else %}
+  <div class="muted">No custom fields defined for this object type yet.</div>
+  <div style="margin-top:10px">
+    <a class="btn btn--ghost btn--sm" href="{% url 'ui:custom_fields_list' %}">
+      <svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>
+      Manage custom fields
+    </a>
+  </div>
+{% endif %}

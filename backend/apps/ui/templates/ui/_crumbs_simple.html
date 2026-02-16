@@ -1,0 +1,11 @@
+<div class="crumbs">
+  {% for c in crumbs %}
+    {% if c.url %}
+      <a class="crumbs__link" href="{{ c.url }}">{{ c.label }}</a>
+    {% else %}
+      <span class="crumbs__here">{{ c.label }}</span>
+    {% endif %}
+    {% if not forloop.last %}<span class="crumbs__sep">/</span>{% endif %}
+  {% endfor %}
+</div>
+

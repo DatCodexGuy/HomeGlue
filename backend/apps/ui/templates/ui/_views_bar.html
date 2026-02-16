@@ -1,0 +1,23 @@
+{% if saved_views or save_view_url %}
+  <div class="viewbar">
+    <div class="viewbar__left">
+      <div class="viewbar__label">Views</div>
+      <div class="viewbar__pills">
+        {% for v in saved_views %}
+          <a class="pill pill--tiny {% if active_view and active_view.id == v.id %}pill--active{% endif %}" href="{{ clear_view_url }}?view={{ v.id }}">{{ v.name }}</a>
+        {% empty %}
+          <span class="muted">No saved views yet.</span>
+        {% endfor %}
+        {% if active_view %}
+          <a class="pill pill--tiny pill--ghost" href="{{ clear_view_url }}">Clear</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="viewbar__right">
+      <a class="btn btn--ghost btn--sm" href="{{ save_view_url }}">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+        Save current
+      </a>
+    </div>
+  </div>
+{% endif %}

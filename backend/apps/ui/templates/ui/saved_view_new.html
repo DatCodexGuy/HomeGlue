@@ -1,0 +1,37 @@
+{% extends "ui/base.html" %}
+{% block title %}{{ title }} | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% if crumbs %}{% include "ui/_crumbs_simple.html" with crumbs=crumbs %}{% endif %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ title }}</h1>
+        <div class="sub">Saving a view for <strong>{{ model_label }}</strong> in <strong>{{ org.name }}</strong>.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:saved_views_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    <div class="mini" style="margin-bottom:12px">
+      <div class="muted">Filter snapshot:</div>
+      <div class="mono" style="margin-top:6px">{% if q %}q={{ q }}{% else %}None{% endif %}</div>
+    </div>
+
+    <form method="post" class="form form--grid">
+      {% csrf_token %}
+      <input type="hidden" name="model_key" value="{{ model_key }}" />
+      <input type="hidden" name="q" value="{{ q }}" />
+      {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}" />{% endif %}
+      {{ form.as_p }}
+      <button class="btn" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+        Save view
+      </button>
+    </form>
+  </section>
+{% endblock %}
+

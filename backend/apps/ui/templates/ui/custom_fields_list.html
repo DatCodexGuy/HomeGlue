@@ -1,0 +1,32 @@
+{% extends "ui/base.html" %}
+{% block title %}Custom Fields | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    {% include "ui/_list_header.html" with title="Custom Fields" subtitle="Define extra fields per object type for this org." new_url=custom_fields_new_url %}
+
+    <div class="table">
+      <div class="row row--head">
+        <div>Name</div><div>Key</div><div>Type</div><div>Applies to</div>
+      </div>
+      {% for f in fields %}
+        <a class="row" href="{% url 'ui:custom_field_detail' field_id=f.id %}">
+          <div class="mono">{{ f.name }}</div>
+          <div class="muted mono">{{ f.key }}</div>
+          <div>{{ f.get_field_type_display }}</div>
+          <div class="muted mono">
+            {{ f.content_type.app_label }}.{{ f.content_type.model }}
+            {% if f.flexible_asset_type_id %}
+              <span class="pill pill--tiny pill--ghost">type: {{ f.flexible_asset_type.name }}</span>
+            {% endif %}
+          </div>
+        </a>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No custom fields yet</div>
+          <div class="empty__body"><a class="link" href="{% url 'ui:custom_fields_new' %}">Create your first custom field</a>.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

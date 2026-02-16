@@ -1,0 +1,45 @@
+{% extends "ui/base.html" %}
+{% block title %}Webhook Endpoints | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Webhook endpoints</h1>
+        <div class="sub">Send workflow notifications to external systems.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:workflows_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <a class="btn btn--sm" href="{{ new_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+          New webhook
+        </a>
+      </div>
+    </div>
+
+    <div class="table">
+      <div class="row row--head" style="grid-template-columns:2fr 2.6fr 1fr 1fr">
+        <div>Name</div><div>URL</div><div>SSL</div><div>Status</div>
+      </div>
+      {% for ep in items %}
+        <div class="row row--click" style="grid-template-columns:2fr 2.6fr 1fr 1fr" data-href="{% url 'ui:webhook_endpoint_detail' endpoint_id=ep.id %}">
+          <div class="titlecell">
+            <a class="row__link" href="{% url 'ui:webhook_endpoint_detail' endpoint_id=ep.id %}">{{ ep.name }}</a>
+          </div>
+          <div class="muted mono" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ ep.url }}</div>
+          <div class="muted">{% if ep.verify_ssl %}verify{% else %}skip{% endif %}</div>
+          <div>{% if ep.enabled %}<span class="pill pill--tiny">On</span>{% else %}<span class="pill pill--tiny pill--ghost">Off</span>{% endif %}</div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No webhook endpoints</div>
+          <div class="empty__body"><a class="link" href="{{ new_url }}">Create a webhook</a> to push notifications externally.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+

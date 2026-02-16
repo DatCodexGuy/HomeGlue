@@ -1,0 +1,55 @@
+{% extends "ui/base.html" %}
+{% block title %}Import Domains | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Import domains (CSV)</h1>
+        <div class="sub">Upsert by domain name within {{ org.name }}.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:domains_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    <div class="warn">
+      <div class="warn__title">CSV format</div>
+      <div class="warn__body">
+        Headers:
+        <span class="mono" data-copy>name,status,registrar,dns_provider,expires_on,auto_renew,notes</span>
+        <div class="muted" style="margin-top:6px">Dates must be ISO (<span class="mono">YYYY-MM-DD</span>). auto_renew accepts true/false, yes/no, 1/0.</div>
+      </div>
+    </div>
+
+    <form method="post" class="form" enctype="multipart/form-data">
+      {% csrf_token %}
+      <p>
+        <label for="id_file">CSV file</label>
+        <input id="id_file" type="file" name="file" accept=".csv,text/csv" required />
+      </p>
+      <button class="btn" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+        Import
+      </button>
+    </form>
+
+    {% if created is not None %}
+      <div class="mini" style="margin-top:16px">
+        <div class="mini__row"><span class="mono">Created</span> <span class="pill pill--tiny">{{ created }}</span></div>
+        <div class="mini__row"><span class="mono">Updated</span> <span class="pill pill--tiny">{{ updated }}</span></div>
+      </div>
+    {% endif %}
+
+    {% if errors %}
+      <div class="mini" style="margin-top:16px">
+        {% for e in errors %}
+          <div class="mini__row">{{ e }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+{% endblock %}
