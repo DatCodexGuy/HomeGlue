@@ -23,9 +23,9 @@ py_rand() {
 import base64, secrets, sys
 mode = sys.argv[1] if len(sys.argv) > 1 else "token"
 if mode == "django_secret":
-  # Good-enough secret key (same character set as Django's startproject).
-  alphabet = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)"
-  print("".join(secrets.choice(alphabet) for _ in range(60)))
+  # Generate a Django SECRET_KEY that won't trigger docker compose variable interpolation warnings.
+  # (Avoid `$` and other shell-ish characters. token_urlsafe only uses [A-Za-z0-9_-].)
+  print(secrets.token_urlsafe(48))
 elif mode == "fernet":
   print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii"))
 else:
@@ -163,7 +163,7 @@ for i in {1..30}; do
 done
 
 echo "[3/4] Running migrations..."
-compose exec -T web python manage.py migrate --noinput
+compose exec -T web python manage.py migrate_with_lock
 
 echo "[4/4] Ensuring default superuser exists..."
 compose exec -T web python manage.py shell -c "import os; from django.contrib.auth import get_user_model; User=get_user_model(); u=os.environ.get('DJANGO_SUPERUSER_USERNAME','admin'); e=os.environ.get('DJANGO_SUPERUSER_EMAIL','admin@example.local'); p=os.environ.get('DJANGO_SUPERUSER_PASSWORD',''); obj, created = User.objects.get_or_create(username=u, defaults={'email': e}); obj.email = e; obj.is_staff = True; obj.is_superuser = True;  created and obj.set_password(p); obj.save(); print('created' if created else 'updated (password unchanged)')"
