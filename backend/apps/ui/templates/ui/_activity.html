@@ -3,7 +3,9 @@
     {% for e in activity %}
       <div class="mini__row">
         <div class="mini__top">
-          <span class="pill pill--tiny" title="{{ e.action_badge }}">{{ e.action_label|default:e.action }}</span>
+          <span class="pill pill--tiny" title="{% if e.action_badge %}{{ e.action_badge }}{% else %}{{ e.action }}{% endif %}">
+            {% if e.action_label %}{{ e.action_label }}{% else %}{{ e.action }}{% endif %}
+          </span>
           <span class="muted">{{ e.ts|date:"Y-m-d H:i" }}</span>
         </div>
         <div class="mini__body">
