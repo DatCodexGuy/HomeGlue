@@ -547,6 +547,11 @@ class SystemSettings(models.Model):
     trust_x_forwarded_for = models.BooleanField(default=False)
     trusted_proxy_cidrs = models.TextField(blank=True, default="", help_text="Comma-separated CIDRs/IPs.")
 
+    # Browser/API security controls (non-secret).
+    # These can be applied dynamically per request (see DynamicDbSettingsMiddleware).
+    cors_allowed_origins = models.TextField(blank=True, default="", help_text="Comma-separated origins (e.g. https://app.example.com).")
+    csrf_trusted_origins = models.TextField(blank=True, default="", help_text="Comma-separated origins (e.g. https://homeglue.example.com).")
+
     # Email settings.
     # We support env-backed defaults, but allow a DB-backed override for convenience.
     EMAIL_SOURCE_ENV = "env"

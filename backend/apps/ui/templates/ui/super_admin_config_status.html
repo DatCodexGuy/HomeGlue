@@ -140,7 +140,7 @@
             </div>
           </div>
           <div class="muted" style="margin-top:8px">
-            Note: the <a class="link" href="{% url 'ui:super_admin_system_settings' %}">System settings</a> page can override Base URL and IP access control in DB.
+            Note: the <a class="link" href="{% url 'ui:super_admin_system_settings' %}">System settings</a> page can override Base URL, IP access control, and CORS/CSRF origins in DB.
           </div>
         </div>
 
@@ -156,6 +156,12 @@
             <div class="muted">CORS_ALLOWED_ORIGINS</div>
             <div class="mono">
               {% for o in hosts.cors_allowed_origins %}<span class="pill pill--tiny">{{ o }}</span>{% empty %}(none){% endfor %}
+            </div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">CSRF_TRUSTED_ORIGINS</div>
+            <div class="mono">
+              {% for o in hosts.csrf_trusted_origins %}<span class="pill pill--tiny">{{ o }}</span>{% empty %}(none){% endfor %}
             </div>
           </div>
         </div>

@@ -2140,9 +2140,17 @@ def super_admin_setup(request: HttpRequest) -> HttpResponse:
             base_url = (request.POST.get("base_url") or "").strip().rstrip("/")
             ip_allowlist = (request.POST.get("ip_allowlist") or "").strip()
             ip_blocklist = (request.POST.get("ip_blocklist") or "").strip()
+            trust = (request.POST.get("trust_x_forwarded_for") or "").strip() == "1"
+            proxies = (request.POST.get("trusted_proxy_cidrs") or "").strip()
+            cors_allowed_origins = (request.POST.get("cors_allowed_origins") or "").strip()
+            csrf_trusted_origins = (request.POST.get("csrf_trusted_origins") or "").strip()
             sys_obj.base_url = base_url
             sys_obj.ip_allowlist = ip_allowlist
             sys_obj.ip_blocklist = ip_blocklist
+            sys_obj.trust_x_forwarded_for = trust
+            sys_obj.trusted_proxy_cidrs = proxies
+            sys_obj.cors_allowed_origins = cors_allowed_origins
+            sys_obj.csrf_trusted_origins = csrf_trusted_origins
             sys_obj.save()
             _set_flash(title="Saved", body="System settings saved.")
             return redirect(reverse("ui:super_admin_setup") + "?step=3")
@@ -2303,7 +2311,9 @@ def super_admin_config_status(request: HttpRequest) -> HttpResponse:
 
     # Host/CORS
     allowed_hosts = list(getattr(settings, "ALLOWED_HOSTS", []) or [])
+    # Note: CORS/CSRF can be DB-overridden via DynamicDbSettingsMiddleware.
     cors_allowed_origins = list(getattr(settings, "CORS_ALLOWED_ORIGINS", []) or [])
+    csrf_trusted_origins = list(getattr(settings, "CSRF_TRUSTED_ORIGINS", []) or [])
 
     if request.method == "POST" and request.POST.get("_action") == "send_test_email":
         to_addr = (request.POST.get("to") or "").strip()
@@ -2365,7 +2375,7 @@ def super_admin_config_status(request: HttpRequest) -> HttpResponse:
                 "base_url_env": base_url_env,
                 "base_url_effective": get_base_url(),
             },
-            "hosts": {"allowed_hosts": allowed_hosts, "cors_allowed_origins": cors_allowed_origins},
+            "hosts": {"allowed_hosts": allowed_hosts, "cors_allowed_origins": cors_allowed_origins, "csrf_trusted_origins": csrf_trusted_origins},
         },
     )
 
@@ -2940,11 +2950,15 @@ def super_admin_system_settings(request: HttpRequest) -> HttpResponse:
         ip_blocklist = (request.POST.get("ip_blocklist") or "").strip()
         trust = (request.POST.get("trust_x_forwarded_for") or "").strip() == "1"
         proxies = (request.POST.get("trusted_proxy_cidrs") or "").strip()
+        cors_allowed_origins = (request.POST.get("cors_allowed_origins") or "").strip()
+        csrf_trusted_origins = (request.POST.get("csrf_trusted_origins") or "").strip()
         obj.base_url = base_url
         obj.ip_allowlist = ip_allowlist
         obj.ip_blocklist = ip_blocklist
         obj.trust_x_forwarded_for = trust
         obj.trusted_proxy_cidrs = proxies
+        obj.cors_allowed_origins = cors_allowed_origins
+        obj.csrf_trusted_origins = csrf_trusted_origins
         obj.save()
         saved = True
         _audit_event(
@@ -2953,7 +2967,7 @@ def super_admin_system_settings(request: HttpRequest) -> HttpResponse:
             action=AuditEvent.ACTION_UPDATE,
             model="system.SystemSettings",
             object_pk=str(obj.id),
-            summary="Updated system settings (base url / ip access control).",
+            summary="Updated system settings (base url / ip access control / cors / csrf).",
         )
 
     return render(
@@ -2962,7 +2976,20 @@ def super_admin_system_settings(request: HttpRequest) -> HttpResponse:
         {
             "org": org,
             "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("System settings", None)),
-            "obj": obj or type("Tmp", (), {"base_url": "", "ip_allowlist": "", "ip_blocklist": "", "trust_x_forwarded_for": False, "trusted_proxy_cidrs": ""})(),
+            "obj": obj
+            or type(
+                "Tmp",
+                (),
+                {
+                    "base_url": "",
+                    "ip_allowlist": "",
+                    "ip_blocklist": "",
+                    "trust_x_forwarded_for": False,
+                    "trusted_proxy_cidrs": "",
+                    "cors_allowed_origins": "",
+                    "csrf_trusted_origins": "",
+                },
+            )(),
             "saved": saved,
             "error": error,
         },

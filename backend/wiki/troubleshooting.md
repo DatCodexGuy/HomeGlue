@@ -77,9 +77,10 @@ docker compose exec -T web sh -lc 'id && umask'
 
 ## Email notifications don’t send
 
-- Ensure email is enabled and configured in `.env`
+- Ensure email is enabled and configured (UI or `.env`).
 - Use the in-app test:
-  - `/app/admin/config/`
+  - `/app/admin/email/` (DB-backed email settings + test send)
+  - `/app/admin/config/` (read-only env config page + basic tests)
 
 Then check:
 
@@ -103,6 +104,7 @@ docker compose up -d --build
 If you are behind a reverse proxy:
 
 - you must configure trusted proxies (`HOMEGLUE_TRUST_X_FORWARDED_FOR` + `HOMEGLUE_TRUSTED_PROXY_CIDRS`) or the app will evaluate the proxy IP instead of the client IP.
+- if you see CSRF errors, configure CSRF trusted origins (UI: `/app/admin/system/`).
 
 ## Proxmox sync does not show anything
 
@@ -122,4 +124,3 @@ And check worker logs:
 ```bash
 docker compose logs --tail=300 worker
 ```
-

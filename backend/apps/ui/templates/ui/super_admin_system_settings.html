@@ -81,6 +81,34 @@
             </div>
           </form>
         </div>
+
+        <h3 class="h3" style="margin-top:16px">Browser / Reverse Proxy Origins</h3>
+        <div class="mini">
+          <div class="muted">
+            These are used when HomeGlue is accessed behind a reverse proxy or from a different origin.
+            Changes apply immediately (no container restart).
+          </div>
+          <form method="post" style="margin-top:10px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="save" />
+            <label class="field">
+              <div class="field__label">CORS Allowed Origins (comma-separated)</div>
+              <textarea class="input" name="cors_allowed_origins" rows="2" placeholder="https://homeglue.example.com">{{ obj.cors_allowed_origins }}</textarea>
+              <div class="muted">Only needed for cross-origin browser/API clients.</div>
+            </label>
+            <label class="field" style="margin-top:10px">
+              <div class="field__label">CSRF Trusted Origins (comma-separated)</div>
+              <textarea class="input" name="csrf_trusted_origins" rows="2" placeholder="https://homeglue.example.com">{{ obj.csrf_trusted_origins }}</textarea>
+              <div class="muted">If you see CSRF errors behind a proxy, add your public URL here.</div>
+            </label>
+            <div style="margin-top:10px">
+              <button class="btn" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <div class="split__side">
@@ -98,4 +126,3 @@
     </div>
   </section>
 {% endblock %}
-

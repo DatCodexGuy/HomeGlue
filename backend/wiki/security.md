@@ -6,7 +6,12 @@ This page documents the security posture and key security-related features.
 
 HomeGlue supports optional IP allowlist/blocklist enforcement for the entire app (UI + API).
 
-Environment variables:
+Configuration:
+
+- Recommended: configure via the UI at `Admin -> System settings` (`/app/admin/system/`).
+- Alternatively: configure via env vars in `.env` and restart containers.
+
+Environment variables (env-backed):
 
 - `HOMEGLUE_IP_ALLOWLIST`: comma-separated CIDRs/IPs. If set, only these IPs are allowed.
 - `HOMEGLUE_IP_BLOCKLIST`: comma-separated CIDRs/IPs. Always denied (even if in allowlist).
@@ -30,6 +35,20 @@ HOMEGLUE_TRUSTED_PROXY_CIDRS=10.0.0.0/24
 ```
 
 Only requests coming from a trusted proxy IP will use `X-Forwarded-For` for access control/audit.
+
+## CORS / CSRF (Reverse Proxies)
+
+If HomeGlue is behind a reverse proxy and you see CSRF errors, configure:
+
+- `CSRF Trusted Origins`
+- `CORS Allowed Origins` (only needed for cross-origin browser/API clients)
+
+These can be set in the UI at `Admin -> System settings` (`/app/admin/system/`), or via env vars:
+
+```text
+HOMEGLUE_CORS_ALLOWED_ORIGINS=https://homeglue.example.com
+HOMEGLUE_CSRF_TRUSTED_ORIGINS=https://homeglue.example.com
+```
 
 ## Single Sign-On (OIDC)
 

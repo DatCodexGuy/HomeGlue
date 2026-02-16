@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "apps.core.middleware.DynamicDbSettingsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "apps.core.middleware.IpAccessControlMiddleware",
@@ -117,6 +118,7 @@ MEDIA_ROOT = "/data/media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = [o.strip() for o in env("HOMEGLUE_CORS_ALLOWED_ORIGINS", default="").split(",") if o.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in env("HOMEGLUE_CSRF_TRUSTED_ORIGINS", default="").split(",") if o.strip()]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

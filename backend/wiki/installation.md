@@ -65,13 +65,17 @@ docker compose exec -T web python manage.py migrate --noinput
 
 ## Configuration Basics
 
-HomeGlue reads configuration from `.env` in the repo root.
+HomeGlue reads configuration from `.env` in the repo root, but many day-to-day settings can be configured from the UI.
 
 The most common settings:
 
 - `HOMEGLUE_PORT` (host port, default `8080`)
 - `HOMEGLUE_ALLOWED_HOSTS` (set this for your hostname/IP)
 - `HOMEGLUE_BASE_URL` (optional; used for building absolute links in notifications)
+
+UI-based system settings (superuser-only):
+
+- `/app/admin/system/` (Base URL, IP allow/block lists, proxy trust, CORS/CSRF origins)
 
 ## Upgrade
 
@@ -104,4 +108,3 @@ To remove containers and volumes (this deletes your DB and uploaded media):
 cd /opt/homeglue
 docker compose down -v
 ```
-

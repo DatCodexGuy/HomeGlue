@@ -66,6 +66,20 @@ def get_trusted_proxy_cidrs_raw() -> str:
     return (getattr(settings, "HOMEGLUE_TRUSTED_PROXY_CIDRS", "") or "").strip()
 
 
+def get_cors_allowed_origins_raw() -> str:
+    obj = get_system_settings()
+    if obj and getattr(obj, "cors_allowed_origins", "").strip():
+        return str(obj.cors_allowed_origins).strip()
+    return (getattr(settings, "HOMEGLUE_CORS_ALLOWED_ORIGINS", "") or "").strip()
+
+
+def get_csrf_trusted_origins_raw() -> str:
+    obj = get_system_settings()
+    if obj and getattr(obj, "csrf_trusted_origins", "").strip():
+        return str(obj.csrf_trusted_origins).strip()
+    return (getattr(settings, "HOMEGLUE_CSRF_TRUSTED_ORIGINS", "") or "").strip()
+
+
 def get_email_settings() -> dict[str, object]:
     """
     Return effective email settings.

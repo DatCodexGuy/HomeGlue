@@ -41,6 +41,7 @@ Currently supports:
 - Base URL (used to generate absolute links in notifications)
 - IP allowlist/blocklist
 - Trusted proxies settings for `X-Forwarded-For`
+- CORS allowed origins + CSRF trusted origins (reverse proxy support)
 
 Secrets are intentionally kept out of DB-backed settings; use `.env` for secrets.
 
