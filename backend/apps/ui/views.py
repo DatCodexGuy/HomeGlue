@@ -614,147 +614,10 @@ def _render_markdown_simple(md: str) -> str:
     Prefers Python-Markdown + bleach sanitization; falls back to a minimal safe renderer.
     """
 
-    md = md or ""
-    try:
-        import markdown as mdlib
-        import bleach
-
-        html_out = mdlib.markdown(
-            md,
-            extensions=[
-                "fenced_code",
-                "tables",
-                "sane_lists",
-                "nl2br",
-            ],
-            output_format="html5",
-        )
-        allowed_tags = [
-            "p",
-            "br",
-            "hr",
-            "h1",
-            "h2",
-            "h3",
-            "h4",
-            "h5",
-            "h6",
-            "blockquote",
-            "ul",
-            "ol",
-            "li",
-            "strong",
-            "em",
-            "code",
-            "pre",
-            "table",
-            "thead",
-            "tbody",
-            "tr",
-            "th",
-            "td",
-            "a",
-        ]
-        allowed_attrs = {
-            "a": ["href", "title", "rel"],
-            "th": ["colspan", "rowspan"],
-            "td": ["colspan", "rowspan"],
-            "code": ["class"],
-            "pre": ["class"],
-        }
-        cleaned = bleach.clean(
-            html_out,
-            tags=allowed_tags,
-            attributes=allowed_attrs,
-            protocols=["http", "https", "mailto"],
-            strip=True,
-        )
-        cleaned = bleach.linkify(cleaned, skip_tags=["pre", "code"])
-        cleaned = _rewrite_wiki_internal_links(cleaned)
-        return cleaned
-    except Exception:
-        pass
-
-    # Fallback: minimal renderer.
-    lines = md.splitlines()
-
-    out: list[str] = []
-    in_code = False
-    code_lines: list[str] = []
-    in_list = False
-    paragraph: list[str] = []
-
-    def _close_list():
-        nonlocal in_list
-        if in_list:
-            out.append("</ul>")
-            in_list = False
-
-    def _close_code():
-        nonlocal in_code, code_lines
-        if in_code:
-            code = "\n".join(code_lines)
-            out.append('<pre class="code"><code>')
-            out.append(html.escape(code))
-            out.append("</code></pre>")
-            in_code = False
-            code_lines = []
-
-    def _flush_paragraph():
-        nonlocal paragraph
-        if not paragraph:
-            return
-        _close_list()
-        text = " ".join([x.strip() for x in paragraph]).strip()
-        if text:
-            out.append(f"<p>{html.escape(text)}</p>")
-        paragraph = []
-
-    for raw in lines:
-        line = raw.rstrip("\n")
-        if line.strip().startswith("```"):
-            _flush_paragraph()
-            if in_code:
-                _close_code()
-            else:
-                _close_list()
-                in_code = True
-                code_lines = []
-            continue
-
-        if in_code:
-            code_lines.append(line)
-            continue
-
-        s = line.strip()
-        if not s:
-            _flush_paragraph()
-            continue
-
-        if s.startswith("#"):
-            _flush_paragraph()
-            _close_list()
-            n = len(s) - len(s.lstrip("#"))
-            n = max(1, min(4, n))
-            title = s.lstrip("#").strip()
-            out.append(f"<h{n}>{html.escape(title)}</h{n}>")
-            continue
-
-        if s.startswith("- "):
-            _flush_paragraph()
-            if not in_list:
-                out.append("<ul>")
-                in_list = True
-            item = s[2:].strip()
-            out.append(f"<li>{html.escape(item)}</li>")
-            continue
-
-        paragraph.append(line)
-
-    _flush_paragraph()
-    _close_list()
-    _close_code()
-    return "\n".join(out).strip()
+    # Use the same safe renderer as user-entered markdown (Docs/Notes/etc),
+    # then rewrite relative wiki links to in-app routes.
+    cleaned = render_markdown(md or "")
+    return _rewrite_wiki_internal_links(cleaned)
 
 
 def _wiki_pages_index() -> list[dict]:
@@ -1013,6 +876,55 @@ def _fts_ranked(qs, *, q: str, vector, rank_field: str = "_fts_rank"):
         return qs
     except Exception:
         return qs
+
+
+def _snippet_html_from_headline(raw: str) -> str:
+    """
+    Convert a Postgres SearchHeadline() string to safe HTML.
+
+    We avoid trusting DB-returned headline HTML by using marker tokens
+    in the DB expression and converting them to <mark> after escaping.
+    """
+
+    s = str(raw or "")
+    if not s.strip():
+        return ""
+    # Escape any user content, then translate our highlight markers.
+    s = html.escape(s)
+    s = s.replace("[[[", "<mark>").replace("]]]", "</mark>")
+    return s
+
+
+def _snippet_html_from_text(text: str, q: str, *, max_len: int = 180) -> str:
+    """
+    Fallback snippet builder for non-Postgres DBs.
+    Escapes everything and highlights the first match (case-insensitive).
+    """
+
+    t = str(text or "").strip()
+    needle = (q or "").strip()
+    if not t or not needle:
+        return ""
+    lt = t.lower()
+    ln = needle.lower()
+    i = lt.find(ln)
+    if i < 0:
+        # No match; return a small escaped prefix.
+        return html.escape(t[:max_len]) + ("..." if len(t) > max_len else "")
+    start = max(i - (max_len // 3), 0)
+    end = min(start + max_len, len(t))
+    frag = t[start:end]
+    # Highlight first occurrence within frag.
+    lfrag = frag.lower()
+    j = lfrag.find(ln)
+    if j < 0:
+        return html.escape(frag) + ("..." if end < len(t) else "")
+    before = html.escape(frag[:j])
+    hit = html.escape(frag[j : j + len(needle)])
+    after = html.escape(frag[j + len(needle) :])
+    prefix = "..." if start > 0 else ""
+    suffix = "..." if end < len(t) else ""
+    return f"{prefix}{before}<mark>{hit}</mark>{after}{suffix}"
 
 
 def _qs_suffix(request: HttpRequest) -> str:

@@ -43,6 +43,29 @@ ALLOWED_ATTRS: Final[dict[str, list[str]]] = {
 }
 
 
+# In code blocks we want copy/paste-friendly text. Python-Markdown emits &quot; inside code;
+# browsers typically render it fine, but downstream escaping/copy flows can surface the entity.
+_CODE_TAG_RE: Final[re.Pattern[str]] = re.compile(r"(<code\b[^>]*>)(.*?)(</code>)", re.IGNORECASE | re.DOTALL)
+
+
+def _fix_code_entities(html_in: str) -> str:
+    """
+    Convert quote entities inside <code>...</code> back to literal quotes.
+
+    Important: we do NOT unescape < or &; only quotes, to avoid turning code into HTML.
+    """
+
+    def _repl(m: re.Match) -> str:
+        head, body, tail = m.group(1), m.group(2), m.group(3)
+        body = body or ""
+        # linkify() can cause these entities to be double-escaped as &amp;quot; inside <code>.
+        body = body.replace("&amp;quot;", '"').replace("&quot;", '"').replace("&amp;#34;", '"').replace("&#34;", '"').replace("&amp;#x22;", '"').replace("&#x22;", '"')
+        body = body.replace("&amp;#39;", "'").replace("&#39;", "'").replace("&amp;#x27;", "'").replace("&#x27;", "'")
+        return f"{head}{body}{tail}"
+
+    return _CODE_TAG_RE.sub(_repl, html_in or "")
+
+
 def render_markdown(md: str) -> str:
     """
     Safe Markdown -> HTML renderer (Python-Markdown + bleach sanitization).
@@ -72,10 +95,10 @@ def render_markdown(md: str) -> str:
             strip=True,
         )
         cleaned = bleach.linkify(cleaned, skip_tags=["pre", "code"])
-        return cleaned
+        return _fix_code_entities(cleaned)
     except Exception:
         # Fallback: minimal renderer (headings, bullets, code fences, paragraphs).
-        return _render_markdown_minimal(md)
+        return _fix_code_entities(_render_markdown_minimal(md))
 
 
 def _render_markdown_minimal(md: str) -> str:
@@ -98,7 +121,8 @@ def _render_markdown_minimal(md: str) -> str:
         if in_code:
             code = "\n".join(code_lines)
             out.append('<pre class="code"><code>')
-            out.append(html.escape(code))
+            # Keep quotes literal for readability/copy-paste; still escape < and &.
+            out.append(html.escape(code, quote=False))
             out.append("</code></pre>")
             in_code = False
             code_lines = []
@@ -158,4 +182,3 @@ def _render_markdown_minimal(md: str) -> str:
     _close_list()
     _close_code()
     return "\n".join(out).strip()
-
