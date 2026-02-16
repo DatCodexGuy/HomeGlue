@@ -124,15 +124,17 @@
 
     <div class="table">
       <div class="row row--head" style="grid-template-columns:0.9fr 0.7fr 1fr 0.7fr 0.7fr 0.7fr 2fr">
-        <div>When</div><div>Action</div><div>Model</div><div>PK</div><div>User</div><div>IP</div><div>Summary</div>
+        <div>When</div><div>Action</div><div>Target</div><div>PK</div><div>Actor</div><div>IP</div><div>Summary</div>
       </div>
       {% for e in items %}
         <div class="row" style="grid-template-columns:0.9fr 0.7fr 1fr 0.7fr 0.7fr 0.7fr 2fr">
           <div class="mono muted">{{ e.ts|date:"Y-m-d H:i:s" }}</div>
-          <div><span class="pill pill--tiny">{{ e.action }}</span></div>
-          <div class="mono">{{ e.model }}</div>
+          <div>
+            <span class="pill pill--tiny" title="{{ e.action_badge }}">{{ e.action_label }}</span>
+          </div>
+          <div class="mono" title="{{ e.model_raw }}">{{ e.model_label }}</div>
           <div class="mono">{{ e.object_pk }}</div>
-          <div class="mono">{% if e.user %}{{ e.user.username }}{% else %}system{% endif %}</div>
+          <div class="mono">{{ e.actor_label }}</div>
           <div class="mono muted">{{ e.ip|default:"..." }}</div>
           <div class="muted">{{ e.summary|default:"..." }}</div>
         </div>

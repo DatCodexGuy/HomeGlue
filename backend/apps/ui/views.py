@@ -1264,6 +1264,46 @@ def _activity_for_object(*, org, model_cls, obj_id: int, limit: int = 20) -> lis
     )
 
 
+def _human_model_label(model: str) -> str:
+    raw = (model or "").strip()
+    if "." in raw:
+        app, name = raw.split(".", 1)
+    else:
+        app, name = "system", raw
+    app_labels = {
+        "core": "Core",
+        "assets": "Assets",
+        "people": "People",
+        "docsapp": "Docs",
+        "secretsapp": "Passwords",
+        "netapp": "Network",
+        "checklists": "Checklists",
+        "flexassets": "Flexible Assets",
+        "integrations": "Integrations",
+        "workflows": "Workflows",
+        "backups": "Backups",
+        "audit": "Audit",
+        "security": "Security",
+        "versionsapp": "Versions",
+        "system": "System",
+    }
+    app_label = app_labels.get(app.lower(), app.replace("_", " ").title())
+    # Convert CamelCase / snake_case -> title words.
+    nice = re.sub(r"(?<!^)([A-Z])", r" \1", name).replace("_", " ").strip().title()
+    if not nice:
+        nice = name or "Event"
+    return f"{app_label} / {nice}"
+
+
+def _human_action_label(action: str) -> str:
+    val = (action or "").strip().lower()
+    return {
+        AuditEvent.ACTION_CREATE: "Created",
+        AuditEvent.ACTION_UPDATE: "Updated",
+        AuditEvent.ACTION_DELETE: "Deleted",
+    }.get(val, (action or "Event").title())
+
+
 def _versions_for_object(*, org, obj, limit: int = 20) -> list[ObjectVersion]:
     ct = ContentType.objects.get_for_model(obj.__class__)
     return list(
@@ -1675,6 +1715,22 @@ def audit_log(request: HttpRequest) -> HttpResponse:
     )
 
     items = list(qs[:limit])
+    items_view = []
+    for e in items:
+        items_view.append(
+            {
+                "ts": e.ts,
+                "action_badge": e.action,
+                "action_label": _human_action_label(e.action),
+                "model_raw": e.model,
+                "model_label": _human_model_label(e.model),
+                "object_pk": e.object_pk,
+                "target_label": f"{_human_model_label(e.model)} #{e.object_pk}",
+                "actor_label": (e.user.username if e.user else "System"),
+                "ip": e.ip,
+                "summary": e.summary,
+            }
+        )
     model_choices = list(AuditEvent.objects.filter(organization=org).values_list("model", flat=True).distinct().order_by("model")[:200])
     return render(
         request,
@@ -1682,7 +1738,7 @@ def audit_log(request: HttpRequest) -> HttpResponse:
         {
             "org": org,
             "crumbs": _crumbs(("Audit Log", None)),
-            "items": items,
+            "items": items_view,
             "q": q,
             "action": action,
             "model": model,

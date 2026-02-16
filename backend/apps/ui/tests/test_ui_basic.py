@@ -812,6 +812,8 @@ class UiBasicTests(TestCase):
         r = self.client.get("/app/audit/?model=core.Attachment&q=unit-test")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "unit-test audit event", status_code=200)
+        self.assertContains(r, "Core / Attachment", status_code=200)
+        self.assertContains(r, "Updated", status_code=200)
 
         r = self.client.get("/app/audit/?model=core.Attachment&q=unit-test&format=csv")
         self.assertEqual(r.status_code, 200)
