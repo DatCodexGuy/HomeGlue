@@ -17,12 +17,39 @@
     if (!copy) return;
     const text = (copy.textContent || "").trim();
     if (!text) return;
+    const fallbackCopy = (txt) => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = txt;
+        ta.setAttribute("readonly", "true");
+        ta.style.position = "fixed";
+        ta.style.top = "-1000px";
+        ta.style.left = "-1000px";
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        const ok = document.execCommand && document.execCommand("copy");
+        document.body.removeChild(ta);
+        return !!ok;
+      } catch {
+        return false;
+      }
+    };
     try {
-      await navigator.clipboard.writeText(text);
+      // `navigator.clipboard` requires a secure context (HTTPS) in most browsers.
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        if (!fallbackCopy(text)) throw new Error("copy unavailable");
+      }
       copy.setAttribute("data-copied", "1");
       setTimeout(() => copy.removeAttribute("data-copied"), 800);
     } catch {
-      // ignore
+      // Last-chance fallback (even if secure context check lied).
+      if (fallbackCopy(text)) {
+        copy.setAttribute("data-copied", "1");
+        setTimeout(() => copy.removeAttribute("data-copied"), 800);
+      }
     }
   });
 

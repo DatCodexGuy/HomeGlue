@@ -990,6 +990,11 @@ html[data-theme="dark"] .form select option{
 html[data-theme="dark"] .secretbox{border-color: rgba(231,240,236,.22)}
 .secretbox__label{font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.12em; color: var(--muted)}
 .secretbox__value{margin-top:6px; font-size:16px; user-select:all; cursor:pointer}
+.secretbox__value[data-copied="1"]{
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(47,125,111,.16);
+  border-radius: 10px;
+}
 
 .foot{
   max-width:1100px; margin:0 auto; padding:0 18px 22px;
