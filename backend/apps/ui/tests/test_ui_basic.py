@@ -75,12 +75,23 @@ class UiBasicTests(TestCase):
         self.assertEqual(r.status_code, 403)
         r = c.get("/app/admin/config/")
         self.assertEqual(r.status_code, 403)
+        r = c.get("/app/admin/sso/")
+        self.assertEqual(r.status_code, 403)
         r = c.get("/app/admin/ops/")
         self.assertEqual(r.status_code, 403)
         r = c.get("/app/admin/system/")
         self.assertEqual(r.status_code, 403)
         r = c.get("/app/admin/users/")
         self.assertEqual(r.status_code, 403)
+
+    def test_super_admin_sso_renders_for_superuser(self):
+        User = get_user_model()
+        su = User.objects.create_superuser(username="root", password="pw", email="root@example.local")
+        c = Client(HTTP_HOST="localhost")
+        assert c.login(username="root", password="pw")
+        r = c.get("/app/admin/sso/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "SSO (OIDC)", status_code=200)
 
     def test_relationship_detail_renders(self):
         from django.contrib.contenttypes.models import ContentType

@@ -77,6 +77,10 @@ UI-based system settings (superuser-only):
 
 - `/app/admin/system/` (Base URL, IP allow/block lists, proxy trust, CORS/CSRF origins)
 
+See also:
+
+- `/app/wiki/configuration/` (full configuration guide)
+
 ## Upgrade
 
 Upgrade is pull + rebuild + migrate.

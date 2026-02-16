@@ -1,0 +1,90 @@
+{% extends "ui/base.html" %}
+{% block title %}Admin | SSO (OIDC){% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">SSO (OIDC)</h1>
+        <div class="sub">Environment-backed SSO configuration (restart required).</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_home' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    <div class="split" style="margin-top:14px">
+      <div class="split__main">
+        <h3 class="h3">Current Status</h3>
+        <div class="mini">
+          <div class="mini__row">
+            <div class="muted">Enabled</div>
+            <div class="mono">{% if oidc.enabled %}true{% else %}false{% endif %}</div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">Client ID</div>
+            <div class="mono">{{ oidc.client_id|default:"(unset)" }}</div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">Client secret</div>
+            <div class="mono">{% if oidc.client_secret_set %}{{ oidc.client_secret_masked }}{% else %}(unset){% endif %}</div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">Authorization</div>
+            <div class="mono">{{ oidc.auth_endpoint|default:"(unset)" }}</div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">Token</div>
+            <div class="mono">{{ oidc.token_endpoint|default:"(unset)" }}</div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">Userinfo</div>
+            <div class="mono">{{ oidc.user_endpoint|default:"(unset)" }}</div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">JWKS</div>
+            <div class="mono">{{ oidc.jwks_endpoint|default:"(unset)" }}</div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">Sign algo</div>
+            <div class="mono">{{ oidc.sign_algo|default:"(unset)" }}</div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">Scopes</div>
+            <div class="mono">{{ oidc.scopes|join:" " }}</div>
+          </div>
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">How To Configure</h3>
+        <div class="mini">
+          <div class="muted">
+            OIDC is env-backed because it changes Django authentication backends and routes. After updating `.env`,
+            recreate containers so the new settings are loaded.
+          </div>
+          <div class="secretbox" style="margin-top:12px">
+            <div class="secretbox__label">Example `.env` snippet (click to copy)</div>
+            <pre class="secretbox__value mono" data-copy style="white-space:pre-wrap; word-break:break-word">{{ env_snippet }}</pre>
+            <div class="muted">Then run: <span class="mono">docker compose up -d --force-recreate --no-deps web worker</span></div>
+          </div>
+          <div class="muted" style="margin-top:10px">
+            Docs: <a class="link" href="{% url 'ui:wiki_page' slug='security' %}">Security</a> · <a class="link" href="{% url 'ui:wiki_page' slug='configuration' %}">Configuration</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Notes</h3>
+        <div class="mini">
+          <div class="muted">
+            When enabled, the login page will show a “Sign in with SSO” option. Users are created on first login,
+            but org membership/roles are still managed inside HomeGlue.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+

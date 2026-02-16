@@ -12,6 +12,7 @@ urlpatterns = [
     path("admin/", views.super_admin_home, name="super_admin_home"),
     path("admin/setup/", views.super_admin_setup, name="super_admin_setup"),
     path("admin/config/", views.super_admin_config_status, name="super_admin_config_status"),
+    path("admin/sso/", views.super_admin_sso, name="super_admin_sso"),
     path("admin/email/", views.super_admin_email_settings, name="super_admin_email_settings"),
     path("admin/ops/", views.super_admin_operations, name="super_admin_operations"),
     path("admin/system/", views.super_admin_system_settings, name="super_admin_system_settings"),

@@ -42,6 +42,8 @@ Currently supports:
 - IP allowlist/blocklist
 - Trusted proxies settings for `X-Forwarded-For`
 - CORS allowed origins + CSRF trusted origins (reverse proxy support)
+- `ALLOWED_HOSTS` override
+- Re-auth TTL, webhook timeout, SMTP timeout
 
 Secrets are intentionally kept out of DB-backed settings; use `.env` for secrets.
 

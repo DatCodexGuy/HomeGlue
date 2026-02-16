@@ -2383,6 +2383,68 @@ def super_admin_config_status(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+def super_admin_sso(request: HttpRequest) -> HttpResponse:
+    """
+    Superuser-only view of SSO/OIDC configuration.
+
+    OIDC remains env-backed (restart required) because it affects auth backends and URL routing.
+    """
+
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+
+    def _mask(s: str, *, keep: int = 3) -> str:
+        s = (s or "").strip()
+        if not s:
+            return ""
+        if len(s) <= (keep * 2):
+            return "*" * len(s)
+        return f"{s[:keep]}...{s[-keep:]}"
+
+    oidc_enabled = bool(getattr(settings, "HOMEGLUE_OIDC_ENABLED", False))
+    cfg = {
+        "enabled": oidc_enabled,
+        "client_id": str(getattr(settings, "OIDC_RP_CLIENT_ID", "") or "").strip(),
+        "client_secret_set": bool(str(getattr(settings, "OIDC_RP_CLIENT_SECRET", "") or "").strip()),
+        "client_secret_masked": _mask(str(getattr(settings, "OIDC_RP_CLIENT_SECRET", "") or "")),
+        "auth_endpoint": str(getattr(settings, "OIDC_OP_AUTHORIZATION_ENDPOINT", "") or "").strip(),
+        "token_endpoint": str(getattr(settings, "OIDC_OP_TOKEN_ENDPOINT", "") or "").strip(),
+        "user_endpoint": str(getattr(settings, "OIDC_OP_USER_ENDPOINT", "") or "").strip(),
+        "jwks_endpoint": str(getattr(settings, "OIDC_OP_JWKS_ENDPOINT", "") or "").strip(),
+        "sign_algo": str(getattr(settings, "OIDC_RP_SIGN_ALGO", "") or "").strip(),
+        "scopes": getattr(settings, "OIDC_RP_SCOPES", []) or [],
+    }
+
+    env_snippet = "\n".join(
+        [
+            "HOMEGLUE_OIDC_ENABLED=true",
+            "HOMEGLUE_OIDC_CLIENT_ID=...",
+            "HOMEGLUE_OIDC_CLIENT_SECRET=...",
+            "HOMEGLUE_OIDC_AUTHORIZATION_ENDPOINT=https://idp.example.com/oauth2/v1/authorize",
+            "HOMEGLUE_OIDC_TOKEN_ENDPOINT=https://idp.example.com/oauth2/v1/token",
+            "HOMEGLUE_OIDC_USER_ENDPOINT=https://idp.example.com/oauth2/v1/userinfo",
+            "HOMEGLUE_OIDC_JWKS_ENDPOINT=https://idp.example.com/oauth2/v1/keys",
+            "HOMEGLUE_OIDC_SIGN_ALGO=RS256",
+            "HOMEGLUE_OIDC_SCOPES=openid email profile",
+        ]
+    )
+
+    return render(
+        request,
+        "ui/super_admin_sso.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("SSO (OIDC)", None)),
+            "oidc": cfg,
+            "env_snippet": env_snippet,
+        },
+    )
+
+
+@login_required
 def super_admin_email_settings(request: HttpRequest) -> HttpResponse:
     """
     Superuser-only UI to configure DB-backed email settings.
