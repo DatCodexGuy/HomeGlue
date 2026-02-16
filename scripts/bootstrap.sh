@@ -3,7 +3,7 @@ set -euo pipefail
 
 # HomeGlue bootstrap installer.
 # Goal: enable a single-line install like:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/datsass616/HomeGlue/main/scripts/bootstrap.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
 #
 # This script clones/updates the repo into /opt/homeglue (default) and then runs ./scripts/install.sh.
 
@@ -26,7 +26,7 @@ as_root_prefix() {
   die "This installer needs root (or sudo) to write to /opt. Re-run as root or install sudo."
 }
 
-REPO_URL="${HOMEGLUE_REPO_URL:-https://github.com/datsass616/HomeGlue.git}"
+REPO_URL="${HOMEGLUE_REPO_URL:-https://github.com/DatCodexGuy/HomeGlue.git}"
 REF="${HOMEGLUE_REF:-main}"
 DEST="${HOMEGLUE_DIR:-/opt/homeglue}"
 
@@ -69,7 +69,7 @@ else
   # Note: this requires the repo to be publicly accessible, or the user must supply an authenticated URL via HOMEGLUE_TARBALL_URL.
   need_cmd curl
   need_cmd tar
-  TARBALL_URL="${HOMEGLUE_TARBALL_URL:-https://github.com/datsass616/HomeGlue/archive/refs/heads/${REF}.tar.gz}"
+  TARBALL_URL="${HOMEGLUE_TARBALL_URL:-https://github.com/DatCodexGuy/HomeGlue/archive/refs/heads/${REF}.tar.gz}"
   log "[1/3] Installing via tarball..."
   $ROOT_PREFIX mkdir -p "$DEST"
   tmpdir="$(mktemp -d)"

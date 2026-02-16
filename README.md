@@ -21,13 +21,13 @@ Self-hosted IT documentation system inspired by IT Glue, focused on clean org-fi
 One-liner installer (installs to `/opt/homeglue`, creates `.env` if missing):
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/datsass616/HomeGlue/main/scripts/bootstrap.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
 ```
 
 Install from git:
 
 ```bash
-git clone https://github.com/datsass616/HomeGlue.git /opt/homeglue
+git clone https://github.com/DatCodexGuy/HomeGlue.git /opt/homeglue
 cd /opt/homeglue
 ./scripts/install.sh
 ```

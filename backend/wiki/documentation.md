@@ -20,7 +20,7 @@ HomeGlue is an IT documentation system inspired by IT Glue, optimized for a calm
 ### One-Liner Install
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/datsass616/HomeGlue/main/scripts/bootstrap.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
 ```
 
 This will (by default):
@@ -34,7 +34,7 @@ This will (by default):
 Notes:
 
 - If the repo is still private, install via `git clone` (below).
-- To install to a different directory: `HOMEGLUE_DIR=/srv/homeglue bash -c "$(curl -fsSL https://raw.githubusercontent.com/datsass616/HomeGlue/main/scripts/bootstrap.sh)"`
+- To install to a different directory: `HOMEGLUE_DIR=/srv/homeglue bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"`
 
 ### Manual Install
 
