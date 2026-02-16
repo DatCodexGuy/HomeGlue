@@ -1,0 +1,288 @@
+{% extends "ui/base.html" %}
+{% block title %}Admin | Setup Wizard{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Setup Wizard</h1>
+        <div class="sub">A guided first-time setup path. You can skip anything and return later.</div>
+      </div>
+      <div class="listhead__actions">
+        <form method="post" style="display:inline">
+          {% csrf_token %}
+          <input type="hidden" name="_action" value="reset" />
+          <button class="btn btn--ghost btn--sm" type="submit">Reset wizard</button>
+        </form>
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_home' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    {% if flash %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">{{ flash.title }}</div>
+        <div class="warn__body">{{ flash.body }}</div>
+        {% if flash.secret %}
+          <div class="secretbox" style="margin-top:10px">
+            <div class="secretbox__label">{{ flash.secret_label|default:"Secret" }}</div>
+            <div class="secretbox__value mono" data-copy>{{ flash.secret }}</div>
+            <div class="muted">Click to copy</div>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="mini" style="margin-top:14px">
+      <div class="muted">Progress</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px">
+        {% for s in steps %}
+          {% if s.n == step %}
+            <span class="pill pill--tiny pill--ok">{{ s.n }}. {{ s.title }}</span>
+          {% elif s.n < step %}
+            <a class="pill pill--tiny pill--click" role="link" tabindex="0" data-href="{% url 'ui:super_admin_setup' %}?step={{ s.n }}">{{ s.n }}. {{ s.title }}</a>
+          {% else %}
+            <span class="pill pill--tiny">{{ s.n }}. {{ s.title }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+      <div class="muted" style="margin-top:10px">
+        Selected org: {% if selected_org %}<span class="mono">{{ selected_org.name }}</span>{% else %}<span class="mono">(none)</span>{% endif %}
+      </div>
+    </div>
+
+    {% if step == 1 %}
+      <div class="split" style="margin-top:14px">
+        <div class="split__main">
+          <h3 class="h3">Select an Existing Organization</h3>
+          <div class="mini">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="org_select" />
+              <label class="field">
+                <div class="field__label">Organization</div>
+                <select class="input" name="org_id">
+                  <option value="">Pick...</option>
+                  {% for o in orgs %}
+                    <option value="{{ o.id }}" {% if selected_org and o.id == selected_org.id %}selected{% endif %}>{{ o.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <div style="margin-top:10px">
+                <button class="btn" type="submit">Continue</button>
+              </div>
+            </form>
+          </div>
+
+          <h3 class="h3" style="margin-top:16px">Or Create a New Organization</h3>
+          <div class="mini">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="org_create" />
+              <div class="grid2">
+                <label class="field">
+                  <div class="field__label">Name</div>
+                  <input class="input" type="text" name="org_name" required />
+                </label>
+                <label class="field">
+                  <div class="field__label">Description</div>
+                  <input class="input" type="text" name="org_description" />
+                </label>
+              </div>
+              <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
+                <input type="checkbox" name="org_add_me_owner" value="1" checked />
+                <div class="muted">Add me as Owner in this org</div>
+              </label>
+              <div style="margin-top:10px">
+                <button class="btn" type="submit">Create and Continue</button>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div class="split__side">
+          <h3 class="h3">Notes</h3>
+          <div class="mini">
+            <div class="muted">HomeGlue is org-first: users must enter an org before using org-scoped features.</div>
+            <div class="muted" style="margin-top:10px">Docs: <a class="link" href="{% url 'ui:wiki_page' slug='organizations' %}">Organizations</a></div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if step == 2 %}
+      <div class="split" style="margin-top:14px">
+        <div class="split__main">
+          <h3 class="h3">Create Users</h3>
+          <div class="mini">
+            {% if not selected_org %}
+              <div class="muted">Select or create an org first.</div>
+              <div style="margin-top:10px"><a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_setup' %}?step=1">Go to Org step</a></div>
+            {% else %}
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="_action" value="user_create" />
+                <div class="grid2">
+                  <label class="field">
+                    <div class="field__label">Username</div>
+                    <input class="input" type="text" name="username" required />
+                  </label>
+                  <label class="field">
+                    <div class="field__label">Email</div>
+                    <input class="input" type="email" name="email" />
+                  </label>
+                </div>
+                <div class="grid2" style="margin-top:10px">
+                  <label class="field">
+                    <div class="field__label">Role</div>
+                    <select class="input" name="role">
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                      <option value="owner">Owner</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <div class="field__label">Password (optional)</div>
+                    <input class="input" type="text" name="password" placeholder="leave blank to generate" />
+                  </label>
+                </div>
+                <div style="margin-top:10px">
+                  <button class="btn" type="submit">Create User</button>
+                  <a class="btn btn--ghost" href="{% url 'ui:super_admin_setup' %}?step=3" style="margin-left:6px">Continue</a>
+                </div>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+        <div class="split__side">
+          <h3 class="h3">Notes</h3>
+          <div class="mini">
+            <div class="muted">You can also manage users and memberships from the main Admin pages.</div>
+            <div class="muted" style="margin-top:10px"><a class="link" href="{% url 'ui:super_admin_home' %}">Admin Home</a></div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if step == 3 %}
+      <div class="split" style="margin-top:14px">
+        <div class="split__main">
+          <h3 class="h3">System Settings</h3>
+          <div class="mini">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="system_save" />
+              <label class="field">
+                <div class="field__label">Base URL (optional)</div>
+                <input class="input" type="text" name="base_url" value="{{ sys_obj.base_url }}" placeholder="https://homeglue.example.com" />
+                <div class="muted">Used for absolute links in notifications and share links.</div>
+              </label>
+              <label class="field" style="margin-top:10px">
+                <div class="field__label">IP Allowlist (optional)</div>
+                <textarea class="input" name="ip_allowlist" rows="2" placeholder="10.0.0.0/24,192.168.1.10">{{ sys_obj.ip_allowlist }}</textarea>
+              </label>
+              <label class="field" style="margin-top:10px">
+                <div class="field__label">IP Blocklist (optional)</div>
+                <textarea class="input" name="ip_blocklist" rows="2" placeholder="10.0.0.123/32">{{ sys_obj.ip_blocklist }}</textarea>
+              </label>
+              <div style="margin-top:10px">
+                <button class="btn" type="submit">Save</button>
+                <a class="btn btn--ghost" href="{% url 'ui:super_admin_setup' %}?step=4" style="margin-left:6px">Continue</a>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div class="split__side">
+          <h3 class="h3">More</h3>
+          <div class="mini">
+            <div class="muted">Full system settings page:</div>
+            <div style="margin-top:10px"><a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_system_settings' %}">System settings</a></div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if step == 4 %}
+      <div class="split" style="margin-top:14px">
+        <div class="split__main">
+          <h3 class="h3">Email (Optional)</h3>
+          <div class="mini">
+            <form method="post" class="form form--grid">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="email_save" />
+              {{ email_form.as_p }}
+              <div class="mini" style="margin-top:10px">
+                <div class="mini__row"><div class="muted">Stored SMTP password</div><div>{% if pw_set %}<span class="pill pill--tiny pill--ok">set</span>{% else %}<span class="pill pill--tiny pill--ghost">not set</span>{% endif %}</div></div>
+              </div>
+              <div style="margin-top:10px">
+                <button class="btn" type="submit">Save</button>
+                <a class="btn btn--ghost" href="{% url 'ui:super_admin_setup' %}?step=5" style="margin-left:6px">Continue</a>
+              </div>
+            </form>
+            <div class="muted" style="margin-top:10px">
+              You can also use the dedicated page to test email delivery:
+              <a class="link" href="{% url 'ui:super_admin_email_settings' %}">Admin Email settings</a>.
+            </div>
+          </div>
+        </div>
+        <div class="split__side">
+          <h3 class="h3">Notes</h3>
+          <div class="mini">
+            <div class="muted">If you don’t need email, leave it disabled. Notifications still work in-app.</div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if step == 5 %}
+      <div class="split" style="margin-top:14px">
+        <div class="split__main">
+          <h3 class="h3">Proxmox Integration (Optional)</h3>
+          <div class="mini">
+            {% if not selected_org %}
+              <div class="muted">Select or create an org first.</div>
+            {% else %}
+              {% if existing_prox %}
+                <div class="muted">Existing connections:</div>
+                <div class="mini" style="margin-top:8px">
+                  {% for c in existing_prox %}
+                    <div class="mini__row"><div class="mono">{{ c.name }}</div><div class="muted">{{ c.base_url }}</div></div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+              <form method="post" class="form form--grid" style="margin-top:10px">
+                {% csrf_token %}
+                <input type="hidden" name="_action" value="proxmox_add" />
+                {{ proxmox_form.as_p }}
+                <div style="margin-top:10px">
+                  <button class="btn" type="submit">Add Proxmox</button>
+                </div>
+              </form>
+              <div class="muted" style="margin-top:10px">
+                Sync runs in the worker. You can trigger it from <a class="link" href="{% url 'ui:super_admin_operations' %}">Admin Operations</a>.
+              </div>
+              <div style="margin-top:12px">
+                <form method="post" style="display:inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="_action" value="finish" />
+                  <button class="btn" type="submit">Finish and Enter Org</button>
+                </form>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="split__side">
+          <h3 class="h3">Docs</h3>
+          <div class="mini">
+            <div class="muted"><a class="link" href="{% url 'ui:wiki_page' slug='first-time-setup' %}">First-Time Setup</a></div>
+            <div class="muted" style="margin-top:8px"><a class="link" href="{% url 'ui:wiki_page' slug='integrations-proxmox' %}">Proxmox Integration</a></div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+  </section>
+{% endblock %}
+

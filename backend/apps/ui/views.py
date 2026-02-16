@@ -2029,6 +2029,222 @@ def super_admin_home(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+def super_admin_setup(request: HttpRequest) -> HttpResponse:
+    """
+    Superuser-only first-time setup wizard.
+
+    This is intentionally pragmatic: it guides the operator through the essential steps,
+    while still allowing skipping to the normal admin pages.
+    """
+
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org_ctx = ctx.organization if ctx else None
+
+    flash = request.session.pop("homeglue_flash", None)
+
+    def _set_flash(*, title: str, body: str, secret: str | None = None, secret_label: str | None = None):
+        request.session["homeglue_flash"] = {"title": title, "body": body, "secret": secret, "secret_label": secret_label}
+
+    try:
+        step = int((request.GET.get("step") or "1").strip())
+    except Exception:
+        step = 1
+    step = max(1, min(5, int(step)))
+
+    orgs = list(Organization.objects.all().order_by("name")[:500])
+    selected_org_id = request.session.get("homeglue_setup_org_id")
+    if request.GET.get("org_id") and str(request.GET.get("org_id") or "").isdigit():
+        selected_org_id = int(str(request.GET.get("org_id")))
+        request.session["homeglue_setup_org_id"] = int(selected_org_id)
+    selected_org = Organization.objects.filter(id=selected_org_id).first() if selected_org_id else None
+
+    # Preload/ensure system settings row.
+    from apps.core.models import SystemSettings
+
+    sys_obj = SystemSettings.objects.first()
+    if sys_obj is None:
+        sys_obj = SystemSettings.objects.create()
+
+    # Forms used in some steps
+    from apps.ui.forms import ProxmoxConnectionForm, SystemEmailSettingsForm
+    from apps.integrations.models import ProxmoxConnection
+
+    prox_form = None
+    email_form = None
+
+    if request.method == "POST":
+        action = (request.POST.get("_action") or "").strip().lower()
+
+        if action == "reset":
+            request.session.pop("homeglue_setup_org_id", None)
+            _set_flash(title="Reset", body="Wizard state cleared.")
+            return redirect(reverse("ui:super_admin_setup") + "?step=1")
+
+        if action == "org_select":
+            raw = (request.POST.get("org_id") or "").strip()
+            if raw.isdigit():
+                selected_org = Organization.objects.filter(id=int(raw)).first()
+                if selected_org:
+                    request.session["homeglue_setup_org_id"] = int(selected_org.id)
+                    return redirect(reverse("ui:super_admin_setup") + "?step=2")
+            _set_flash(title="Not selected", body="Pick an existing organization.")
+            return redirect(reverse("ui:super_admin_setup") + "?step=1")
+
+        if action == "org_create":
+            name = (request.POST.get("org_name") or "").strip()
+            desc = (request.POST.get("org_description") or "").strip()
+            add_me = (request.POST.get("org_add_me_owner") or "").strip() == "1"
+            if not name:
+                _set_flash(title="Org not created", body="Name is required.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=1")
+            try:
+                o = Organization.objects.create(name=name, description=desc)
+                if add_me:
+                    OrganizationMembership.objects.get_or_create(user=request.user, organization=o, defaults={"role": OrganizationMembership.ROLE_OWNER})
+                request.session["homeglue_setup_org_id"] = int(o.id)
+                _set_flash(title="Org created", body=f"Created '{o.name}'.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=2")
+            except IntegrityError:
+                _set_flash(title="Org not created", body="An organization with that name already exists.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=1")
+
+        if action == "user_create":
+            if not selected_org:
+                _set_flash(title="No org selected", body="Select or create an organization first.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=1")
+            username = (request.POST.get("username") or "").strip()
+            email = (request.POST.get("email") or "").strip()
+            pw = (request.POST.get("password") or "").strip()
+            role = (request.POST.get("role") or OrganizationMembership.ROLE_MEMBER).strip()
+            role = role if role in {OrganizationMembership.ROLE_MEMBER, OrganizationMembership.ROLE_ADMIN, OrganizationMembership.ROLE_OWNER} else OrganizationMembership.ROLE_MEMBER
+            if not username:
+                _set_flash(title="User not created", body="Username is required.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=2")
+            User = get_user_model()
+            if User.objects.filter(username=username).exists():
+                _set_flash(title="User not created", body="That username already exists.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=2")
+            if not pw:
+                import secrets
+
+                pw = secrets.token_urlsafe(12)
+            u = User.objects.create_user(username=username, email=email or "", password=pw)
+            OrganizationMembership.objects.create(organization=selected_org, user=u, role=role)
+            _set_flash(title="User created", body=f"Created '{u.username}' and added to '{selected_org.name}'.", secret=pw, secret_label="Temp password")
+            return redirect(reverse("ui:super_admin_setup") + "?step=2")
+
+        if action == "system_save":
+            base_url = (request.POST.get("base_url") or "").strip().rstrip("/")
+            ip_allowlist = (request.POST.get("ip_allowlist") or "").strip()
+            ip_blocklist = (request.POST.get("ip_blocklist") or "").strip()
+            sys_obj.base_url = base_url
+            sys_obj.ip_allowlist = ip_allowlist
+            sys_obj.ip_blocklist = ip_blocklist
+            sys_obj.save()
+            _set_flash(title="Saved", body="System settings saved.")
+            return redirect(reverse("ui:super_admin_setup") + "?step=3")
+
+        if action == "email_save":
+            email_form = SystemEmailSettingsForm(request.POST)
+            if email_form.is_valid():
+                from apps.secretsapp.crypto import encrypt_str, HomeGlueCryptoError
+
+                sys_obj.email_source = email_form.cleaned_data["email_source"]
+                sys_obj.email_enabled = bool(email_form.cleaned_data.get("email_enabled"))
+                sys_obj.email_backend = str(email_form.cleaned_data.get("email_backend") or "console").strip().lower()
+                sys_obj.email_from = str(email_form.cleaned_data.get("email_from") or "").strip()
+                sys_obj.smtp_host = str(email_form.cleaned_data.get("smtp_host") or "").strip()
+                sys_obj.smtp_port = int(email_form.cleaned_data.get("smtp_port") or 587)
+                sys_obj.smtp_user = str(email_form.cleaned_data.get("smtp_user") or "").strip()
+                sys_obj.smtp_use_tls = bool(email_form.cleaned_data.get("smtp_use_tls"))
+                sys_obj.smtp_use_ssl = bool(email_form.cleaned_data.get("smtp_use_ssl"))
+                clear_pw = bool(email_form.cleaned_data.get("smtp_password_clear"))
+                new_pw = (email_form.cleaned_data.get("smtp_password") or "").strip()
+                try:
+                    if clear_pw:
+                        sys_obj.smtp_password_ciphertext = ""
+                    elif new_pw:
+                        sys_obj.smtp_password_ciphertext = encrypt_str(new_pw)
+                except HomeGlueCryptoError as e:
+                    _set_flash(title="Not saved", body=str(e))
+                    return redirect(reverse("ui:super_admin_setup") + "?step=4")
+                sys_obj.save()
+                _set_flash(title="Saved", body="Email settings saved.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=4")
+
+        if action == "proxmox_add":
+            if not selected_org:
+                _set_flash(title="No org selected", body="Select or create an organization first.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=1")
+            prox_form = ProxmoxConnectionForm(request.POST, org=selected_org)
+            if prox_form.is_valid():
+                obj = prox_form.save(commit=False)
+                obj.organization = selected_org
+                obj.save()
+                _set_flash(title="Saved", body="Proxmox connection created. You can sync from Admin -> Operations.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=5")
+            # fall through to render with errors
+
+        if action == "finish":
+            if not selected_org:
+                _set_flash(title="No org selected", body="Select or create an organization first.")
+                return redirect(reverse("ui:super_admin_setup") + "?step=1")
+            # Set org in session so user lands inside the org.
+            set_current_org_id(request, selected_org.id)
+            request.session.pop("homeglue_setup_org_id", None)
+            _set_flash(title="Setup complete", body=f"Entered organization '{selected_org.name}'.")
+            return redirect("ui:dashboard")
+
+    # GET / fallthrough forms
+    if email_form is None:
+        email_init = {
+            "email_source": getattr(sys_obj, "email_source", "env") or "env",
+            "email_enabled": bool(getattr(sys_obj, "email_enabled", False)),
+            "email_backend": (getattr(sys_obj, "email_backend", "") or "console").strip().lower(),
+            "email_from": (getattr(sys_obj, "email_from", "") or "").strip(),
+            "smtp_host": (getattr(sys_obj, "smtp_host", "") or "").strip(),
+            "smtp_port": int(getattr(sys_obj, "smtp_port", 587) or 587),
+            "smtp_user": (getattr(sys_obj, "smtp_user", "") or "").strip(),
+            "smtp_use_tls": bool(getattr(sys_obj, "smtp_use_tls", True)),
+            "smtp_use_ssl": bool(getattr(sys_obj, "smtp_use_ssl", False)),
+        }
+        email_form = SystemEmailSettingsForm(initial=email_init)
+    if prox_form is None and selected_org is not None:
+        prox_form = ProxmoxConnectionForm(org=selected_org)
+    existing_prox = list(ProxmoxConnection.objects.filter(organization=selected_org).order_by("name")[:50]) if selected_org else []
+
+    steps = [
+        {"n": 1, "title": "Org"},
+        {"n": 2, "title": "Users"},
+        {"n": 3, "title": "System"},
+        {"n": 4, "title": "Email"},
+        {"n": 5, "title": "Integrations"},
+    ]
+
+    return render(
+        request,
+        "ui/super_admin_setup.html",
+        {
+            "org": org_ctx,
+            "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("Setup wizard", None)),
+            "flash": flash,
+            "step": step,
+            "steps": steps,
+            "orgs": orgs,
+            "selected_org": selected_org,
+            "sys_obj": sys_obj,
+            "email_form": email_form,
+            "pw_set": bool((sys_obj.smtp_password_ciphertext or "").strip()),
+            "proxmox_form": prox_form,
+            "existing_prox": existing_prox,
+        },
+    )
+
+
+@login_required
 def super_admin_config_status(request: HttpRequest) -> HttpResponse:
     """
     Superuser-only view of env-backed configuration, plus basic config tests.
@@ -2150,6 +2366,168 @@ def super_admin_config_status(request: HttpRequest) -> HttpResponse:
                 "base_url_effective": get_base_url(),
             },
             "hosts": {"allowed_hosts": allowed_hosts, "cors_allowed_origins": cors_allowed_origins},
+        },
+    )
+
+
+@login_required
+def super_admin_email_settings(request: HttpRequest) -> HttpResponse:
+    """
+    Superuser-only UI to configure DB-backed email settings.
+
+    This stores the SMTP password encrypted using HOMEGLUE_FERNET_KEY.
+    """
+
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+
+    flash = request.session.pop("homeglue_flash", None)
+
+    def _set_flash(*, title: str, body: str):
+        request.session["homeglue_flash"] = {"title": title, "body": body}
+
+    error = ""
+    try:
+        from django.core.mail import EmailMessage, send_mail
+
+        from apps.core.models import SystemSettings
+        from apps.core.system_settings import get_email_settings
+        from apps.secretsapp.crypto import HomeGlueCryptoError, encrypt_str
+        from apps.ui.forms import SystemEmailSettingsForm
+    except Exception as e:
+        return render(
+            request,
+            "ui/super_admin_email_settings.html",
+            {
+                "org": org,
+                "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("Email settings", None)),
+                "flash": flash,
+                "form": None,
+                "error": f"Unable to load dependencies: {e}",
+                "pw_set": False,
+            },
+        )
+
+    obj = SystemSettings.objects.first()
+    if obj is None:
+        obj = SystemSettings.objects.create()
+    pw_set = bool((obj.smtp_password_ciphertext or "").strip())
+
+    if request.method == "POST":
+        form = SystemEmailSettingsForm(request.POST)
+        if form.is_valid():
+            action = (request.POST.get("_action") or "save").strip().lower()
+
+            obj.email_source = form.cleaned_data["email_source"]
+            obj.email_enabled = bool(form.cleaned_data.get("email_enabled"))
+            obj.email_backend = str(form.cleaned_data.get("email_backend") or "console").strip().lower()
+            obj.email_from = str(form.cleaned_data.get("email_from") or "").strip()
+            obj.smtp_host = str(form.cleaned_data.get("smtp_host") or "").strip()
+            obj.smtp_port = int(form.cleaned_data.get("smtp_port") or 587)
+            obj.smtp_user = str(form.cleaned_data.get("smtp_user") or "").strip()
+            obj.smtp_use_tls = bool(form.cleaned_data.get("smtp_use_tls"))
+            obj.smtp_use_ssl = bool(form.cleaned_data.get("smtp_use_ssl"))
+
+            clear_pw = bool(form.cleaned_data.get("smtp_password_clear"))
+            new_pw = (form.cleaned_data.get("smtp_password") or "").strip()
+            if clear_pw:
+                obj.smtp_password_ciphertext = ""
+            elif new_pw:
+                try:
+                    obj.smtp_password_ciphertext = encrypt_str(new_pw)
+                except HomeGlueCryptoError as e:
+                    error = str(e)
+
+            if error:
+                _set_flash(title="Not saved", body=error)
+                return redirect("ui:super_admin_email_settings")
+
+            obj.save()
+            pw_set = bool((obj.smtp_password_ciphertext or "").strip())
+            _audit_event(
+                request=request,
+                org=None,
+                action=AuditEvent.ACTION_UPDATE,
+                model="system.SystemSettings",
+                object_pk=str(obj.id),
+                summary="Updated system email settings.",
+            )
+
+            if action == "send_test_email":
+                to_addr = (request.POST.get("to") or "").strip() or (getattr(request.user, "email", "") or "").strip()
+                if not to_addr:
+                    _set_flash(title="Not sent", body="No email address provided (and your user has no email set).")
+                    return redirect("ui:super_admin_email_settings")
+
+                cfg = get_email_settings()
+                if not bool(cfg.get("enabled")):
+                    _set_flash(title="Not sent", body="Email is disabled. Enable email first.")
+                    return redirect("ui:super_admin_email_settings")
+
+                subject = "HomeGlue test email"
+                message = "This is a test email from HomeGlue.\n\nIf you received this, SMTP delivery is working."
+                from_email = (cfg.get("from_email") or "").strip() or None
+
+                try:
+                    if cfg.get("source") == "db":
+                        backend = str(cfg.get("backend") or "console").strip().lower()
+                        if backend == "console":
+                            from django.core.mail.backends.console import EmailBackend as ConsoleBackend
+
+                            conn = ConsoleBackend(fail_silently=False)
+                        else:
+                            from django.core.mail.backends.smtp import EmailBackend as SmtpBackend
+
+                            use_tls = bool(cfg.get("smtp_use_tls")) and backend in {"smtp", "smtp+tls"}
+                            use_ssl = bool(cfg.get("smtp_use_ssl")) or backend == "smtp+ssl"
+                            conn = SmtpBackend(
+                                host=str(cfg.get("smtp_host") or ""),
+                                port=int(cfg.get("smtp_port") or 587),
+                                username=str(cfg.get("smtp_user") or ""),
+                                password=str(cfg.get("smtp_password") or ""),
+                                use_tls=use_tls,
+                                use_ssl=use_ssl,
+                                timeout=int(getattr(settings, "HOMEGLUE_SMTP_TIMEOUT_SECONDS", 10) or 10),
+                                fail_silently=False,
+                            )
+                        m = EmailMessage(subject=subject, body=message, from_email=from_email, to=[to_addr], connection=conn)
+                        m.send(fail_silently=False)
+                    else:
+                        send_mail(subject=subject, message=message, from_email=from_email, recipient_list=[to_addr], fail_silently=False)
+                    _set_flash(title="Sent", body=f"Test email queued/sent to {to_addr}. Check your SMTP logs/inbox.")
+                except Exception as e:
+                    _set_flash(title="Not sent", body=f"Email delivery failed: {e}")
+                return redirect("ui:super_admin_email_settings")
+
+            _set_flash(title="Saved", body="Email settings saved.")
+            return redirect("ui:super_admin_email_settings")
+    else:
+        init = {
+            "email_source": getattr(obj, "email_source", "env") or "env",
+            "email_enabled": bool(getattr(obj, "email_enabled", False)),
+            "email_backend": (getattr(obj, "email_backend", "") or "console").strip().lower(),
+            "email_from": (getattr(obj, "email_from", "") or "").strip(),
+            "smtp_host": (getattr(obj, "smtp_host", "") or "").strip(),
+            "smtp_port": int(getattr(obj, "smtp_port", 587) or 587),
+            "smtp_user": (getattr(obj, "smtp_user", "") or "").strip(),
+            "smtp_use_tls": bool(getattr(obj, "smtp_use_tls", True)),
+            "smtp_use_ssl": bool(getattr(obj, "smtp_use_ssl", False)),
+        }
+        form = SystemEmailSettingsForm(initial=init)
+
+    return render(
+        request,
+        "ui/super_admin_email_settings.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("Email settings", None)),
+            "flash": flash,
+            "form": form,
+            "error": error,
+            "pw_set": pw_set,
         },
     )
 

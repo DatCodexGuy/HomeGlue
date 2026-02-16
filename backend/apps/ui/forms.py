@@ -770,6 +770,48 @@ class ProxmoxConnectionForm(OrgBoundModelForm):
         return obj
 
 
+class SystemEmailSettingsForm(forms.Form):
+    email_source = forms.ChoiceField(
+        choices=[
+            ("env", "Environment (.env)"),
+            ("db", "Database (configured here)"),
+        ],
+        required=True,
+        help_text="Choose whether HomeGlue should use env-based SMTP config or DB-based config.",
+    )
+    email_enabled = forms.BooleanField(required=False, help_text="If enabled, workflows may deliver notifications via email.")
+    email_backend = forms.ChoiceField(
+        choices=[
+            ("console", "Console (dev)"),
+            ("smtp", "SMTP (TLS default)"),
+            ("smtp+tls", "SMTP + TLS"),
+            ("smtp+ssl", "SMTP + SSL"),
+        ],
+        required=True,
+    )
+    email_from = forms.CharField(required=False, max_length=255, help_text="From address, e.g. homeglue@yourdomain")
+    smtp_host = forms.CharField(required=False, max_length=255, help_text="SMTP host")
+    smtp_port = forms.IntegerField(required=True, min_value=1, max_value=65535, initial=587, help_text="SMTP port")
+    smtp_user = forms.CharField(required=False, max_length=255, help_text="SMTP username (optional)")
+    smtp_password = forms.CharField(
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text="SMTP password (stored encrypted). Leave blank to keep unchanged.",
+    )
+    smtp_password_clear = forms.BooleanField(required=False, help_text="Clear the stored SMTP password.")
+    smtp_use_tls = forms.BooleanField(required=False, initial=True, help_text="Use STARTTLS (typical for port 587).")
+    smtp_use_ssl = forms.BooleanField(required=False, help_text="Use SSL/TLS (typical for port 465).")
+
+    def clean_email_from(self):
+        return (self.cleaned_data.get("email_from") or "").strip()
+
+    def clean_smtp_host(self):
+        return (self.cleaned_data.get("smtp_host") or "").strip()
+
+    def clean_smtp_user(self):
+        return (self.cleaned_data.get("smtp_user") or "").strip()
+
+
 class ChecklistScheduleForm(OrgBoundModelForm):
     class Meta:
         model = ChecklistSchedule

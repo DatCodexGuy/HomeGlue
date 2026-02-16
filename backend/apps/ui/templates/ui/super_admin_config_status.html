@@ -72,7 +72,8 @@
               </div>
             </div>
             <div class="muted" style="margin-top:8px">
-              SMTP settings are configured via `.env` (see <a class="link" href="{% url 'ui:wiki_page' slug='workflows' %}">Workflows</a> docs).
+              SMTP settings can be configured via `.env` or via <a class="link" href="{% url 'ui:super_admin_email_settings' %}">Admin Email settings</a>.
+              Docs: <a class="link" href="{% url 'ui:wiki_page' slug='workflows' %}">Workflows</a>.
             </div>
           </form>
         </div>
@@ -178,4 +179,3 @@ docker compose up -d --force-recreate --no-deps web worker</pre>
     </div>
   </section>
 {% endblock %}
-

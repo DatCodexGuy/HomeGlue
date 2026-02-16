@@ -46,6 +46,7 @@ ALLOWED_ATTRS: Final[dict[str, list[str]]] = {
 # In code blocks we want copy/paste-friendly text. Python-Markdown emits &quot; inside code;
 # browsers typically render it fine, but downstream escaping/copy flows can surface the entity.
 _CODE_TAG_RE: Final[re.Pattern[str]] = re.compile(r"(<code\b[^>]*>)(.*?)(</code>)", re.IGNORECASE | re.DOTALL)
+_MD_LIST_LINE_RE: Final[re.Pattern[str]] = re.compile(r"^\s*(?:[-*+]\s+|\d+\.\s+)")
 
 
 def _fix_code_entities(html_in: str) -> str:
@@ -66,13 +67,53 @@ def _fix_code_entities(html_in: str) -> str:
     return _CODE_TAG_RE.sub(_repl, html_in or "")
 
 
+def _normalize_markdown_for_renderer(md: str) -> str:
+    """
+    Python-Markdown can be picky about list boundaries depending on extensions and input.
+    Normalize common "tight" patterns so lists consistently render as lists.
+
+    Example:
+      "Title:\n- item"  -> "Title:\n\n- item"
+
+    This runs outside code fences.
+    """
+
+    lines = (md or "").splitlines()
+    out: list[str] = []
+    in_code = False
+    prev_nonempty = ""
+
+    for raw in lines:
+        line = raw.rstrip("\n")
+        s = line.strip()
+
+        if s.startswith("```"):
+            out.append(line)
+            in_code = not in_code
+            prev_nonempty = s if s else prev_nonempty
+            continue
+
+        if not in_code and _MD_LIST_LINE_RE.match(line):
+            # Ensure a blank line before a list when the previous non-empty line is
+            # plain text (not a heading, not already part of a list).
+            if out:
+                prev = out[-1]
+                if prev.strip() and not prev.strip().startswith("#") and not _MD_LIST_LINE_RE.match(prev):
+                    out.append("")
+        out.append(line)
+        if s:
+            prev_nonempty = s
+
+    return "\n".join(out)
+
+
 def render_markdown(md: str) -> str:
     """
     Safe Markdown -> HTML renderer (Python-Markdown + bleach sanitization).
     Used for user-entered bodies (Docs, Notes, etc.).
     """
 
-    md = md or ""
+    md = _normalize_markdown_for_renderer(md or "")
     try:
         import markdown as mdlib
         import bleach

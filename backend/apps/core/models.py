@@ -547,6 +547,25 @@ class SystemSettings(models.Model):
     trust_x_forwarded_for = models.BooleanField(default=False)
     trusted_proxy_cidrs = models.TextField(blank=True, default="", help_text="Comma-separated CIDRs/IPs.")
 
+    # Email settings.
+    # We support env-backed defaults, but allow a DB-backed override for convenience.
+    EMAIL_SOURCE_ENV = "env"
+    EMAIL_SOURCE_DB = "db"
+    EMAIL_SOURCE_CHOICES = [
+        (EMAIL_SOURCE_ENV, "Environment (.env)"),
+        (EMAIL_SOURCE_DB, "Database (UI-configured)"),
+    ]
+    email_source = models.CharField(max_length=16, choices=EMAIL_SOURCE_CHOICES, default=EMAIL_SOURCE_ENV)
+    email_enabled = models.BooleanField(default=False)
+    email_backend = models.CharField(max_length=32, blank=True, default="console", help_text="console|smtp|smtp+tls|smtp+ssl")
+    email_from = models.CharField(max_length=255, blank=True, default="")
+    smtp_host = models.CharField(max_length=255, blank=True, default="")
+    smtp_port = models.IntegerField(default=587)
+    smtp_user = models.CharField(max_length=255, blank=True, default="")
+    smtp_password_ciphertext = models.TextField(blank=True, default="")
+    smtp_use_tls = models.BooleanField(default=True)
+    smtp_use_ssl = models.BooleanField(default=False)
+
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:

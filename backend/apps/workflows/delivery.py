@@ -8,15 +8,18 @@ import urllib.request
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.system_settings import get_base_url
+from apps.core.system_settings import get_email_settings
 from apps.workflows.models import Notification, NotificationDeliveryAttempt, WebhookEndpoint
 
 
 def _email_enabled() -> bool:
-    return bool(getattr(settings, "HOMEGLUE_EMAIL_NOTIFICATIONS_ENABLED", False))
+    cfg = get_email_settings()
+    return bool(cfg.get("enabled"))
 
 
 def _build_email_body(n: Notification) -> str:
@@ -48,9 +51,35 @@ def _send_email_notification(n: Notification) -> tuple[bool, str]:
 
     subject = f"[HomeGlue] {n.title}"
     body = _build_email_body(n)
-    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "homeglue@localhost"
+    cfg = get_email_settings()
+    from_email = (cfg.get("from_email") or "").strip() or getattr(settings, "DEFAULT_FROM_EMAIL", None) or "homeglue@localhost"
     try:
-        send_mail(subject, body, from_email, [to], fail_silently=False)
+        if (cfg.get("source") == "db") and (str(cfg.get("backend") or "") in {"smtp", "smtp+tls", "smtp+ssl", "console"}):
+            backend = str(cfg.get("backend") or "console").strip().lower()
+            if backend == "console":
+                from django.core.mail.backends.console import EmailBackend as ConsoleBackend
+
+                conn = ConsoleBackend(fail_silently=False)
+            else:
+                from django.core.mail.backends.smtp import EmailBackend as SmtpBackend
+
+                use_tls = bool(cfg.get("smtp_use_tls")) and backend in {"smtp", "smtp+tls"}
+                use_ssl = bool(cfg.get("smtp_use_ssl")) or backend == "smtp+ssl"
+                conn = SmtpBackend(
+                    host=str(cfg.get("smtp_host") or ""),
+                    port=int(cfg.get("smtp_port") or 587),
+                    username=str(cfg.get("smtp_user") or ""),
+                    password=str(cfg.get("smtp_password") or ""),
+                    use_tls=use_tls,
+                    use_ssl=use_ssl,
+                    timeout=int(getattr(settings, "HOMEGLUE_SMTP_TIMEOUT_SECONDS", 10) or 10),
+                    fail_silently=False,
+                )
+            msg = EmailMessage(subject=subject, body=body, from_email=from_email, to=[to], connection=conn)
+            msg.send(fail_silently=False)
+        else:
+            # Env-backed behavior uses Django's configured email backend.
+            send_mail(subject, body, from_email, [to], fail_silently=False)
         return (True, "")
     except Exception as e:
         return (False, str(e))
