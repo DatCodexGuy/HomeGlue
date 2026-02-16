@@ -63,6 +63,13 @@
       </div>
     </div>
 
+    {% if flash %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">{{ flash.title }}</div>
+        <div class="warn__body">{{ flash.body }}</div>
+      </div>
+    {% endif %}
+
     <div class="split">
       <div class="split__main">
         {% if edit_mode %}
@@ -83,6 +90,8 @@
             {% if cert.not_before %}<div class="mini__row"><div class="muted">Valid from</div><div class="mono">{{ cert.not_before|date:"Y-m-d" }}</div></div>{% endif %}
             {% if cert.not_after %}<div class="mini__row"><div class="muted">Valid to</div><div class="mono">{{ cert.not_after|date:"Y-m-d" }}</div></div>{% endif %}
             {% if cert.serial_number %}<div class="mini__row"><div class="muted">Serial</div><div class="mono">{{ cert.serial_number }}</div></div>{% endif %}
+            {% if cert.fingerprint_sha256 %}<div class="mini__row"><div class="muted">SHA-256</div><div class="mono" style="word-break:break-all">{{ cert.fingerprint_sha256 }}</div></div>{% endif %}
+            {% if cert.subject_alt_names %}<div class="mini__row"><div class="muted">SANs</div><div class="mono" style="white-space:pre-wrap">{{ cert.subject_alt_names }}</div></div>{% endif %}
             {% if cert.notes %}<div class="mini__row"><div class="muted">Notes</div><div class="md">{{ cert.notes|markdown }}</div></div>{% endif %}
           </div>
         {% endif %}

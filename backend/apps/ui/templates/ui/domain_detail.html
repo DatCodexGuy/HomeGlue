@@ -63,6 +63,13 @@
       </div>
     </div>
 
+    {% if flash %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">{{ flash.title }}</div>
+        <div class="warn__body">{{ flash.body }}</div>
+      </div>
+    {% endif %}
+
     <div class="split">
       <div class="split__main">
         {% if edit_mode %}
@@ -79,8 +86,11 @@
           <h3 class="h3">Details</h3>
           <div class="mini">
             <div class="mini__row"><div class="muted">Domain</div><div class="mono">{{ domain.name }}</div></div>
+            <div class="mini__row"><div class="muted">Status</div><div>{{ domain.get_status_display }}</div></div>
             {% if domain.registrar %}<div class="mini__row"><div class="muted">Registrar</div><div>{{ domain.registrar }}</div></div>{% endif %}
+            {% if domain.dns_provider %}<div class="mini__row"><div class="muted">DNS provider</div><div>{{ domain.dns_provider }}</div></div>{% endif %}
             {% if domain.expires_on %}<div class="mini__row"><div class="muted">Expires</div><div class="mono">{{ domain.expires_on|date:"Y-m-d" }}</div></div>{% endif %}
+            <div class="mini__row"><div class="muted">Auto-renew</div><div>{% if domain.auto_renew %}Yes{% else %}No{% endif %}</div></div>
             {% if domain.notes %}<div class="mini__row"><div class="muted">Notes</div><div class="md">{{ domain.notes|markdown }}</div></div>{% endif %}
           </div>
         {% endif %}

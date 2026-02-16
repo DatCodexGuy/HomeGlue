@@ -8927,6 +8927,7 @@ def domains_new(request: HttpRequest) -> HttpResponse:
         if action == "lookup_public":
             data = request.POST.copy()
             form0 = DomainForm(data, org=org)
+            filled_any = False
             if form0.is_valid():
                 # Best-effort: fill only missing public fields from RDAP without saving.
                 try:
@@ -8938,11 +8939,13 @@ def domains_new(request: HttpRequest) -> HttpResponse:
                         registrar=(form0.cleaned_data.get("registrar") or ""),
                         expires_on=form0.cleaned_data.get("expires_on"),
                     )
-                    apply_domain_public_info(obj=tmp, info=info, force=False)
+                    filled_any = bool(apply_domain_public_info(obj=tmp, info=info, force=False))
                     if not (data.get("registrar") or "").strip() and (tmp.registrar or "").strip():
                         data["registrar"] = tmp.registrar
+                        filled_any = True
                     if not (data.get("expires_on") or "").strip() and isinstance(tmp.expires_on, date):
                         data["expires_on"] = tmp.expires_on.isoformat()
+                        filled_any = True
                 except Exception:
                     pass
             form = DomainForm(data, org=org)
@@ -8958,7 +8961,14 @@ def domains_new(request: HttpRequest) -> HttpResponse:
                     "submit_icon": "#i-plus",
                     "primary_action": "create",
                     "secondary_submit_buttons": [{"label": "Lookup", "name": "_action", "value": "lookup_public", "icon": "#i-bolt"}],
-                    "notice": {"title": "Lookup complete", "body": "We filled in any missing public info we could find for that domain."},
+                    "notice": (
+                        {"title": "Lookup complete", "body": "We filled in any missing public info we could find for that domain."}
+                        if filled_any
+                        else {
+                            "title": "No public info found",
+                            "body": "We couldn't find public RDAP info for that domain. If it's a private/internal domain, you'll need to enter details manually.",
+                        }
+                    ),
                 },
             )
 
@@ -8967,14 +8977,26 @@ def domains_new(request: HttpRequest) -> HttpResponse:
             obj = form.save(commit=False)
             obj.organization = org
             # Best-effort: auto-populate missing public info on create.
+            auto_changed = False
             try:
                 if obj.expires_on is None or not (obj.registrar or "").strip():
                     info = lookup_domain_rdap(obj.name)
-                    apply_domain_public_info(obj=obj, info=info, force=False)
+                    auto_changed = bool(apply_domain_public_info(obj=obj, info=info, force=False))
             except Exception:
                 pass
             obj.save()
             form.save_m2m()
+            if (obj.name or "").strip():
+                if auto_changed:
+                    request.session["homeglue_flash"] = {
+                        "title": "Auto-filled domain info",
+                        "body": "We pulled in public RDAP data for this domain where available.",
+                    }
+                else:
+                    request.session["homeglue_flash"] = {
+                        "title": "No public domain info found",
+                        "body": "We couldn't find public RDAP data for that domain. If it's internal, that's expected.",
+                    }
             return redirect("ui:domain_detail", domain_id=obj.id)
     else:
         init = {}
@@ -9004,15 +9026,23 @@ def domain_detail(request: HttpRequest, domain_id: int) -> HttpResponse:
     org = ctx.organization
     dom = get_object_or_404(Domain, id=domain_id, organization=org)
     can_admin = _is_org_admin(request.user, org)
+    flash = request.session.pop("homeglue_flash", None)
 
     if request.method == "POST" and request.POST.get("_action") == "refresh_public":
+        changed = False
         try:
             info = lookup_domain_rdap(dom.name)
-            changed = apply_domain_public_info(obj=dom, info=info, force=True)
+            changed = bool(apply_domain_public_info(obj=dom, info=info, force=True))
             if changed:
                 dom.save()
         except Exception:
-            pass
+            request.session["homeglue_flash"] = {"title": "Refresh failed", "body": "Unable to fetch public RDAP info right now."}
+            return redirect("ui:domain_detail", domain_id=dom.id)
+        request.session["homeglue_flash"] = (
+            {"title": "Refreshed", "body": "Updated domain public info from RDAP."}
+            if changed
+            else {"title": "No updates", "body": "No additional public RDAP info was found for this domain."}
+        )
         return redirect("ui:domain_detail", domain_id=dom.id)
 
     if request.method == "POST" and request.POST.get("_action") == "upload_attachment":
@@ -9055,6 +9085,7 @@ def domain_detail(request: HttpRequest, domain_id: int) -> HttpResponse:
             "edit_url": reverse("ui:domain_detail", kwargs={"domain_id": dom.id}) + "?edit=1",
             "view_url": reverse("ui:domain_detail", kwargs={"domain_id": dom.id}),
             "can_admin": can_admin,
+            "flash": flash,
             "expiry_badge": _expiry_badge(dom.expires_on),
             "attachments": _attachments_for_object(org=org, obj=dom),
             "notes": _notes_for_object(org=org, obj=dom),
@@ -9340,6 +9371,7 @@ def sslcerts_new(request: HttpRequest) -> HttpResponse:
         if action == "lookup_public":
             data = request.POST.copy()
             form0 = SSLCertificateForm(data, org=org)
+            filled_any = False
             if form0.is_valid():
                 # Best-effort: fill only missing public fields from TLS lookup without saving.
                 try:
@@ -9356,7 +9388,7 @@ def sslcerts_new(request: HttpRequest) -> HttpResponse:
                             not_after=form0.cleaned_data.get("not_after"),
                             subject_alt_names=(form0.cleaned_data.get("subject_alt_names") or ""),
                         )
-                        apply_ssl_public_info(obj=tmp, info=info, force=False)
+                        filled_any = bool(apply_ssl_public_info(obj=tmp, info=info, force=False))
                         for k, v in [
                             ("issuer", tmp.issuer),
                             ("serial_number", tmp.serial_number),
@@ -9365,10 +9397,13 @@ def sslcerts_new(request: HttpRequest) -> HttpResponse:
                         ]:
                             if not (data.get(k) or "").strip() and (v or "").strip():
                                 data[k] = v
+                                filled_any = True
                         if not (data.get("not_before") or "").strip() and isinstance(tmp.not_before, date):
                             data["not_before"] = tmp.not_before.isoformat()
+                            filled_any = True
                         if not (data.get("not_after") or "").strip() and isinstance(tmp.not_after, date):
                             data["not_after"] = tmp.not_after.isoformat()
+                            filled_any = True
                 except Exception:
                     pass
             form = SSLCertificateForm(data, org=org)
@@ -9384,7 +9419,14 @@ def sslcerts_new(request: HttpRequest) -> HttpResponse:
                     "submit_icon": "#i-plus",
                     "primary_action": "create",
                     "secondary_submit_buttons": [{"label": "Lookup", "name": "_action", "value": "lookup_public", "icon": "#i-bolt"}],
-                    "notice": {"title": "Lookup complete", "body": "We filled in any missing public cert info we could fetch from the common name."},
+                    "notice": (
+                        {"title": "Lookup complete", "body": "We filled in any missing public cert info we could fetch from the common name."}
+                        if filled_any
+                        else {
+                            "title": "No cert info found",
+                            "body": "We couldn't fetch certificate metadata from that common name. If it's internal/unreachable, that's expected. You can try using host:port or enter details manually.",
+                        }
+                    ),
                 },
             )
 
@@ -9396,17 +9438,38 @@ def sslcerts_new(request: HttpRequest) -> HttpResponse:
             obj.save()
             form.save_m2m()
             # Best-effort: auto-populate certificate details and link domains.
+            auto_changed = False
+            linked = 0
+            info_found = False
             try:
                 if (obj.common_name or "").strip():
                     info = lookup_tls_certificate(obj.common_name)
                     if info:
+                        info_found = True
                         if apply_ssl_public_info(obj=obj, info=info, force=False):
+                            auto_changed = True
                             obj.save()
                         for name in dns_names_for_cert(common_name=obj.common_name, info=info):
                             d, _ = Domain.objects.get_or_create(organization=org, name=name)
-                            obj.domains.add(d)
+                            if not obj.domains.filter(id=d.id).exists():
+                                obj.domains.add(d)
+                                linked += 1
             except Exception:
                 pass
+            cn_label = (obj.common_name or "").strip() or "that host"
+            if info_found:
+                parts = []
+                if auto_changed:
+                    parts.append("filled in missing certificate fields")
+                if linked:
+                    parts.append(f"linked {linked} domain(s)")
+                body = "We " + (" and ".join(parts) if parts else "fetched certificate metadata") + f" from {cn_label}."
+                request.session["homeglue_flash"] = {"title": "Auto-filled certificate info", "body": body}
+            else:
+                request.session["homeglue_flash"] = {
+                    "title": "No public cert info found",
+                    "body": f"We couldn't fetch certificate metadata from {cn_label}. If it's internal/unreachable, that's expected.",
+                }
             return redirect("ui:sslcert_detail", sslcert_id=obj.id)
     else:
         init = {}
@@ -9436,20 +9499,42 @@ def sslcert_detail(request: HttpRequest, sslcert_id: int) -> HttpResponse:
     org = ctx.organization
     cert = get_object_or_404(SSLCertificate.objects.prefetch_related("domains"), id=sslcert_id, organization=org)
     can_admin = _is_org_admin(request.user, org)
+    flash = request.session.pop("homeglue_flash", None)
 
     if request.method == "POST" and request.POST.get("_action") == "refresh_public":
+        changed = False
+        linked = 0
+        info_found = False
         try:
             if (cert.common_name or "").strip():
                 info = lookup_tls_certificate(cert.common_name)
                 if info:
-                    changed = apply_ssl_public_info(obj=cert, info=info, force=True)
+                    info_found = True
+                    changed = bool(apply_ssl_public_info(obj=cert, info=info, force=True))
                     if changed:
                         cert.save()
                     for name in dns_names_for_cert(common_name=cert.common_name, info=info):
                         d, _ = Domain.objects.get_or_create(organization=org, name=name)
-                        cert.domains.add(d)
+                        if not cert.domains.filter(id=d.id).exists():
+                            cert.domains.add(d)
+                            linked += 1
         except Exception:
-            pass
+            request.session["homeglue_flash"] = {"title": "Refresh failed", "body": "Unable to fetch certificate metadata right now."}
+            return redirect("ui:sslcert_detail", sslcert_id=cert.id)
+        if info_found:
+            parts = []
+            if changed:
+                parts.append("updated fields")
+            if linked:
+                parts.append(f"linked {linked} domain(s)")
+            request.session["homeglue_flash"] = (
+                {"title": "Refreshed", "body": "Refresh completed (" + ", ".join(parts) + ")."} if parts else {"title": "Refreshed", "body": "Refresh completed."}
+            )
+        else:
+            request.session["homeglue_flash"] = {
+                "title": "No cert info found",
+                "body": "We couldn't fetch certificate metadata from that common name.",
+            }
         return redirect("ui:sslcert_detail", sslcert_id=cert.id)
 
     if request.method == "POST" and request.POST.get("_action") == "upload_attachment":
@@ -9501,6 +9586,7 @@ def sslcert_detail(request: HttpRequest, sslcert_id: int) -> HttpResponse:
             "edit_url": reverse("ui:sslcert_detail", kwargs={"sslcert_id": cert.id}) + "?edit=1",
             "view_url": reverse("ui:sslcert_detail", kwargs={"sslcert_id": cert.id}),
             "can_admin": can_admin,
+            "flash": flash,
             "expiry_badge": _expiry_badge(cert.not_after),
             "attachments": _attachments_for_object(org=org, obj=cert),
             "notes": _notes_for_object(org=org, obj=cert),
