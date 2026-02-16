@@ -279,6 +279,54 @@ class UiBasicTests(TestCase):
         self.assertEqual(r2.status_code, 200)
         self.assertContains(r2, "Mention in document", status_code=200)
 
+    def test_template_review_state_flow(self):
+        from apps.docsapp.models import DocumentTemplate
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        t = DocumentTemplate.objects.create(organization=self.org, name="T1", body="x")
+
+        r1 = self.client.post(f"/app/templates/{t.id}/", {"_action": "set_review_state", "review_state": "in_review"})
+        self.assertEqual(r1.status_code, 302)
+        t.refresh_from_db()
+        self.assertEqual(t.review_state, DocumentTemplate.REVIEW_IN_REVIEW)
+        self.assertIsNotNone(t.reviewed_by_id)
+        self.assertIsNotNone(t.reviewed_at)
+
+        r2 = self.client.post(f"/app/templates/{t.id}/", {"_action": "set_review_state", "review_state": "approved"})
+        self.assertEqual(r2.status_code, 302)
+        t.refresh_from_db()
+        self.assertEqual(t.review_state, DocumentTemplate.REVIEW_APPROVED)
+
+    def test_template_comment_mention_creates_notification(self):
+        from django.contrib.auth import get_user_model
+        from apps.docsapp.models import DocumentTemplate, DocumentTemplateComment
+        from apps.workflows.models import Notification
+
+        User = get_user_model()
+        teammate = User.objects.create_user(username="tmplmate", password="pw")
+        OrganizationMembership.objects.create(user=teammate, organization=self.org, role=OrganizationMembership.ROLE_MEMBER)
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        t = DocumentTemplate.objects.create(organization=self.org, name="Tmpl", body="x")
+        r = self.client.post(f"/app/templates/{t.id}/", {"_action": "add_comment", "body": "FYI @tmplmate"})
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(DocumentTemplateComment.objects.filter(organization=self.org, template=t).exists())
+
+        n = Notification.objects.filter(organization=self.org, user=teammate, title__icontains="Mention in template").first()
+        self.assertIsNotNone(n)
+        self.assertEqual(getattr(n, "object_id", None), str(t.id))
+
+    def test_template_approve_requires_org_admin(self):
+        from apps.docsapp.models import DocumentTemplate
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        t = DocumentTemplate.objects.create(organization=self.org, name="NeedsAdminT", body="x")
+        r = self.client.post(f"/app/templates/{t.id}/", {"_action": "set_review_state", "review_state": "approved"})
+        self.assertEqual(r.status_code, 403)
+        t.refresh_from_db()
+        self.assertEqual(t.review_state, DocumentTemplate.REVIEW_DRAFT)
+
     def test_docs_and_passwords_acl_visibility(self):
         from django.contrib.auth import get_user_model
         from apps.docsapp.models import Document
@@ -1016,6 +1064,7 @@ class UiBasicTests(TestCase):
         r = self.client.get("/app/notifications/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "Assets / Asset", status_code=200)
+        self.assertContains(r, f"/app/assets/{asset.id}/", status_code=200)
         self.assertNotContains(r, "assets.asset:")
 
     def test_backup_create_is_audited(self):

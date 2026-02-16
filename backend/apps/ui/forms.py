@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 
 from apps.assets.models import Asset, ConfigurationItem
 from apps.core.models import CustomField, FileFolder, Location, OrganizationMembership, Relationship, RelationshipType, SavedView, Tag
-from apps.docsapp.models import Document, DocumentComment, DocumentFolder, DocumentTemplate
+from apps.docsapp.models import Document, DocumentComment, DocumentFolder, DocumentTemplate, DocumentTemplateComment
 from apps.netapp.models import Domain, SSLCertificate
 from apps.checklists.models import Checklist, ChecklistRun, ChecklistSchedule
 from apps.people.models import Contact
@@ -190,6 +190,16 @@ class DocumentForm(OrgBoundModelForm):
 class DocumentCommentForm(OrgBoundModelForm):
     class Meta:
         model = DocumentComment
+        fields = ["body"]
+        widgets = {"body": forms.Textarea(attrs={"rows": 4, "class": "js-md"})}
+
+    def clean_body(self):
+        return (self.cleaned_data.get("body") or "").strip()
+
+
+class DocumentTemplateCommentForm(OrgBoundModelForm):
+    class Meta:
+        model = DocumentTemplateComment
         fields = ["body"]
         widgets = {"body": forms.Textarea(attrs={"rows": 4, "class": "js-md"})}
 

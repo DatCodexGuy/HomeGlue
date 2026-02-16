@@ -39,10 +39,28 @@ class DocumentFolder(models.Model):
 
 
 class DocumentTemplate(models.Model):
+    REVIEW_DRAFT = "draft"
+    REVIEW_IN_REVIEW = "in_review"
+    REVIEW_APPROVED = "approved"
+    REVIEW_CHOICES = [
+        (REVIEW_DRAFT, "Draft"),
+        (REVIEW_IN_REVIEW, "In review"),
+        (REVIEW_APPROVED, "Approved"),
+    ]
+
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="doc_templates")
     name = models.CharField(max_length=200)
     body = models.TextField(blank=True, default="")
     tags = models.ManyToManyField(Tag, blank=True, related_name="doc_templates")
+    review_state = models.CharField(max_length=16, choices=REVIEW_CHOICES, default=REVIEW_DRAFT)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_document_templates",
+    )
     archived_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -54,7 +72,10 @@ class DocumentTemplate(models.Model):
                 name="uniq_docs_template_org_name_active",
             ),
         ]
-        indexes = [models.Index(fields=["organization", "archived_at"])]
+        indexes = [
+            models.Index(fields=["organization", "archived_at"]),
+            models.Index(fields=["organization", "review_state"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.organization}: {self.name}"
@@ -159,3 +180,20 @@ class DocumentComment(models.Model):
 
     def __str__(self) -> str:
         return f"{self.organization}: {self.document_id}: comment {self.id}"
+
+
+class DocumentTemplateComment(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="document_template_comments")
+    template = models.ForeignKey(DocumentTemplate, on_delete=models.CASCADE, related_name="comments")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["organization", "template", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization}: template {self.template_id}: comment {self.id}"

@@ -43,7 +43,7 @@ from apps.core.models import (
     Tag,
     UserProfile,
 )
-from apps.docsapp.models import Document, DocumentComment, DocumentFolder, DocumentTemplate
+from apps.docsapp.models import Document, DocumentComment, DocumentFolder, DocumentTemplate, DocumentTemplateComment
 from apps.netapp.models import Domain, SSLCertificate
 from apps.checklists.models import Checklist, ChecklistItem, ChecklistRun, ChecklistRunItem, ChecklistSchedule
 from apps.netapp.public_info import (
@@ -83,6 +83,7 @@ from .forms import (
     DocumentForm,
     DocumentCommentForm,
     DocumentTemplateForm,
+    DocumentTemplateCommentForm,
     DocumentFolderForm,
     DomainForm,
     FileFolderForm,
@@ -259,6 +260,22 @@ def _doc_comments_for_document(*, org, doc: Document, limit: int = 200) -> list[
     )
 
 
+def _template_review_label(state: str) -> str:
+    return {
+        DocumentTemplate.REVIEW_DRAFT: "Draft",
+        DocumentTemplate.REVIEW_IN_REVIEW: "In review",
+        DocumentTemplate.REVIEW_APPROVED: "Approved",
+    }.get((state or "").strip(), "Draft")
+
+
+def _comments_for_template(*, org, tmpl: DocumentTemplate, limit: int = 200) -> list[DocumentTemplateComment]:
+    return list(
+        DocumentTemplateComment.objects.filter(organization=org, template=tmpl)
+        .select_related("created_by")
+        .order_by("created_at")[:limit]
+    )
+
+
 def _create_doc_mention_notifications(*, org, doc: Document, comment: DocumentComment, actor) -> int:
     body = (comment.body or "").strip()
     if not body:
@@ -300,6 +317,54 @@ def _create_doc_mention_notifications(*, org, doc: Document, comment: DocumentCo
                 "body": f"{actor_name} mentioned you in a document comment.",
                 "content_type": ct,
                 "object_id": str(doc.id),
+            },
+        )
+        if was_created and obj:
+            created += 1
+    return created
+
+
+def _create_template_mention_notifications(*, org, tmpl: DocumentTemplate, comment: DocumentTemplateComment, actor) -> int:
+    body = (comment.body or "").strip()
+    if not body:
+        return 0
+    usernames = {m.lower() for m in re.findall(r"(?<!\w)@([A-Za-z0-9_.-]{3,150})", body)}
+    if not usernames:
+        return 0
+
+    memberships = (
+        OrganizationMembership.objects.filter(organization=org)
+        .select_related("user")
+        .order_by("user_id")
+    )
+    users_by_name = {}
+    for m in memberships:
+        u = getattr(m, "user", None)
+        uname = (getattr(u, "username", "") or "").strip().lower()
+        if not u or not uname:
+            continue
+        users_by_name[uname] = u
+
+    ct = ContentType.objects.get_for_model(DocumentTemplate)
+    actor_name = getattr(actor, "username", "Someone")
+    created = 0
+    for uname in sorted(usernames):
+        user = users_by_name.get(uname)
+        if not user:
+            continue
+        if actor and getattr(actor, "id", None) and int(user.id) == int(actor.id):
+            continue
+        dedupe_key = f"template_comment_mention:{comment.id}:{int(user.id)}"
+        obj, was_created = Notification.objects.get_or_create(
+            organization=org,
+            user=user,
+            dedupe_key=dedupe_key,
+            defaults={
+                "level": Notification.LEVEL_INFO,
+                "title": f"Mention in template: {tmpl.name}",
+                "body": f"{actor_name} mentioned you in a template comment.",
+                "content_type": ct,
+                "object_id": str(tmpl.id),
             },
         )
         if was_created and obj:
@@ -2400,12 +2465,16 @@ def notifications_list(request: HttpRequest) -> HttpResponse:
     items = list(qs[:200])
     for n in items:
         ref_label = None
+        ref_url = None
         if n.content_type_id and n.object_id:
             try:
                 ref_label = _human_ref_label(ct=n.content_type, oid=n.object_id)
+                ref_url = _ui_object_url(n.content_type.app_label, n.content_type.model, n.object_id)
             except Exception:
                 ref_label = None
+                ref_url = None
         setattr(n, "ref_label", ref_label)
+        setattr(n, "ref_url", ref_url)
     unread_count = Notification.objects.filter(organization=org, user=request.user, read_at__isnull=True).count()
     return render(
         request,
@@ -6414,6 +6483,70 @@ def template_detail(request: HttpRequest, template_id: int) -> HttpResponse:
         _save_custom_fields_from_post(request=request, org=org, obj=tmpl)
         return redirect("ui:template_detail", template_id=tmpl.id)
 
+    if request.method == "POST" and request.POST.get("_action") == "set_review_state":
+        next_state = (request.POST.get("review_state") or "").strip()
+        allowed_states = {DocumentTemplate.REVIEW_DRAFT, DocumentTemplate.REVIEW_IN_REVIEW, DocumentTemplate.REVIEW_APPROVED}
+        if next_state in allowed_states:
+            if next_state == DocumentTemplate.REVIEW_APPROVED and not _is_org_admin(request.user, org):
+                raise PermissionDenied("Org admin role required to approve templates.")
+            old_state = tmpl.review_state
+            if old_state != next_state:
+                tmpl.review_state = next_state
+                if next_state == DocumentTemplate.REVIEW_DRAFT:
+                    tmpl.reviewed_by = None
+                    tmpl.reviewed_at = None
+                else:
+                    tmpl.reviewed_by = request.user
+                    tmpl.reviewed_at = timezone.now()
+                tmpl.save(update_fields=["review_state", "reviewed_by", "reviewed_at"])
+                _audit_event(
+                    request=request,
+                    org=org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="docsapp.DocumentTemplateReview",
+                    object_pk=str(tmpl.id),
+                    summary=f"Template review state changed: {_template_review_label(old_state)} -> {_template_review_label(next_state)}.",
+                )
+        return redirect("ui:template_detail", template_id=tmpl.id)
+
+    if request.method == "POST" and request.POST.get("_action") == "add_comment":
+        comment_form = DocumentTemplateCommentForm(request.POST, org=org)
+        if comment_form.is_valid():
+            comment = comment_form.save(commit=False)
+            comment.organization = org
+            comment.template = tmpl
+            comment.created_by = request.user
+            comment.save()
+            _create_template_mention_notifications(org=org, tmpl=tmpl, comment=comment, actor=request.user)
+            _audit_event(
+                request=request,
+                org=org,
+                action=AuditEvent.ACTION_CREATE,
+                model="docsapp.DocumentTemplateComment",
+                object_pk=str(comment.id),
+                summary=f"Comment added on template '{tmpl.name}'.",
+            )
+        return redirect("ui:template_detail", template_id=tmpl.id)
+
+    if request.method == "POST" and request.POST.get("_action") == "delete_comment":
+        try:
+            comment_id = int(request.POST.get("comment_id") or "0")
+        except Exception:
+            comment_id = 0
+        comment = get_object_or_404(DocumentTemplateComment, organization=org, template=tmpl, id=comment_id)
+        if not (_is_org_admin(request.user, org) or (comment.created_by_id and int(comment.created_by_id) == int(request.user.id))):
+            raise PermissionDenied("Not allowed.")
+        _audit_event(
+            request=request,
+            org=org,
+            action=AuditEvent.ACTION_DELETE,
+            model="docsapp.DocumentTemplateComment",
+            object_pk=str(comment.id),
+            summary=f"Comment deleted from template '{tmpl.name}'.",
+        )
+        comment.delete()
+        return redirect("ui:template_detail", template_id=tmpl.id)
+
     if request.method == "POST":
         form = DocumentTemplateForm(request.POST, instance=tmpl, org=org)
         if form.is_valid():
@@ -6439,6 +6572,8 @@ def template_detail(request: HttpRequest, template_id: int) -> HttpResponse:
             "documents": docs,
             "attachments": _attachments_for_object(org=org, obj=tmpl),
             "notes": _notes_for_object(org=org, obj=tmpl),
+            "comments": _comments_for_template(org=org, tmpl=tmpl, limit=200),
+            "comment_form": DocumentTemplateCommentForm(org=org),
             "note_ref": _ref_for_obj(tmpl),
             "custom_fields": _custom_fields_for_model(org=org, model_cls=DocumentTemplate),
             "custom_values": _custom_field_values_for_object(org=org, obj=tmpl),
@@ -6448,6 +6583,7 @@ def template_detail(request: HttpRequest, template_id: int) -> HttpResponse:
             "relationships": relationships,
             "relationships_view": relationships_view,
             "add_relationship_url": reverse("ui:relationships_new") + f"?source_ref={_ref_for_obj(tmpl)}",
+            "review_state_label": _template_review_label(tmpl.review_state),
         },
     )
 
