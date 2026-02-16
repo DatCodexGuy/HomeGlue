@@ -13,9 +13,26 @@ Rule examples:
 
 Rules are org-scoped and can be enabled/disabled.
 
+## Setting Up Workflows (Recommended)
+
+1. Go to:
+   - `/app/workflows/`
+2. Enable the rules you actually want.
+3. Set your “days ahead” warning windows (where applicable).
+4. Confirm notifications appear:
+   - `/app/notifications/`
+
+If you want email delivery, configure SMTP in `.env` and rebuild containers.
+
 ## Notifications
 
 Notifications are per-user and org-scoped.
+
+Typical lifecycle:
+
+- workflow creates a notification
+- user acknowledges/resolves it
+- issue is corrected (renew cert, rotate password, run checklist)
 
 ## Delivery Channels
 
@@ -47,3 +64,13 @@ Configure webhook endpoints in the UI:
 
 Payloads are signed (optional) with `X-HomeGlue-Signature: sha256=<hex>` when a secret is set.
 
+## Running Workflows Manually (Superuser)
+
+If you want to force a run (for example right after enabling a rule):
+
+- `/app/admin/ops/`
+
+Then check:
+
+- `/app/notifications/`
+- `/app/audit/` for the run event

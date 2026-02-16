@@ -78,6 +78,18 @@ This page:
 
 It also contains governance actions (reauth required) such as audit retention policy changes and purge-now.
 
+### What To Check After Running Ops Actions
+
+- Workflow run:
+  - `/app/notifications/` for new notifications
+  - `/app/audit/` for an audit event describing the run
+- Checklist schedules run:
+  - `/app/checklist-runs/` for newly created runs
+- Proxmox sync:
+  - worker logs (`docker compose logs worker`)
+  - integrations UI (`/app/integrations/`)
+  - mapped Config Items (`/app/config-items/`)
+
 ## Django Admin (Optional)
 
 The Django admin remains available at:
@@ -85,4 +97,3 @@ The Django admin remains available at:
 - `/admin/`
 
 But the long-term goal is to not require it for normal operation.
-

@@ -7,6 +7,7 @@
       "items": [
         { "slug": "documentation", "title": "HomeGlue Documentation" },
         { "slug": "installation", "title": "Installation, Upgrade, and Uninstall" },
+        { "slug": "first-time-setup", "title": "First-Time Setup" },
         { "slug": "organizations", "title": "Organizations and Memberships" },
         { "slug": "admin", "title": "Admin, Settings, and Operations" },
         { "slug": "security", "title": "Security" }
