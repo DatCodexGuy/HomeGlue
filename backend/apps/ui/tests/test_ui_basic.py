@@ -256,6 +256,18 @@ class UiBasicTests(TestCase):
         self.assertContains(r2, "-one", status_code=200)
         self.assertContains(r2, "+two", status_code=200)
 
+    def test_search_renders_highlight_snippet_for_docs(self):
+        from apps.docsapp.models import Document
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        Document.objects.create(organization=self.org, title="Hello", body="Install via bootstrap script", created_by=self.user)
+
+        r = self.client.get("/app/search/?q=bootstrap")
+        self.assertEqual(r.status_code, 200)
+        # Snippet should contain a highlight mark.
+        self.assertContains(r, "<mark>", status_code=200)
+        self.assertContains(r, "bootstrap", status_code=200)
+
     def test_document_review_state_flow(self):
         from apps.docsapp.models import Document
 

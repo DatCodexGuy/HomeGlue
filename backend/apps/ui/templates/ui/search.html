@@ -27,7 +27,10 @@
           {% if r.url %}
             <a class="row" href="{{ r.url }}">
               <div><span class="pill pill--tiny">{{ r.type }}</span></div>
-              <div class="mono">{{ r.label }}</div>
+              <div class="titlecell">
+                <div class="mono">{{ r.label }}</div>
+                {% if r.snippet_html %}<div class="sub search__snippet">{{ r.snippet_html|safe }}</div>{% endif %}
+              </div>
               <div class="muted">{{ r.meta }}</div>
               <div>
                 {% if r.rel_count and r.ref %}
@@ -40,7 +43,10 @@
           {% else %}
             <div class="row row--static">
               <div><span class="pill pill--tiny">{{ r.type }}</span></div>
-              <div class="mono">{{ r.label }}</div>
+              <div class="titlecell">
+                <div class="mono">{{ r.label }}</div>
+                {% if r.snippet_html %}<div class="sub search__snippet">{{ r.snippet_html|safe }}</div>{% endif %}
+              </div>
               <div class="muted">{{ r.meta }}</div>
               <div>
                 {% if r.rel_count and r.ref %}

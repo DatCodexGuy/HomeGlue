@@ -334,6 +334,15 @@ html[data-theme="dark"] .top__center{color: rgba(231,240,236,.70)}
   padding: 0;
   font-size: 13px;
 }
+.md mark, .table mark{
+  background: rgba(253, 214, 99, .35);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 6px;
+}
+html[data-theme="dark"] .md mark, html[data-theme="dark"] .table mark{
+  background: rgba(253, 214, 99, .22);
+}
 .md table{
   width:100%;
   border-collapse: collapse;
