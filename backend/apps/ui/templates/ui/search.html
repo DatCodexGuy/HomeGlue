@@ -10,12 +10,22 @@
       </div>
     </div>
 
-    <form class="search" method="get">
-      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Type to search..." autofocus />
-      <button class="btn btn--ghost btn--sm" type="submit">
-        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
-        Search
-      </button>
+    <form class="searchwrap" method="get">
+      <div class="search">
+        <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Type to search..." autofocus />
+        <button class="btn btn--ghost btn--sm" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+          Search
+        </button>
+      </div>
+      <div class="search__filters">
+        {% for f in type_filters %}
+          <label class="filterpill">
+            <input type="checkbox" name="t" value="{{ f.key }}" {% if f.checked %}checked{% endif %} />
+            <span>{{ f.label }}</span>
+          </label>
+        {% endfor %}
+      </div>
     </form>
 
     {% if q %}

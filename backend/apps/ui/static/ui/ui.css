@@ -733,6 +733,46 @@ html[data-theme="dark"] .pill--ghost{
 html[data-theme="dark"] .search__input::placeholder{color: rgba(231,240,236,.44)}
 .search__input:focus{border-color: rgba(27,127,106,.55); box-shadow: 0 0 0 4px rgba(27,127,106,.14)}
 
+.searchwrap{margin:12px 0 14px}
+.searchwrap .search{margin:0}
+.search__filters{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+.filterpill{display:inline-flex; align-items:center}
+.filterpill input{position:absolute; opacity:0; pointer-events:none}
+.filterpill span{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius: 999px;
+  border:1px solid rgba(22,20,15,.16);
+  background: rgba(231,240,236,.55);
+  color: rgba(31,42,36,.84);
+  font-size: 12px;
+  cursor:pointer;
+  user-select:none;
+}
+.filterpill input:focus-visible + span{box-shadow: 0 0 0 4px rgba(58,110,165,.14)}
+.filterpill input:checked + span{
+  border-color: rgba(27,127,106,.38);
+  background: rgba(27,127,106,.14);
+  color: rgba(18,60,52,.95);
+}
+html[data-theme="dark"] .filterpill span{
+  border-color: rgba(231,240,236,.16);
+  background: rgba(231,240,236,.06);
+  color: rgba(231,240,236,.86);
+}
+html[data-theme="dark"] .filterpill input:checked + span{
+  border-color: rgba(47,125,111,.40);
+  background: rgba(47,125,111,.18);
+  color: rgba(231,240,236,.95);
+}
+
 .table{
   border:1px solid rgba(22,20,15,.12);
   border-radius: var(--radius);

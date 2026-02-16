@@ -3090,377 +3090,422 @@ def search(request: HttpRequest) -> HttpResponse:
     results = []
     ids_by_type: dict[str, list[int]] = {}
 
+    TYPE_LABELS: dict[str, str] = {
+        "asset": "Assets",
+        "config": "Config Items",
+        "doc": "Docs",
+        "template": "Templates",
+        "note": "Notes",
+        "password": "Passwords",
+        "contact": "Contacts",
+        "location": "Locations",
+        "domain": "Domains",
+        "sslcert": "SSL Certs",
+        "checklist": "Checklists",
+        "flex": "Flexible Assets",
+        "tag": "Tags",
+    }
+    raw_types = [str(x or "").strip() for x in request.GET.getlist("t") if str(x or "").strip()]
+    # Allow a single comma-separated param too.
+    if len(raw_types) == 1 and "," in raw_types[0]:
+        raw_types = [p.strip() for p in raw_types[0].split(",") if p.strip()]
+    selected_types = {t.lower() for t in raw_types if t}
+    selected_types = {t for t in selected_types if t in TYPE_LABELS}
+
+    def _want(t: str) -> bool:
+        # No filter means "all types".
+        return (not selected_types) or (t in selected_types)
+
     if q:
-        aqs = Asset.objects.filter(organization=org, archived_at__isnull=True)
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector
+        if _want("asset"):
+            aqs = Asset.objects.filter(organization=org, archived_at__isnull=True)
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector
 
-                vector = (
-                    SearchVector("name", weight="A")
-                    + SearchVector("manufacturer", weight="B")
-                    + SearchVector("model", weight="B")
-                    + SearchVector("serial_number", weight="B")
-                    + SearchVector("notes", weight="C")
-                )
-                aqs2 = _fts_ranked(aqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
-            except Exception:
+                    vector = (
+                        SearchVector("name", weight="A")
+                        + SearchVector("manufacturer", weight="B")
+                        + SearchVector("model", weight="B")
+                        + SearchVector("serial_number", weight="B")
+                        + SearchVector("notes", weight="C")
+                    )
+                    aqs2 = _fts_ranked(aqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
+                except Exception:
+                    aqs2 = aqs.filter(Q(name__icontains=q) | Q(serial_number__icontains=q) | Q(manufacturer__icontains=q) | Q(model__icontains=q)).order_by("name")
+            else:
                 aqs2 = aqs.filter(Q(name__icontains=q) | Q(serial_number__icontains=q) | Q(manufacturer__icontains=q) | Q(model__icontains=q)).order_by("name")
-        else:
-            aqs2 = aqs.filter(Q(name__icontains=q) | Q(serial_number__icontains=q) | Q(manufacturer__icontains=q) | Q(model__icontains=q)).order_by("name")
-        for obj in aqs2[:25]:
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            snippet_html = _snippet_html_from_text(
-                " ".join([x for x in [obj.manufacturer, obj.model, obj.serial_number, obj.notes] if x]),
-                q,
-            )
-            results.append(
-                {
-                    "type": "asset",
-                    "label": obj.name,
-                    "url": reverse("ui:asset_detail", kwargs={"asset_id": obj.id}),
-                    "meta": obj.get_asset_type_display(),
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": 0.0,
-                }
-            )
-            results[-1]["score"] = score
-            ids_by_type.setdefault("asset", []).append(int(obj.id))
+            for obj in aqs2[:25]:
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                snippet_html = _snippet_html_from_text(
+                    " ".join([x for x in [obj.manufacturer, obj.model, obj.serial_number, obj.notes] if x]),
+                    q,
+                )
+                results.append(
+                    {
+                        "type": "asset",
+                        "label": obj.name,
+                        "url": reverse("ui:asset_detail", kwargs={"asset_id": obj.id}),
+                        "meta": obj.get_asset_type_display(),
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": 0.0,
+                    }
+                )
+                results[-1]["score"] = score
+                ids_by_type.setdefault("asset", []).append(int(obj.id))
 
-        cqs = ConfigurationItem.objects.filter(organization=org, archived_at__isnull=True)
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector
+        if _want("config"):
+            cqs = ConfigurationItem.objects.filter(organization=org, archived_at__isnull=True)
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector
 
-                vector = SearchVector("name", weight="A") + SearchVector("hostname", weight="B") + SearchVector("notes", weight="C")
-                cqs2 = _fts_ranked(cqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
-            except Exception:
+                    vector = SearchVector("name", weight="A") + SearchVector("hostname", weight="B") + SearchVector("notes", weight="C")
+                    cqs2 = _fts_ranked(cqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
+                except Exception:
+                    cqs2 = cqs.filter(Q(name__icontains=q) | Q(hostname__icontains=q) | Q(primary_ip__icontains=q)).order_by("name")
+            else:
                 cqs2 = cqs.filter(Q(name__icontains=q) | Q(hostname__icontains=q) | Q(primary_ip__icontains=q)).order_by("name")
-        else:
-            cqs2 = cqs.filter(Q(name__icontains=q) | Q(hostname__icontains=q) | Q(primary_ip__icontains=q)).order_by("name")
-        for obj in cqs2[:25]:
-            meta = obj.hostname or (str(obj.primary_ip) if obj.primary_ip else obj.get_ci_type_display())
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.hostname, str(obj.primary_ip or ""), obj.notes] if x]), q)
-            results.append(
-                {
-                    "type": "config",
-                    "label": obj.name,
-                    "url": reverse("ui:config_item_detail", kwargs={"item_id": obj.id}),
-                    "meta": meta,
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("config", []).append(int(obj.id))
+            for obj in cqs2[:25]:
+                meta = obj.hostname or (str(obj.primary_ip) if obj.primary_ip else obj.get_ci_type_display())
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.hostname, str(obj.primary_ip or ""), obj.notes] if x]), q)
+                results.append(
+                    {
+                        "type": "config",
+                        "label": obj.name,
+                        "url": reverse("ui:config_item_detail", kwargs={"item_id": obj.id}),
+                        "meta": meta,
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("config", []).append(int(obj.id))
 
-        coqs = Contact.objects.filter(organization=org, archived_at__isnull=True)
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector
+        if _want("contact"):
+            coqs = Contact.objects.filter(organization=org, archived_at__isnull=True)
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector
 
-                vector = SearchVector("first_name", weight="A") + SearchVector("last_name", weight="A") + SearchVector("email", weight="B") + SearchVector("notes", weight="C")
-                coqs2 = _fts_ranked(coqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "last_name", "first_name")
-            except Exception:
+                    vector = SearchVector("first_name", weight="A") + SearchVector("last_name", weight="A") + SearchVector("email", weight="B") + SearchVector("notes", weight="C")
+                    coqs2 = _fts_ranked(coqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "last_name", "first_name")
+                except Exception:
+                    coqs2 = coqs.filter(Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(email__icontains=q)).order_by("last_name", "first_name")
+            else:
                 coqs2 = coqs.filter(Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(email__icontains=q)).order_by("last_name", "first_name")
-        else:
-            coqs2 = coqs.filter(Q(first_name__icontains=q) | Q(last_name__icontains=q) | Q(email__icontains=q)).order_by("last_name", "first_name")
-        for obj in coqs2[:25]:
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.email, obj.phone, obj.notes] if x]), q)
-            results.append(
-                {
-                    "type": "contact",
-                    "label": str(obj),
-                    "url": reverse("ui:contact_detail", kwargs={"contact_id": obj.id}),
-                    "meta": obj.email or "",
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("contact", []).append(int(obj.id))
+            for obj in coqs2[:25]:
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.email, obj.phone, obj.notes] if x]), q)
+                results.append(
+                    {
+                        "type": "contact",
+                        "label": str(obj),
+                        "url": reverse("ui:contact_detail", kwargs={"contact_id": obj.id}),
+                        "meta": obj.email or "",
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("contact", []).append(int(obj.id))
 
-        dqs = Document.objects.filter(organization=org, archived_at__isnull=True)
-        if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
-            dqs = dqs.filter(_visible_docs_q(request.user, org)).distinct()
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank, SearchHeadline
+        if _want("doc"):
+            dqs = Document.objects.filter(organization=org, archived_at__isnull=True)
+            if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
+                dqs = dqs.filter(_visible_docs_q(request.user, org)).distinct()
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank, SearchHeadline
 
-                vector = SearchVector("title", weight="A") + SearchVector("body", weight="B")
-                query = SearchQuery(q, search_type="websearch")
-                dqs2 = dqs.annotate(
-                    _fts_rank=SearchRank(vector, query),
-                    _hl=SearchHeadline("body", query, start_sel="[[[", stop_sel="]]]", max_words=32, min_words=12, highlight_all=True),
-                ).filter(_fts_rank__gt=0.0)
-                dqs2 = dqs2.order_by("-_fts_rank", "-updated_at")
-            except Exception:
+                    vector = SearchVector("title", weight="A") + SearchVector("body", weight="B")
+                    query = SearchQuery(q, search_type="websearch")
+                    dqs2 = dqs.annotate(
+                        _fts_rank=SearchRank(vector, query),
+                        _hl=SearchHeadline("body", query, start_sel="[[[", stop_sel="]]]", max_words=32, min_words=12, highlight_all=True),
+                    ).filter(_fts_rank__gt=0.0)
+                    dqs2 = dqs2.order_by("-_fts_rank", "-updated_at")
+                except Exception:
+                    dqs2 = dqs.filter(Q(title__icontains=q) | Q(body__icontains=q)).order_by("-updated_at")
+            else:
                 dqs2 = dqs.filter(Q(title__icontains=q) | Q(body__icontains=q)).order_by("-updated_at")
-        else:
-            dqs2 = dqs.filter(Q(title__icontains=q) | Q(body__icontains=q)).order_by("-updated_at")
-        for obj in dqs2[:25]:
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            hl = getattr(obj, "_hl", "") or ""
-            snippet_html = _snippet_html_from_headline(hl) if hl else _snippet_html_from_text(obj.body or "", q)
-            results.append(
-                {
-                    "type": "doc",
-                    "label": obj.title,
-                    "url": reverse("ui:document_detail", kwargs={"document_id": obj.id}),
-                    "meta": obj.updated_at.strftime("%Y-%m-%d"),
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("doc", []).append(int(obj.id))
+            for obj in dqs2[:25]:
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                hl = getattr(obj, "_hl", "") or ""
+                snippet_html = _snippet_html_from_headline(hl) if hl else _snippet_html_from_text(obj.body or "", q)
+                results.append(
+                    {
+                        "type": "doc",
+                        "label": obj.title,
+                        "url": reverse("ui:document_detail", kwargs={"document_id": obj.id}),
+                        "meta": obj.updated_at.strftime("%Y-%m-%d"),
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("doc", []).append(int(obj.id))
 
-        nqs = _notes_qs_for_user(user=request.user, org=org)
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank, SearchHeadline
+        if _want("note"):
+            nqs = _notes_qs_for_user(user=request.user, org=org)
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank, SearchHeadline
 
-                vector = SearchVector("title", weight="A") + SearchVector("body", weight="B")
-                query = SearchQuery(q, search_type="websearch")
-                nqs2 = nqs.annotate(
-                    _fts_rank=SearchRank(vector, query),
-                    _hl=SearchHeadline("body", query, start_sel="[[[", stop_sel="]]]", max_words=28, min_words=10, highlight_all=True),
-                ).filter(_fts_rank__gt=0.0)
-                nqs2 = nqs2.order_by("-_fts_rank", "-created_at")
-            except Exception:
+                    vector = SearchVector("title", weight="A") + SearchVector("body", weight="B")
+                    query = SearchQuery(q, search_type="websearch")
+                    nqs2 = nqs.annotate(
+                        _fts_rank=SearchRank(vector, query),
+                        _hl=SearchHeadline("body", query, start_sel="[[[", stop_sel="]]]", max_words=28, min_words=10, highlight_all=True),
+                    ).filter(_fts_rank__gt=0.0)
+                    nqs2 = nqs2.order_by("-_fts_rank", "-created_at")
+                except Exception:
+                    nqs2 = nqs.filter(Q(title__icontains=q) | Q(body__icontains=q)).order_by("-created_at")
+            else:
                 nqs2 = nqs.filter(Q(title__icontains=q) | Q(body__icontains=q)).order_by("-created_at")
-        else:
-            nqs2 = nqs.filter(Q(title__icontains=q) | Q(body__icontains=q)).order_by("-created_at")
-        for obj in nqs2[:25]:
-            label = obj.title or f"Note {obj.id}"
-            meta = obj.created_at.strftime("%Y-%m-%d")
-            if obj.content_type_id and obj.object_id:
-                meta = f"{meta} · {_human_ref_label(ct=obj.content_type, oid=obj.object_id)}"
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            hl = getattr(obj, "_hl", "") or ""
-            snippet_html = _snippet_html_from_headline(hl) if hl else _snippet_html_from_text(obj.body or "", q)
-            results.append(
-                {
-                    "type": "note",
-                    "label": label,
-                    "url": reverse("ui:note_detail", kwargs={"note_id": obj.id}),
-                    "meta": meta,
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("note", []).append(int(obj.id))
+            for obj in nqs2[:25]:
+                label = obj.title or f"Note {obj.id}"
+                meta = obj.created_at.strftime("%Y-%m-%d")
+                if obj.content_type_id and obj.object_id:
+                    meta = f"{meta} · {_human_ref_label(ct=obj.content_type, oid=obj.object_id)}"
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                hl = getattr(obj, "_hl", "") or ""
+                snippet_html = _snippet_html_from_headline(hl) if hl else _snippet_html_from_text(obj.body or "", q)
+                results.append(
+                    {
+                        "type": "note",
+                        "label": label,
+                        "url": reverse("ui:note_detail", kwargs={"note_id": obj.id}),
+                        "meta": meta,
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("note", []).append(int(obj.id))
 
-        pqs = PasswordEntry.objects.filter(organization=org, archived_at__isnull=True)
-        if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
-            pqs = pqs.filter(_visible_passwords_q(request.user, org)).distinct()
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector
+        if _want("password"):
+            pqs = PasswordEntry.objects.filter(organization=org, archived_at__isnull=True)
+            if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
+                pqs = pqs.filter(_visible_passwords_q(request.user, org)).distinct()
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector
 
-                vector = SearchVector("name", weight="A") + SearchVector("username", weight="B") + SearchVector("url", weight="B") + SearchVector("notes", weight="C")
-                pqs2 = _fts_ranked(pqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
-            except Exception:
+                    vector = SearchVector("name", weight="A") + SearchVector("username", weight="B") + SearchVector("url", weight="B") + SearchVector("notes", weight="C")
+                    pqs2 = _fts_ranked(pqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
+                except Exception:
+                    pqs2 = pqs.filter(Q(name__icontains=q) | Q(username__icontains=q) | Q(url__icontains=q) | Q(notes__icontains=q)).order_by("name")
+            else:
                 pqs2 = pqs.filter(Q(name__icontains=q) | Q(username__icontains=q) | Q(url__icontains=q) | Q(notes__icontains=q)).order_by("name")
-        else:
-            pqs2 = pqs.filter(Q(name__icontains=q) | Q(username__icontains=q) | Q(url__icontains=q) | Q(notes__icontains=q)).order_by("name")
-        for obj in pqs2[:25]:
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.username, obj.url, obj.notes] if x]), q)
-            results.append(
-                {
-                    "type": "password",
-                    "label": obj.name,
-                    "url": reverse("ui:password_detail", kwargs={"password_id": obj.id}),
-                    "meta": obj.username or "",
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("password", []).append(int(obj.id))
+            for obj in pqs2[:25]:
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.username, obj.url, obj.notes] if x]), q)
+                results.append(
+                    {
+                        "type": "password",
+                        "label": obj.name,
+                        "url": reverse("ui:password_detail", kwargs={"password_id": obj.id}),
+                        "meta": obj.username or "",
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("password", []).append(int(obj.id))
 
-        lqs = Location.objects.filter(organization=org, archived_at__isnull=True)
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector
+        if _want("location"):
+            lqs = Location.objects.filter(organization=org, archived_at__isnull=True)
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector
 
-                vector = SearchVector("name", weight="A") + SearchVector("address", weight="B")
-                lqs2 = _fts_ranked(lqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
-            except Exception:
+                    vector = SearchVector("name", weight="A") + SearchVector("address", weight="B")
+                    lqs2 = _fts_ranked(lqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
+                except Exception:
+                    lqs2 = lqs.filter(Q(name__icontains=q) | Q(address__icontains=q)).order_by("name")
+            else:
                 lqs2 = lqs.filter(Q(name__icontains=q) | Q(address__icontains=q)).order_by("name")
-        else:
-            lqs2 = lqs.filter(Q(name__icontains=q) | Q(address__icontains=q)).order_by("name")
-        for obj in lqs2[:25]:
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            snippet_html = _snippet_html_from_text(obj.address or "", q)
-            results.append(
-                {
-                    "type": "location",
-                    "label": obj.name,
-                    "url": reverse("ui:location_detail", kwargs={"location_id": obj.id}),
-                    "meta": (obj.address or "")[:60],
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("location", []).append(int(obj.id))
+            for obj in lqs2[:25]:
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                snippet_html = _snippet_html_from_text(obj.address or "", q)
+                results.append(
+                    {
+                        "type": "location",
+                        "label": obj.name,
+                        "url": reverse("ui:location_detail", kwargs={"location_id": obj.id}),
+                        "meta": (obj.address or "")[:60],
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("location", []).append(int(obj.id))
 
-        tqs = DocumentTemplate.objects.filter(organization=org, archived_at__isnull=True)
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank, SearchHeadline
+        if _want("template"):
+            tqs = DocumentTemplate.objects.filter(organization=org, archived_at__isnull=True)
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank, SearchHeadline
 
-                vector = SearchVector("name", weight="A") + SearchVector("body", weight="B")
-                query = SearchQuery(q, search_type="websearch")
-                tqs2 = tqs.annotate(
-                    _fts_rank=SearchRank(vector, query),
-                    _hl=SearchHeadline("body", query, start_sel="[[[", stop_sel="]]]", max_words=28, min_words=10, highlight_all=True),
-                ).filter(_fts_rank__gt=0.0)
-                tqs2 = tqs2.order_by("-_fts_rank", "name")
-            except Exception:
+                    vector = SearchVector("name", weight="A") + SearchVector("body", weight="B")
+                    query = SearchQuery(q, search_type="websearch")
+                    tqs2 = tqs.annotate(
+                        _fts_rank=SearchRank(vector, query),
+                        _hl=SearchHeadline("body", query, start_sel="[[[", stop_sel="]]]", max_words=28, min_words=10, highlight_all=True),
+                    ).filter(_fts_rank__gt=0.0)
+                    tqs2 = tqs2.order_by("-_fts_rank", "name")
+                except Exception:
+                    tqs2 = tqs.filter(Q(name__icontains=q) | Q(body__icontains=q)).order_by("name")
+            else:
                 tqs2 = tqs.filter(Q(name__icontains=q) | Q(body__icontains=q)).order_by("name")
-        else:
-            tqs2 = tqs.filter(Q(name__icontains=q) | Q(body__icontains=q)).order_by("name")
-        for obj in tqs2[:25]:
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            hl = getattr(obj, "_hl", "") or ""
-            snippet_html = _snippet_html_from_headline(hl) if hl else _snippet_html_from_text(obj.body or "", q)
-            results.append(
-                {
-                    "type": "template",
-                    "label": obj.name,
-                    "url": reverse("ui:template_detail", kwargs={"template_id": obj.id}),
-                    "meta": "doc template",
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("template", []).append(int(obj.id))
+            for obj in tqs2[:25]:
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                hl = getattr(obj, "_hl", "") or ""
+                snippet_html = _snippet_html_from_headline(hl) if hl else _snippet_html_from_text(obj.body or "", q)
+                results.append(
+                    {
+                        "type": "template",
+                        "label": obj.name,
+                        "url": reverse("ui:template_detail", kwargs={"template_id": obj.id}),
+                        "meta": "doc template",
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("template", []).append(int(obj.id))
 
-        doqs = Domain.objects.filter(organization=org, archived_at__isnull=True)
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector
+        if _want("domain"):
+            doqs = Domain.objects.filter(organization=org, archived_at__isnull=True)
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector
 
-                vector = SearchVector("name", weight="A") + SearchVector("registrar", weight="B") + SearchVector("dns_provider", weight="B") + SearchVector("notes", weight="C")
-                doqs2 = _fts_ranked(doqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
-            except Exception:
+                    vector = SearchVector("name", weight="A") + SearchVector("registrar", weight="B") + SearchVector("dns_provider", weight="B") + SearchVector("notes", weight="C")
+                    doqs2 = _fts_ranked(doqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
+                    # FTS doesn't tokenize hostnames/domains how humans expect (dots often require exact match).
+                    # Fall back to icontains when FTS yields no results.
+                    if not doqs2.exists():
+                        doqs2 = doqs.filter(Q(name__icontains=q) | Q(registrar__icontains=q) | Q(dns_provider__icontains=q) | Q(notes__icontains=q)).order_by("name")
+                except Exception:
+                    doqs2 = doqs.filter(Q(name__icontains=q) | Q(registrar__icontains=q) | Q(dns_provider__icontains=q) | Q(notes__icontains=q)).order_by("name")
+            else:
                 doqs2 = doqs.filter(Q(name__icontains=q) | Q(registrar__icontains=q) | Q(dns_provider__icontains=q) | Q(notes__icontains=q)).order_by("name")
-        else:
-            doqs2 = doqs.filter(Q(name__icontains=q) | Q(registrar__icontains=q) | Q(dns_provider__icontains=q) | Q(notes__icontains=q)).order_by("name")
-        for obj in doqs2[:25]:
-            meta = obj.expires_on.isoformat() if obj.expires_on else ""
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.registrar, obj.dns_provider, obj.notes] if x]), q)
-            results.append(
-                {
-                    "type": "domain",
-                    "label": obj.name,
-                    "url": reverse("ui:domain_detail", kwargs={"domain_id": obj.id}),
-                    "meta": meta,
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("domain", []).append(int(obj.id))
+            for obj in doqs2[:25]:
+                meta = obj.expires_on.isoformat() if obj.expires_on else ""
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.registrar, obj.dns_provider, obj.notes] if x]), q)
+                results.append(
+                    {
+                        "type": "domain",
+                        "label": obj.name,
+                        "url": reverse("ui:domain_detail", kwargs={"domain_id": obj.id}),
+                        "meta": meta,
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("domain", []).append(int(obj.id))
 
-        sqs = SSLCertificate.objects.filter(organization=org, archived_at__isnull=True)
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector
+        if _want("sslcert"):
+            sqs = SSLCertificate.objects.filter(organization=org, archived_at__isnull=True)
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector
 
-                vector = SearchVector("common_name", weight="A") + SearchVector("subject_alt_names", weight="B") + SearchVector("issuer", weight="B") + SearchVector("serial_number", weight="C") + SearchVector("fingerprint_sha256", weight="C") + SearchVector("notes", weight="D")
-                sqs2 = _fts_ranked(sqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "not_after", "common_name")
-            except Exception:
+                    vector = SearchVector("common_name", weight="A") + SearchVector("subject_alt_names", weight="B") + SearchVector("issuer", weight="B") + SearchVector("serial_number", weight="C") + SearchVector("fingerprint_sha256", weight="C") + SearchVector("notes", weight="D")
+                    sqs2 = _fts_ranked(sqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "not_after", "common_name")
+                    if not sqs2.exists():
+                        sqs2 = sqs.filter(Q(common_name__icontains=q) | Q(subject_alt_names__icontains=q) | Q(issuer__icontains=q) | Q(notes__icontains=q)).order_by("not_after", "common_name")
+                except Exception:
+                    sqs2 = sqs.filter(Q(common_name__icontains=q) | Q(subject_alt_names__icontains=q) | Q(issuer__icontains=q) | Q(notes__icontains=q)).order_by("not_after", "common_name")
+            else:
                 sqs2 = sqs.filter(Q(common_name__icontains=q) | Q(subject_alt_names__icontains=q) | Q(issuer__icontains=q) | Q(notes__icontains=q)).order_by("not_after", "common_name")
-        else:
-            sqs2 = sqs.filter(Q(common_name__icontains=q) | Q(subject_alt_names__icontains=q) | Q(issuer__icontains=q) | Q(notes__icontains=q)).order_by("not_after", "common_name")
-        for obj in sqs2[:25]:
-            meta = obj.not_after.isoformat() if obj.not_after else ""
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.issuer, obj.subject_alt_names, obj.notes] if x]), q)
-            results.append(
-                {
-                    "type": "sslcert",
-                    "label": obj.common_name or f"Cert {obj.id}",
-                    "url": reverse("ui:sslcert_detail", kwargs={"sslcert_id": obj.id}),
-                    "meta": meta,
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("sslcert", []).append(int(obj.id))
+            for obj in sqs2[:25]:
+                meta = obj.not_after.isoformat() if obj.not_after else ""
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                snippet_html = _snippet_html_from_text(" ".join([x for x in [obj.issuer, obj.subject_alt_names, obj.notes] if x]), q)
+                results.append(
+                    {
+                        "type": "sslcert",
+                        "label": obj.common_name or f"Cert {obj.id}",
+                        "url": reverse("ui:sslcert_detail", kwargs={"sslcert_id": obj.id}),
+                        "meta": meta,
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("sslcert", []).append(int(obj.id))
 
-        for obj in (
-            Checklist.objects.filter(organization=org, archived_at__isnull=True)
-            .filter(Q(name__icontains=q) | Q(description__icontains=q))
-            .order_by("-updated_at", "name")[:25]
-        ):
-            snippet_html = _snippet_html_from_text(obj.description or "", q)
-            results.append(
-                {
-                    "type": "checklist",
-                    "label": obj.name,
-                    "url": reverse("ui:checklist_detail", kwargs={"checklist_id": obj.id}),
-                    "meta": obj.updated_at.strftime("%Y-%m-%d"),
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": 0.0,
-                }
-            )
-            ids_by_type.setdefault("checklist", []).append(int(obj.id))
+        if _want("checklist"):
+            for obj in (
+                Checklist.objects.filter(organization=org, archived_at__isnull=True)
+                .filter(Q(name__icontains=q) | Q(description__icontains=q))
+                .order_by("-updated_at", "name")[:25]
+            ):
+                snippet_html = _snippet_html_from_text(obj.description or "", q)
+                results.append(
+                    {
+                        "type": "checklist",
+                        "label": obj.name,
+                        "url": reverse("ui:checklist_detail", kwargs={"checklist_id": obj.id}),
+                        "meta": obj.updated_at.strftime("%Y-%m-%d"),
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": 0.0,
+                    }
+                )
+                ids_by_type.setdefault("checklist", []).append(int(obj.id))
 
-        fqs = FlexibleAsset.objects.filter(organization=org, archived_at__isnull=True).select_related("asset_type")
-        if _is_postgres():
-            try:
-                from django.contrib.postgres.search import SearchVector
+        if _want("flex"):
+            fqs = FlexibleAsset.objects.filter(organization=org, archived_at__isnull=True).select_related("asset_type")
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector
 
-                vector = SearchVector("name", weight="A") + SearchVector("notes", weight="B")
-                fqs2 = _fts_ranked(fqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
-            except Exception:
+                    vector = SearchVector("name", weight="A") + SearchVector("notes", weight="B")
+                    fqs2 = _fts_ranked(fqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "name")
+                except Exception:
+                    fqs2 = fqs.filter(Q(name__icontains=q) | Q(notes__icontains=q)).order_by("name")
+            else:
                 fqs2 = fqs.filter(Q(name__icontains=q) | Q(notes__icontains=q)).order_by("name")
-        else:
-            fqs2 = fqs.filter(Q(name__icontains=q) | Q(notes__icontains=q)).order_by("name")
-        for obj in fqs2[:25]:
-            score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
-            snippet_html = _snippet_html_from_text(obj.notes or "", q)
-            results.append(
-                {
-                    "type": "flex",
-                    "label": obj.name,
-                    "url": reverse("ui:flex_asset_detail", kwargs={"type_id": obj.asset_type_id, "asset_id": obj.id}),
-                    "meta": obj.asset_type.name,
-                    "snippet_html": snippet_html,
-                    "obj_id": obj.id,
-                    "ref": _ref_for_obj(obj),
-                    "score": score,
-                }
-            )
-            ids_by_type.setdefault("flex", []).append(int(obj.id))
+            for obj in fqs2[:25]:
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                snippet_html = _snippet_html_from_text(obj.notes or "", q)
+                results.append(
+                    {
+                        "type": "flex",
+                        "label": obj.name,
+                        "url": reverse("ui:flex_asset_detail", kwargs={"type_id": obj.asset_type_id, "asset_id": obj.id}),
+                        "meta": obj.asset_type.name,
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("flex", []).append(int(obj.id))
 
-        for obj in Tag.objects.filter(Q(organization__isnull=True) | Q(organization=org)).filter(name__icontains=q).order_by("name")[:25]:
-            scope = "global" if obj.organization_id is None else "org"
-            results.append({"type": "tag", "label": obj.name, "url": reverse("ui:tag_detail", kwargs={"tag_id": obj.id}), "meta": scope, "score": 0.0})
+        if _want("tag"):
+            for obj in Tag.objects.filter(Q(organization__isnull=True) | Q(organization=org)).filter(name__icontains=q).order_by("name")[:25]:
+                scope = "global" if obj.organization_id is None else "org"
+                results.append({"type": "tag", "label": obj.name, "url": reverse("ui:tag_detail", kwargs={"tag_id": obj.id}), "meta": scope, "score": 0.0})
 
         rel_counts_by_type: dict[str, dict[int, int]] = {
             "asset": _relationship_counts_for_model(org=org, model_cls=Asset, ids=ids_by_type.get("asset", [])),
@@ -3503,7 +3548,16 @@ def search(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "ui/search.html",
-        {"org": org, "crumbs": _crumbs(("Search", None)), "q": q, "results": results},
+        {
+            "org": org,
+            "crumbs": _crumbs(("Search", None)),
+            "q": q,
+            "results": results,
+            "type_filters": [
+                {"key": k, "label": TYPE_LABELS[k], "checked": (k in selected_types) or (not selected_types)}
+                for k in TYPE_LABELS.keys()
+            ],
+        },
     )
 
 

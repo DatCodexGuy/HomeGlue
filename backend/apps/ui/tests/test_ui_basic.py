@@ -114,6 +114,20 @@ class UiBasicTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "SearchMe", status_code=200)
 
+    def test_search_type_filter_limits_results(self):
+        from apps.assets.models import Asset
+        from apps.netapp.models import Domain
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        Asset.objects.create(organization=self.org, name="AssetThing")
+        Domain.objects.create(organization=self.org, name="domainthing.com")
+
+        # Postgres FTS doesn't do substring matching reliably; use a query that should match the token.
+        r = self.client.get("/app/search/?q=domainthing&t=domain")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "domainthing.com", status_code=200)
+        self.assertNotContains(r, "AssetThing")
+
     def test_asset_delete_flow(self):
         from apps.assets.models import Asset
 
