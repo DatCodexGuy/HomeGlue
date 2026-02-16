@@ -10,19 +10,21 @@
           {% if v.created_by %}<span class="muted">by {{ v.created_by.username }}</span>{% else %}<span class="muted">by system</span>{% endif %}
           {% if v.summary %}<div class="muted">{{ v.summary }}</div>{% endif %}
         </div>
-        {% if can_restore %}
-          <div class="mini__actions">
+        <div class="mini__actions">
+          {% if v.compare_to_id and v.compare_supported %}
+            <a class="btn btn--ghost btn--sm" href="{% url 'ui:version_compare' version_id=v.id %}?to={{ v.compare_to_id }}">Compare</a>
+          {% endif %}
+          {% if can_restore %}
             <form method="post" action="{% url 'ui:version_restore' version_id=v.id %}">
               {% csrf_token %}
               <input type="hidden" name="next" value="{{ request.get_full_path }}" />
               <button class="btn btn--ghost btn--sm" type="submit">Restore</button>
             </form>
-          </div>
-        {% endif %}
+          {% endif %}
+        </div>
       </div>
     {% endfor %}
   {% else %}
     <div class="muted">No versions recorded yet.</div>
   {% endif %}
 </div>
-

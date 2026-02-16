@@ -20,15 +20,21 @@ HomeGlue is an IT documentation system inspired by IT Glue, optimized for a calm
 ### One-Liner Install
 
 ```bash
-git clone <REPO_URL> homeglue && cd homeglue && ./scripts/install.sh
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/datsass616/HomeGlue/main/scripts/bootstrap.sh)"
 ```
 
-This will:
+This will (by default):
 
+- install HomeGlue into `/opt/homeglue`
 - create `.env` with secure defaults (if missing)
 - build and start containers
 - run database migrations
 - create/update the default superuser (credentials are stored in `.env`)
+
+Notes:
+
+- If the repo is still private, install via `git clone` (below).
+- To install to a different directory: `HOMEGLUE_DIR=/srv/homeglue bash -c "$(curl -fsSL https://raw.githubusercontent.com/datsass616/HomeGlue/main/scripts/bootstrap.sh)"`
 
 ### Manual Install
 
@@ -45,7 +51,7 @@ POSTGRES_PASSWORD=change-me
 3. Start the stack:
 
 ```bash
-cd /opt/HomeGlue  # or wherever you cloned the repo
+cd /opt/homeglue  # or wherever you cloned the repo
 docker compose up -d --build
 ```
 

@@ -183,4 +183,5 @@ urlpatterns = [
     path("attachments/<int:attachment_id>/delete/", views.attachment_delete, name="attachment_delete"),
     path("objects/restore/", views.object_restore, name="object_restore"),
     path("versions/<int:version_id>/restore/", views.version_restore, name="version_restore"),
+    path("versions/<int:version_id>/compare/", views.version_compare, name="version_compare"),
 ]

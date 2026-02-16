@@ -18,13 +18,21 @@ Self-hosted IT documentation system inspired by IT Glue, focused on clean org-fi
 
 ## Quick Start (Docker)
 
-One-liner installer (creates `.env` if missing):
+One-liner installer (installs to `/opt/homeglue`, creates `.env` if missing):
 
 ```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/datsass616/HomeGlue/main/scripts/bootstrap.sh)"
+```
+
+Install from git:
+
+```bash
+git clone https://github.com/datsass616/HomeGlue.git /opt/homeglue
+cd /opt/homeglue
 ./scripts/install.sh
 ```
 
-Manual setup:
+Manual setup (if you want full control):
 
 ```bash
 cp .env.example .env
@@ -65,7 +73,7 @@ See `.env.example` for the full list.
 - The UI restore wizard supports uploading/validating a bundle and extracting `media/` into `MEDIA_ROOT`.
 - Database restore is an operator action; safest approach is restoring into a fresh stack and running `loaddata` on `fixture.json`.
 
-More details: `backend/wiki/backups.md`
+More details: `docs/wiki/backups.md`
 
 ## Development Notes
 
@@ -81,4 +89,5 @@ AGPL-3.0 (see `LICENSE`).
 
 - Public status: `docs/STATUS.md`
 - IT Glue parity: `docs/PARITY_ITGLUE.md`
-- Wiki content (in-app): `backend/wiki/`
+- Wiki content (repo): `docs/wiki/`
+- Wiki content (in-app image): `backend/wiki/`

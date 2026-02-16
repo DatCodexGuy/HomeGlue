@@ -38,7 +38,7 @@ High-level steps:
 Example:
 
 ```bash
-docker compose exec -T web bash -lc 'python manage.py loaddata /path/to/fixture.json'
+docker compose exec -T web sh -lc 'python manage.py loaddata /path/to/fixture.json'
 ```
 
 Notes:

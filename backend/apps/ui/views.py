@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
@@ -24,6 +25,7 @@ import re
 import html
 import mimetypes
 import zipfile
+import difflib
 
 from apps.assets.models import Asset, ConfigurationItem
 from apps.core.models import (
@@ -1480,11 +1482,155 @@ def _activity_for_object(*, org, model_cls, obj_id: int, limit: int = 20) -> lis
 
 def _versions_for_object(*, org, obj, limit: int = 20) -> list[ObjectVersion]:
     ct = ContentType.objects.get_for_model(obj.__class__)
-    return list(
+    model_key = f"{obj.__class__._meta.app_label}.{obj.__class__._meta.model_name}"
+    supports_compare = model_key in {"docsapp.document", "docsapp.documenttemplate"}
+    items = list(
         ObjectVersion.objects.filter(organization=org, content_type=ct, object_id=str(obj.pk))
         .select_related("created_by")
         .order_by("-created_at")[:limit]
     )
+    # Offer a simple "Compare to previous" UX: each item can compare to the next older version.
+    for i, v in enumerate(items):
+        compare_to = items[i + 1].id if (i + 1) < len(items) else None
+        setattr(v, "compare_to_id", compare_to)
+        setattr(v, "compare_supported", supports_compare)
+    return items
+
+
+def _safe_snapshot_fields(snapshot: dict) -> dict:
+    """
+    Hide obviously sensitive fields in snapshots (future-proofing).
+    """
+
+    if not isinstance(snapshot, dict):
+        return {"model": "", "fields": {}, "m2m": {}, "hidden": []}
+    model = str(snapshot.get("model") or "")
+    fields = snapshot.get("fields") or {}
+    m2m = snapshot.get("m2m") or {}
+    if not isinstance(fields, dict):
+        fields = {}
+    if not isinstance(m2m, dict):
+        m2m = {}
+
+    hidden = []
+    out_fields = {}
+    for k, v in fields.items():
+        key = str(k or "")
+        lk = key.lower()
+        if any(x in lk for x in ["ciphertext", "secret", "token", "private_key", "password"]):
+            hidden.append(key)
+            continue
+        out_fields[key] = v
+
+    return {"model": model, "fields": out_fields, "m2m": m2m, "hidden": hidden}
+
+
+def _unified_text_diff(a: str, b: str, *, fromfile: str, tofile: str, max_lines: int = 500) -> str:
+    a_lines = (a or "").splitlines(keepends=True)
+    b_lines = (b or "").splitlines(keepends=True)
+    diff_lines = list(difflib.unified_diff(a_lines, b_lines, fromfile=fromfile, tofile=tofile))
+    if len(diff_lines) > max_lines:
+        diff_lines = diff_lines[:max_lines] + [f"\n... diff truncated ({max_lines} lines shown) ...\n"]
+    return "".join(diff_lines).strip()
+
+
+def _version_diff_rows(*, org, model_key: str, newer: dict, older: dict) -> dict:
+    """
+    Return {scalars: [...], texts: [...], m2m: [...], hidden: [...]}
+    """
+
+    nf = newer.get("fields") or {}
+    of = older.get("fields") or {}
+    nm = newer.get("m2m") or {}
+    om = older.get("m2m") or {}
+
+    allow_fields = []
+    text_fields = []
+    allow_m2m = []
+
+    if model_key == "docsapp.document":
+        allow_fields = ["title", "visibility", "folder_id", "template_id", "archived_at", "flagged_at"]
+        text_fields = ["body"]
+        allow_m2m = ["tags", "allowed_users"]
+    elif model_key == "docsapp.documenttemplate":
+        allow_fields = ["name", "archived_at", "review_state"]
+        text_fields = ["body"]
+        allow_m2m = ["tags"]
+    else:
+        # Default to showing nothing rather than accidentally exposing fields.
+        allow_fields = []
+        text_fields = []
+        allow_m2m = []
+
+    def _id_label(field: str, raw):
+        try:
+            if raw in (None, "", 0, "0"):
+                return None
+            i = int(str(raw))
+        except Exception:
+            return str(raw)
+        if model_key == "docsapp.document" and field == "folder_id":
+            f = DocumentFolder.objects.filter(organization=org, id=i).first()
+            return f.name if f else f"#{i}"
+        if model_key == "docsapp.document" and field == "template_id":
+            t = DocumentTemplate.objects.filter(organization=org, id=i).first()
+            return t.name if t else f"#{i}"
+        return f"#{i}"
+
+    scalars = []
+    for f in allow_fields:
+        a = of.get(f)
+        b = nf.get(f)
+        if a == b:
+            continue
+        before = _id_label(f, a) if f.endswith("_id") else a
+        after = _id_label(f, b) if f.endswith("_id") else b
+        scalars.append({"field": f, "before": before, "after": after})
+
+    texts = []
+    for f in text_fields:
+        a = str(of.get(f) or "")
+        b = str(nf.get(f) or "")
+        if a == b:
+            continue
+        diff = _unified_text_diff(a, b, fromfile=f"v{older.get('id') or 'old'}:{f}", tofile=f"v{newer.get('id') or 'new'}:{f}")
+        texts.append({"field": f, "diff": diff})
+
+    def _names_for_ids(kind: str, ids: list[int]) -> list[str]:
+        ids = [int(x) for x in ids if isinstance(x, int) or str(x).isdigit()]
+        if not ids:
+            return []
+        if kind == "tags":
+            by_id = {t.id: t.name for t in Tag.objects.filter(Q(organization__isnull=True) | Q(organization=org)).filter(id__in=ids)}
+            return [by_id.get(i, f"#{i}") for i in ids]
+        if kind == "allowed_users":
+            User = get_user_model()
+            by_id = {u.id: u.username for u in User.objects.filter(id__in=ids)}
+            return [by_id.get(i, f"#{i}") for i in ids]
+        return [f"#{i}" for i in ids]
+
+    m2m_rows = []
+    for f in allow_m2m:
+        a_ids = om.get(f) or []
+        b_ids = nm.get(f) or []
+        try:
+            a_set = {int(x) for x in a_ids}
+            b_set = {int(x) for x in b_ids}
+        except Exception:
+            continue
+        if a_set == b_set:
+            continue
+        removed = sorted(a_set - b_set)
+        added = sorted(b_set - a_set)
+        m2m_rows.append(
+            {
+                "field": f,
+                "added": _names_for_ids(f, added),
+                "removed": _names_for_ids(f, removed),
+            }
+        )
+
+    return {"scalars": scalars, "texts": texts, "m2m": m2m_rows}
 
 
 def _confirm_delete(
@@ -1632,6 +1778,90 @@ def enter_org(request: HttpRequest, org_id: int) -> HttpResponse:
     if next_url and next_url.startswith("/app/") and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
         return redirect(next_url)
     return redirect("ui:dashboard")
+
+
+@login_required
+def version_compare(request: HttpRequest, version_id: int) -> HttpResponse:
+    ctx = require_current_org(request)
+    org = ctx.organization
+
+    v_new = get_object_or_404(ObjectVersion.objects.select_related("content_type", "created_by"), organization=org, id=version_id)
+    try:
+        to_id = int((request.GET.get("to") or "").strip() or "0")
+    except Exception:
+        to_id = 0
+
+    v_old = None
+    if to_id:
+        v_old = get_object_or_404(
+            ObjectVersion.objects.select_related("content_type", "created_by"),
+            organization=org,
+            id=to_id,
+            content_type=v_new.content_type,
+            object_id=v_new.object_id,
+        )
+    else:
+        v_old = (
+            ObjectVersion.objects.filter(
+                organization=org,
+                content_type=v_new.content_type,
+                object_id=v_new.object_id,
+                created_at__lt=v_new.created_at,
+            )
+            .select_related("content_type", "created_by")
+            .order_by("-created_at")
+            .first()
+        )
+
+    if not v_old:
+        raise PermissionDenied("No earlier version available to compare.")
+
+    model_cls = v_new.content_type.model_class()
+    if model_cls is None:
+        raise PermissionDenied("Invalid version model.")
+
+    if model_cls not in (Document, DocumentTemplate):
+        raise PermissionDenied("Compare is only supported for Documents and Templates right now.")
+
+    # Best-effort permission check aligned with object detail visibility.
+    if model_cls is Document:
+        can_admin = _is_org_admin(request.user, org)
+        dqs = Document.objects.filter(organization=org)
+        if not (can_admin or getattr(request.user, "is_superuser", False)):
+            dqs = dqs.filter(_visible_docs_q(request.user, org)).distinct()
+        if not dqs.filter(id=int(v_new.object_id)).exists():
+            raise PermissionDenied("Not allowed.")
+
+    # Diff is based on stored snapshots, with a conservative allowlist per model.
+    snap_new = _safe_snapshot_fields(v_new.snapshot or {})
+    snap_old = _safe_snapshot_fields(v_old.snapshot or {})
+    model_key = (snap_new.get("model") or "").strip()
+
+    # Attach ids for diff labels.
+    snap_new["id"] = v_new.id
+    snap_old["id"] = v_old.id
+
+    diff = _version_diff_rows(org=org, model_key=model_key, newer=snap_new, older=snap_old)
+    hidden = sorted(set((snap_new.get("hidden") or []) + (snap_old.get("hidden") or [])))
+
+    obj_label = _human_model_label(f"{v_new.content_type.app_label}.{v_new.content_type.model}")
+    back_url = _ui_object_url(v_new.content_type.app_label, v_new.content_type.model, v_new.object_id) or reverse("ui:dashboard")
+
+    return render(
+        request,
+        "ui/version_compare.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Versions", None), (f"Compare", None)),
+            "obj_label": obj_label,
+            "object_id": v_new.object_id,
+            "back_url": back_url,
+            "v_new": v_new,
+            "v_old": v_old,
+            "diff": diff,
+            "hidden_fields": hidden,
+        },
+    )
 
 
 @login_required

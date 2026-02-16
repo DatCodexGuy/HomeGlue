@@ -224,6 +224,38 @@ class UiBasicTests(TestCase):
         d.refresh_from_db()
         self.assertIsNotNone(d.flagged_at)
 
+    def test_versions_compare_page_renders_for_doc(self):
+        from apps.docsapp.models import Document
+        from django.contrib.contenttypes.models import ContentType
+        from apps.versionsapp.models import ObjectVersion
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        d = Document.objects.create(organization=self.org, title="V", body="one", created_by=self.user)
+        d.body = "two"
+        d.save(update_fields=["body"])
+
+        # Doc detail should show Versions with at least two versions and a Compare link.
+        r = self.client.get(f"/app/documents/{d.id}/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Versions", status_code=200)
+        self.assertContains(r, "Compare", status_code=200)
+
+        # Compare page should render successfully and include a unified diff for the body.
+        ct = ContentType.objects.get_for_model(Document)
+        versions = list(
+            ObjectVersion.objects.filter(organization=self.org, content_type=ct, object_id=str(d.id))
+            .order_by("-created_at")[:2]
+        )
+        self.assertEqual(len(versions), 2)
+        v_new, v_old = versions[0], versions[1]
+        r2 = self.client.get(f"/app/versions/{v_new.id}/compare/?to={v_old.id}")
+        self.assertEqual(r2.status_code, 200)
+        self.assertContains(r2, "Compare Versions", status_code=200)
+        self.assertContains(r2, "Text Diffs", status_code=200)
+        self.assertContains(r2, "-one", status_code=200)
+        self.assertContains(r2, "+two", status_code=200)
+
     def test_document_review_state_flow(self):
         from apps.docsapp.models import Document
 

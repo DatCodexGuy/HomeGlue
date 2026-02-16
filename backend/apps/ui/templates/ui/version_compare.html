@@ -1,0 +1,105 @@
+{% extends "ui/base.html" %}
+{% block title %}Compare Versions | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Compare Versions</h1>
+        <div class="sub">
+          <span class="mono">{{ obj_label }}</span>
+          <span class="dot"></span>
+          <span class="muted">Object #{{ object_id }}</span>
+        </div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{{ back_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="mini">
+        <div class="mini__row">
+          <div class="muted">Newer</div>
+          <div class="mono">v{{ v_new.id }} ({{ v_new.action }})</div>
+          <div class="muted">{{ v_new.created_at|date:"Y-m-d H:i" }}{% if v_new.created_by %} by {{ v_new.created_by.username }}{% endif %}</div>
+          {% if v_new.summary %}<div class="muted">{{ v_new.summary }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="mini">
+        <div class="mini__row">
+          <div class="muted">Older</div>
+          <div class="mono">v{{ v_old.id }} ({{ v_old.action }})</div>
+          <div class="muted">{{ v_old.created_at|date:"Y-m-d H:i" }}{% if v_old.created_by %} by {{ v_old.created_by.username }}{% endif %}</div>
+          {% if v_old.summary %}<div class="muted">{{ v_old.summary }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if hidden_fields %}
+      <div class="mini" style="margin-top:14px">
+        <div class="mini__row">
+          <div class="muted">Hidden fields</div>
+          <div class="muted mono">{{ hidden_fields|join:", " }}</div>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if diff.scalars %}
+      <h3 class="h3" style="margin-top:18px">Field Changes</h3>
+      <div class="mini">
+        {% for r in diff.scalars %}
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="pill pill--tiny">{{ r.field }}</span>
+            </div>
+            <div class="mini__body">
+              <div class="muted">Before: <span class="mono">{{ r.before|default:"(empty)" }}</span></div>
+              <div class="muted">After: <span class="mono">{{ r.after|default:"(empty)" }}</span></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if diff.m2m %}
+      <h3 class="h3" style="margin-top:18px">List Changes</h3>
+      <div class="mini">
+        {% for r in diff.m2m %}
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="pill pill--tiny">{{ r.field }}</span>
+            </div>
+            <div class="mini__body">
+              {% if r.added %}<div class="muted">Added: <span class="mono">{{ r.added|join:", " }}</span></div>{% endif %}
+              {% if r.removed %}<div class="muted">Removed: <span class="mono">{{ r.removed|join:", " }}</span></div>{% endif %}
+              {% if not r.added and not r.removed %}<div class="muted">No changes.</div>{% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if diff.texts %}
+      <h3 class="h3" style="margin-top:18px">Text Diffs</h3>
+      <div class="mini">
+        {% for r in diff.texts %}
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="pill pill--tiny">{{ r.field }}</span>
+            </div>
+            <pre class="code" style="white-space:pre; overflow:auto">{{ r.diff }}</pre>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if not diff.scalars and not diff.m2m and not diff.texts %}
+      <div class="muted" style="margin-top:12px">No differences detected (for supported fields).</div>
+    {% endif %}
+  </section>
+{% endblock %}
