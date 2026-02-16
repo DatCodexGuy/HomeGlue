@@ -217,20 +217,99 @@
     return { indent: (m[1] || "").length, kind: (m[2] || ""), num: m[3] ? parseInt(m[3], 10) : null };
   };
 
+  const parseTaskMarker = (line) => {
+    // Returns { indent, kind, checked, rest } or null for "- [ ] foo" / "- [x] foo".
+    const m = (line || "").match(/^(\s*)([-*+])\s+\[([ xX])\]\s*(.*)$/);
+    if (!m) return null;
+    return { indent: (m[1] || "").length, kind: (m[2] || "-"), checked: (m[3] || " ") !== " ", rest: (m[4] || "") };
+  };
+
+  const toggleTaskLine = (line) => {
+    const m = (line || "").match(/^(\s*)([-*+])\s+\[([ xX])\](\s*.*)$/);
+    if (!m) return line;
+    const indent = m[1] || "";
+    const kind = m[2] || "-";
+    const cur = (m[3] || " ");
+    const tail = m[4] || "";
+    const next = (cur === " " ? "x" : " ");
+    return `${indent}${kind} [${next}]${tail}`;
+  };
+
+  const makeTaskLine = (line) => {
+    const s = (line || "");
+    if (!s.trim()) return s;
+    // Bullet list item: "- item" -> "- [ ] item"
+    const bm = s.match(/^(\s*)([-*+])\s+(.*)$/);
+    if (bm) return `${bm[1] || ""}${bm[2] || "-"} [ ] ${(bm[3] || "").trim()}`;
+    // Ordered list item: "1. item" -> "- [ ] item"
+    const om = s.match(/^\s*\d+\.\s+(.*)$/);
+    if (om) return `- [ ] ${(om[1] || "").trim()}`;
+    // Plain text -> "- [ ] text"
+    return `- [ ] ${s.trim()}`;
+  };
+
+  const doTask = (ta) => {
+    const val = ta.value || "";
+    const s = ta.selectionStart || 0;
+    const e = ta.selectionEnd || 0;
+
+    // Selection mode
+    if (s !== e) {
+      return withSelectedLines(ta, (lines, sel) => {
+        const nonempty = lines.filter((ln) => (ln || "").trim().length);
+        const allTasks = nonempty.length > 0 && nonempty.every((ln) => !!parseTaskMarker(ln));
+        const out = lines.map((ln) => {
+          if (!(ln || "").trim()) return ln;
+          if (allTasks) return toggleTaskLine(ln);
+          if (parseTaskMarker(ln)) return ln;
+          return makeTaskLine(ln);
+        });
+        return { lines: out, relStart: sel.relStart, relEnd: sel.relEnd };
+      });
+    }
+
+    // Cursor-only mode
+    const li = lineInfoAt(val, s);
+    const t = parseTaskMarker(li.text);
+    if (t) {
+      return insertAt(ta, li.start, li.end, toggleTaskLine(li.text));
+    }
+    if (/^\s*$/.test(li.text || "")) {
+      const prev = findPrevNonEmptyLine(val, Math.max(0, li.start - 1));
+      const pt = prev ? parseTaskMarker(prev.text) : null;
+      const pm = prev ? parseListMarker(prev.text) : null;
+      const pad = pm ? " ".repeat(pm.indent) : "";
+      if (pt) return insertAtCaret(ta, pad + "- [ ] ");
+      if (pm && pm.num === null) return insertAtCaret(ta, pad + "- [ ] ");
+      return insertAtCaret(ta, "- [ ] ");
+    }
+
+    // Convert the current line to a task item.
+    if (parseListMarker(li.text)) {
+      const bm = (li.text || "").match(/^(\s*)([-*+])\s+(.*)$/);
+      if (bm) return insertAt(ta, li.start, li.end, `${bm[1] || ""}${bm[2] || "-"} [ ] ${(bm[3] || "").trim()}`);
+      const om = (li.text || "").match(/^(\s*)\d+\.\s+(.*)$/);
+      if (om) return insertAt(ta, li.start, li.end, `${om[1] || ""}- [ ] ${(om[2] || "").trim()}`);
+    }
+    return prefixLine(ta, "- [ ] ");
+  };
+
   const indentKey = (ta) => {
     const val = ta.value || "";
     const s = ta.selectionStart || 0;
     const e = ta.selectionEnd || 0;
     if (s !== e) return indentSelection(ta, 4);
-    const li = lineInfoAt(val, s);
-    if (/^\s*$/.test(li.text || "")) {
-      const prev = findPrevNonEmptyLine(val, Math.max(0, li.start - 1));
-      const pm = prev ? parseListMarker(prev.text) : null;
-      if (pm) return insertAtCaret(ta, " ".repeat(pm.indent + 4) + "- ");
-      return insertAtCaret(ta, " ".repeat(4));
-    }
-    return indentSelection(ta, 4);
-  };
+      const li = lineInfoAt(val, s);
+      if (/^\s*$/.test(li.text || "")) {
+        const prev = findPrevNonEmptyLine(val, Math.max(0, li.start - 1));
+        const pm = prev ? parseListMarker(prev.text) : null;
+        const pt = prev ? parseTaskMarker(prev.text) : null;
+        if (pm && pt) return insertAtCaret(ta, " ".repeat(pm.indent + 4) + "- [ ] ");
+        if (pm) return insertAtCaret(ta, " ".repeat(pm.indent + 4) + "- ");
+        return insertAtCaret(ta, " ".repeat(4));
+      }
+      return indentSelection(ta, 4);
+    };
 
   const outdentKey = (ta) => {
     const val = ta.value || "";
@@ -386,7 +465,20 @@
       const val = ta.value || "";
       const s = ta.selectionStart || 0;
       const e = ta.selectionEnd || 0;
-      if (s !== e) return bulletSelection(ta);
+      if (s !== e) {
+        return withSelectedLines(ta, (lines, sel) => {
+          const nonempty = lines.filter((ln) => (ln || "").trim().length);
+          const allBullets = nonempty.length > 0 && nonempty.every((ln) => /^\s*[-*+]\s+/.test(ln));
+          const out = lines.map((ln) => {
+            if (!(ln || "").trim()) return ln;
+            if (allBullets) return "    " + ln; // nest further
+            if (/^\s*\d+\.\s+/.test(ln)) return ln.replace(/^\s*\d+\.\s+/, "- ");
+            if (/^\s*[-*+]\s+/.test(ln)) return ln;
+            return "- " + ln;
+          });
+          return { lines: out, relStart: sel.relStart, relEnd: sel.relEnd };
+        });
+      }
       const li = lineInfoAt(val, s);
       if (/^\s*$/.test(li.text || "")) {
         const prev = findPrevNonEmptyLine(val, Math.max(0, li.start - 1));
@@ -395,6 +487,13 @@
         return insertAtCaret(ta, pad + "- ");
       }
       if (!parseListMarker(li.text)) return prefixLine(ta, "- ");
+      // Already a bullet line: clicking again nests it deeper (common editor behavior).
+      if (/^\s*[-*+]\s+/.test(li.text || "")) return indentSelection(ta, 4);
+      // Ordered line: convert to bullet.
+      if (/^\s*\d+\.\s+/.test(li.text || "")) {
+        const next = (li.text || "").replace(/^\s*\d+\.\s+/, "- ");
+        return insertAt(ta, li.start, li.end, next);
+      }
       return;
     };
 
@@ -438,7 +537,7 @@
     bar.appendChild(ibtn("i-indent", "Indent", "Indent / nest", () => doIndent()));
     bar.appendChild(ibtn("i-outdent", "Outdent", "Outdent", () => doOutdent()));
     bar.appendChild(sep());
-    bar.appendChild(ibtn("i-task", "Task", "Task list", () => prefixSelectionLines(ta, "- [ ] ")));
+    bar.appendChild(ibtn("i-task", "Task", "Task list", () => doTask(ta)));
     bar.appendChild(ibtn("i-codeblock", "Code block", "Code block", () => surround(ta, "```\n", "\n```\n")));
     bar.appendChild(ibtn("i-hr", "Horizontal rule", "Horizontal rule", () => surround(ta, "\n---\n", "")));
     bar.appendChild(sep());
@@ -548,8 +647,11 @@
           ta.dispatchEvent(new Event("input", { bubbles: true }));
           return;
         }
+        const isTask = num === null && /^\[([ xX])\]\s*/.test(rest);
         if (num !== null) {
           insertAtCaret(ta, "\n" + indent + String(num + 1) + ". ");
+        } else if (isTask) {
+          insertAtCaret(ta, "\n" + indent + kind + " [ ] ");
         } else {
           insertAtCaret(ta, "\n" + indent + kind + " ");
         }
