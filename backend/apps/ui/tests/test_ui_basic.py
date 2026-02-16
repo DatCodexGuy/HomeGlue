@@ -540,3 +540,49 @@ class UiBasicTests(TestCase):
         r = self.client.post("/app/passwords/new/", {"name": "P1", "folder": str(f.id), "visibility": "admins"})
         self.assertEqual(r.status_code, 302)
         self.assertTrue(PasswordEntry.objects.filter(organization=self.org, name="P1", folder=f).exists())
+
+    def test_file_safeshare_one_time_download(self):
+        from urllib.parse import urlsplit
+        from django.contrib.contenttypes.models import ContentType
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.assets.models import Asset
+        from apps.core.models import Attachment, AttachmentShareLink
+        from apps.core.reauth import mark_session_reauthed
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        sess = self.client.session
+        mark_session_reauthed(session=sess)
+        sess.save()
+
+        asset = Asset.objects.create(organization=self.org, name="A1")
+        ct = ContentType.objects.get_for_model(Asset)
+        a = Attachment.objects.create(
+            organization=self.org,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("hello.txt", b"hello", content_type="text/plain"),
+            filename="hello.txt",
+            content_type=ct,
+            object_id=str(asset.id),
+        )
+
+        r = self.client.post(
+            f"/app/files/{a.id}/",
+            {"_action": "share_create", "expires_in_hours": "1", "one_time": "1", "label": "Test"},
+        )
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(AttachmentShareLink.objects.filter(organization=self.org, attachment=a).exists())
+
+        share_url = self.client.session.get(f"file_share_new_url_{self.org.id}_{a.id}", "")
+        self.assertIn("/share/f/", share_url)
+        share_path = urlsplit(share_url).path
+
+        r = self.client.post(share_path, {"_action": "download"})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("attachment", (r.headers.get("Content-Disposition") or "").lower())
+        body = b"".join(r.streaming_content)
+        self.assertEqual(body, b"hello")
+
+        r = self.client.post(share_path, {"_action": "download"})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Link consumed", status_code=200)

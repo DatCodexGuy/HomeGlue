@@ -84,6 +84,101 @@
       </form>
     </div>
 
+    {% if can_admin %}
+      <div style="margin-top:18px">
+        <h3 class="h3">SafeShare</h3>
+        <div class="warn">
+          <div class="warn__title">Public link</div>
+          <div class="warn__body">Anyone with this link can download the file until it expires (or is revoked).</div>
+        </div>
+
+        {% if share_new_url %}
+          <div class="secretbox" style="margin-top:10px">
+            <div class="secretbox__label">New share link (copy now)</div>
+            <div class="secretbox__value mono" data-copy style="word-break:break-all">{{ share_new_url }}</div>
+            <div class="muted">This is only shown once.</div>
+          </div>
+        {% endif %}
+
+        {% if not is_reauthed %}
+          <div class="mini" style="margin-top:10px">
+            <div class="muted">Re-authentication required before creating or revoking share links.</div>
+            <a class="btn btn--ghost btn--sm" href="{{ reauth_url }}" style="margin-top:8px">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+              Re-authenticate
+            </a>
+          </div>
+        {% endif %}
+
+        <form method="post" class="form" style="margin-top:10px; max-width:860px">
+          {% csrf_token %}
+          <input type="hidden" name="_action" value="share_create" />
+          <p>
+            <label for="id_share_label">Label (optional)</label>
+            <input id="id_share_label" type="text" name="label" placeholder="e.g. Vendor transfer" />
+          </p>
+          <div class="grid" style="grid-template-columns: 1fr 1fr; gap:10px">
+            <div>
+              <label for="id_share_expires">Expires</label>
+              <select id="id_share_expires" name="expires_in_hours">
+                <option value="1">1 hour</option>
+                <option value="24" selected>24 hours</option>
+                <option value="168">7 days</option>
+                <option value="720">30 days</option>
+              </select>
+            </div>
+            <div>
+              <label for="id_share_one_time">One-time</label>
+              <select id="id_share_one_time" name="one_time">
+                <option value="0" selected>No</option>
+                <option value="1">Yes (download once)</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn--ghost btn--sm" type="submit" style="margin-top:10px">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>
+            Create share link
+          </button>
+        </form>
+
+        {% if share_links %}
+          <div class="table" style="margin-top:12px">
+            <div class="row row--head" style="grid-template-columns: 1.1fr 0.8fr 0.8fr 0.6fr">
+              <div>Link</div><div>Expires</div><div>Status</div><div></div>
+            </div>
+            {% for s in share_links %}
+              <div class="row" style="grid-template-columns: 1.1fr 0.8fr 0.8fr 0.6fr">
+                <div class="mono">
+                  {{ s.label|default:"(no label)" }}
+                  <div class="sub">token {{ s.token_prefix }}…{% if s.one_time %}<span class="dot"></span>one-time{% endif %}</div>
+                </div>
+                <div class="muted mono">{{ s.expires_at|date:"Y-m-d H:i" }}</div>
+                <div class="muted mono">
+                  {% if s.revoked_at %}revoked{% elif s.one_time and s.consumed_at %}consumed{% elif s.expires_at and s.expires_at < now %}expired{% else %}active{% endif %}
+                  <div class="sub">downloads {{ s.view_count }}</div>
+                </div>
+                <div style="display:flex; justify-content:flex-end">
+                  {% if not s.revoked_at %}
+                    <form method="post">
+                      {% csrf_token %}
+                      <input type="hidden" name="_action" value="share_revoke" />
+                      <input type="hidden" name="share_id" value="{{ s.id }}" />
+                      <button class="btn btn--danger btn--sm" type="submit">
+                        <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+                        Revoke
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="muted" style="margin-top:10px">No share links yet.</div>
+        {% endif %}
+      </div>
+    {% endif %}
+
     <div style="margin-top:18px">
       <h3 class="h3">Versions</h3>
 

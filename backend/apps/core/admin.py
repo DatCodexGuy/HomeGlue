@@ -3,6 +3,7 @@ from django.contrib import admin
 from .admin_forms import RelationshipAdminForm
 from .models import (
     Attachment,
+    AttachmentShareLink,
     AttachmentVersion,
     FileFolder,
     Location,
@@ -56,6 +57,13 @@ class AttachmentVersionAdmin(admin.ModelAdmin):
     search_fields = ("filename", "attachment__filename", "attachment__organization__name")
     list_display = ("filename", "attachment", "created_at", "uploaded_by", "bytes")
     list_filter = ("attachment__organization",)
+
+
+@admin.register(AttachmentShareLink)
+class AttachmentShareLinkAdmin(admin.ModelAdmin):
+    search_fields = ("label", "token_prefix", "attachment__filename", "organization__name")
+    list_display = ("id", "label", "attachment", "organization", "expires_at", "one_time", "view_count", "revoked_at")
+    list_filter = ("organization", "one_time", "revoked_at")
 
 
 @admin.register(FileFolder)

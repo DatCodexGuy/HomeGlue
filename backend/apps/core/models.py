@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import hashlib
+import secrets
+
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 
 
 class Organization(models.Model):
@@ -193,6 +197,74 @@ class AttachmentVersion(models.Model):
 
     def __str__(self) -> str:
         return self.filename or f"AttachmentVersion {self.pk}"
+
+
+class AttachmentShareLink(models.Model):
+    """
+    Public, token-based share link for an Attachment.
+
+    - Token is only shown once at create time; DB stores SHA256 hash.
+    - One-time links are consumed on first successful download.
+    """
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="attachment_share_links")
+    attachment = models.ForeignKey(Attachment, on_delete=models.CASCADE, related_name="share_links")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_attachment_share_links",
+    )
+
+    label = models.CharField(max_length=200, blank=True, default="")
+    token_hash = models.CharField(max_length=64, unique=True)
+    token_prefix = models.CharField(max_length=12, blank=True, default="")
+
+    expires_at = models.DateTimeField()
+    one_time = models.BooleanField(default=False)
+
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    view_count = models.IntegerField(default=0)
+    last_viewed_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["organization", "-created_at"], name="idx_core_attshare_org_recent"),
+            models.Index(fields=["attachment", "-created_at"], name="idx_core_attshare_att_recent"),
+            models.Index(fields=["expires_at"], name="idx_core_attshare_exp"),
+            models.Index(fields=["revoked_at"], name="idx_core_attshare_revoked"),
+            models.Index(fields=["consumed_at"], name="idx_core_attshare_consumed"),
+        ]
+
+    @staticmethod
+    def hash_token(token: str) -> str:
+        return hashlib.sha256((token or "").encode("utf-8")).hexdigest()
+
+    @classmethod
+    def build_new_token(cls) -> str:
+        return secrets.token_urlsafe(32)
+
+    def is_expired(self) -> bool:
+        try:
+            return bool(self.expires_at and self.expires_at <= timezone.now())
+        except Exception:
+            return True
+
+    def is_revoked(self) -> bool:
+        return bool(self.revoked_at)
+
+    def is_consumed(self) -> bool:
+        return bool(self.one_time and self.consumed_at)
+
+    def is_active(self) -> bool:
+        return (not self.is_revoked()) and (not self.is_expired()) and (not self.is_consumed())
+
+    def __str__(self) -> str:
+        return f"{self.organization}: share {self.pk} for attachment {self.attachment_id}"
 
 class CustomField(models.Model):
     """

@@ -28,6 +28,7 @@ import zipfile
 from apps.assets.models import Asset, ConfigurationItem
 from apps.core.models import (
     Attachment,
+    AttachmentShareLink,
     AttachmentVersion,
     FileFolder,
     CustomField,
@@ -5298,12 +5299,74 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
     )
     if not _can_view_attachment(request=request, org=org, a=a):
         raise PermissionDenied("Not allowed to view this file.")
+    can_admin = _is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)
+    is_reauthed = _is_reauthed(request)
+    reauth_url = reverse("ui:reauth") + "?" + urlencode({"next": request.get_full_path()})
+    sess_key_share = f"file_share_new_url_{org.id}_{a.id}"
+    share_new_url = request.session.pop(sess_key_share, "")
+    if share_new_url:
+        request.session.modified = True
+
+    if request.method == "POST" and request.POST.get("_action") == "share_create":
+        if not can_admin:
+            raise PermissionDenied("Only org admins can create share links.")
+        if not is_reauthed:
+            return redirect(reauth_url)
+        try:
+            hours = int(request.POST.get("expires_in_hours") or 24)
+        except Exception:
+            hours = 24
+        hours = max(1, min(24 * 90, int(hours)))
+        one_time = (request.POST.get("one_time") or "").strip() == "1"
+        label = (request.POST.get("label") or "").strip()
+
+        expires_at = timezone.now() + timedelta(hours=hours)
+        token = ""
+        for _ in range(3):
+            token = AttachmentShareLink.build_new_token()
+            token_hash = AttachmentShareLink.hash_token(token)
+            try:
+                AttachmentShareLink.objects.create(
+                    organization=org,
+                    attachment=a,
+                    created_by=request.user if request.user.is_authenticated else None,
+                    label=label,
+                    token_hash=token_hash,
+                    token_prefix=(token[:12] if token else ""),
+                    expires_at=expires_at,
+                    one_time=one_time,
+                )
+                break
+            except IntegrityError:
+                token = ""
+                continue
+        if not token:
+            raise PermissionDenied("Unable to create share link (try again).")
+        base_url = (getattr(settings, "HOMEGLUE_BASE_URL", "") or "").strip().rstrip("/")
+        if not base_url:
+            base_url = request.build_absolute_uri("/").rstrip("/")
+        request.session[sess_key_share] = f"{base_url}{reverse('public:file_share', kwargs={'token': token})}"
+        request.session.modified = True
+        return redirect("ui:file_detail", attachment_id=a.id)
+
+    if request.method == "POST" and request.POST.get("_action") == "share_revoke":
+        if not can_admin:
+            raise PermissionDenied("Only org admins can revoke share links.")
+        if not is_reauthed:
+            return redirect(reauth_url)
+        sid = (request.POST.get("share_id") or "").strip()
+        if sid.isdigit():
+            sl = AttachmentShareLink.objects.filter(organization=org, attachment=a, id=int(sid)).first()
+            if sl and not sl.revoked_at:
+                sl.revoked_at = timezone.now()
+                sl.save(update_fields=["revoked_at"])
+        return redirect("ui:file_detail", attachment_id=a.id)
 
     if request.method == "POST" and request.POST.get("_action") == "upload_version":
-        if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
+        if not can_admin:
             raise PermissionDenied("Not allowed.")
-        if not _is_reauthed(request):
-            return redirect(reverse("ui:reauth") + "?" + urlencode({"next": request.get_full_path()}))
+        if not is_reauthed:
+            return redirect(reauth_url)
         fnew = request.FILES.get("file")
         if fnew and a.file:
             # Capture current file as a version without copying bytes; ownership transfers to the version record.
@@ -5414,9 +5477,15 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
             "folders": list(FileFolder.objects.filter(organization=org, archived_at__isnull=True).select_related("parent").order_by("parent_id", "name")[:5000]),
             "tags": list(_tags_available_for_org(org)[:500]),
             "versions": list(a.versions.select_related("uploaded_by").order_by("-created_at")[:50]),
-            "can_admin": _is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False),
-            "is_reauthed": _is_reauthed(request),
-            "reauth_url": reverse("ui:reauth") + "?" + urlencode({"next": request.get_full_path()}),
+            "can_admin": can_admin,
+            "is_reauthed": is_reauthed,
+            "reauth_url": reauth_url,
+            "share_new_url": share_new_url,
+            "share_links": list(
+                AttachmentShareLink.objects.filter(organization=org, attachment=a).select_related("created_by").order_by("-created_at")[:50]
+            )
+            if can_admin
+            else [],
         },
     )
 

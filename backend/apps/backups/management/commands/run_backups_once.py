@@ -19,6 +19,7 @@ from apps.backups.models import BackupPolicy, BackupSnapshot
 from apps.checklists.models import Checklist, ChecklistItem, ChecklistRun, ChecklistRunItem, ChecklistSchedule
 from apps.core.models import (
     Attachment,
+    AttachmentShareLink,
     AttachmentVersion,
     CustomField,
     CustomFieldValue,
@@ -184,6 +185,8 @@ class Command(BaseCommand):
             # Attachment versions (for GlueFiles-like versioning)
             attachment_versions = list(AttachmentVersion.objects.filter(attachment__organization=org)[:200000])
             fixture_objects += _serialize_qs(AttachmentVersion.objects.filter(attachment__organization=org))
+            attachment_share_links = list(AttachmentShareLink.objects.filter(organization=org)[:200000])
+            fixture_objects += _serialize_qs(AttachmentShareLink.objects.filter(organization=org))
 
             manifest = {
                 "homeglue_backup_version": 2,
@@ -194,6 +197,7 @@ class Command(BaseCommand):
                     "fixture_objects": len(fixture_objects),
                     "attachments": len(attachments),
                     "attachment_versions": len(attachment_versions),
+                    "attachment_share_links": len(attachment_share_links),
                 },
                 "notes": "Restore is still manual. Recommended: restore into a fresh HomeGlue stack (empty DB + media) then load fixture.json with Django loaddata.",
             }

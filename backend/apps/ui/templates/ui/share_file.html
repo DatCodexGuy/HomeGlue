@@ -1,0 +1,53 @@
+{% extends "ui/base.html" %}
+{% block title %}Shared File | HomeGlue{% endblock %}
+{% block content %}
+  <section class="panel reveal" style="max-width:840px; margin:0 auto">
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{% if share.label %}{{ share.label }}{% else %}Shared File{% endif %}</h1>
+        <div class="sub">
+          <span class="mono">{{ filename }}</span>
+          <span class="dot"></span>
+          Expires {{ share.expires_at|date:"Y-m-d H:i" }}
+          {% if share.one_time %}<span class="dot"></span><span class="pill pill--tiny pill--ghost">one-time</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if share.revoked_at %}
+      <div class="warn">
+        <div class="warn__title">Link revoked</div>
+        <div class="warn__body">This share link was revoked and can no longer be used.</div>
+      </div>
+    {% elif share.expires_at and share.expires_at < now %}
+      <div class="warn">
+        <div class="warn__title">Link expired</div>
+        <div class="warn__body">This share link has expired.</div>
+      </div>
+    {% elif share.one_time and share.consumed_at %}
+      <div class="warn">
+        <div class="warn__title">Link consumed</div>
+        <div class="warn__body">This one-time link was already used and can no longer be downloaded.</div>
+      </div>
+    {% endif %}
+
+    <h3 class="h3" style="margin-top:16px">Download</h3>
+    <div class="warn">
+      <div class="warn__title">Sensitive</div>
+      <div class="warn__body">Treat downloads and saved local copies as sensitive.</div>
+    </div>
+
+    {% if active %}
+      <form method="post" style="margin-top:10px">
+        {% csrf_token %}
+        <input type="hidden" name="_action" value="download" />
+        <button class="btn btn--ghost btn--sm" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+          Download file
+        </button>
+      </form>
+    {% elif download_attempted %}
+      <div class="muted" style="margin-top:10px">This link is no longer active.</div>
+    {% endif %}
+  </section>
+{% endblock %}
