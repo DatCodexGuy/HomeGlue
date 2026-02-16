@@ -98,5 +98,5 @@ AGPL-3.0 (see `LICENSE`).
 
 - Public status: `docs/STATUS.md`
 - IT Glue parity: `docs/PARITY_ITGLUE.md`
-- Wiki content (repo): `docs/wiki/`
-- Wiki content (in-app image): `backend/wiki/`
+- Wiki content (source of truth): `backend/wiki/`
+- Wiki content (mirrored for GitHub browsing): `docs/wiki/`

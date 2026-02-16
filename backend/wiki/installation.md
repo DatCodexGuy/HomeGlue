@@ -33,6 +33,11 @@ HOMEGLUE_DIR=/srv/homeglue bash -c "$(curl -fsSL https://raw.githubusercontent.c
 
 # Choose a different port on the host (defaults to 8080)
 HOMEGLUE_PORT=8090 bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
+
+# Run side-by-side with another HomeGlue install on the same host
+# (changes the Docker Compose project name so container/volume names don't conflict)
+HOMEGLUE_COMPOSE_PROJECT=homeglue_test HOMEGLUE_PORT=8091 HOMEGLUE_DIR=/opt/homeglue-test \
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
 ```
 
 What the bootstrap does:

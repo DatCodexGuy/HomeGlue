@@ -114,12 +114,12 @@
               <a class="side__link side__link--muted" href="{% url 'ui:leave_org' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-switch"/></svg>Switch Org</a>
               <a class="side__link side__link--muted {% if request.path|slice:':13' == '/app/account/' %}is-active{% endif %}" href="{% url 'ui:account' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-people"/></svg>Account</a>
               <a class="side__link side__link--muted" href="/accounts/logout/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-logout"/></svg>Logout</a>
-              {% if user.is_superuser %}
-                <div class="side__sep"></div>
-                <a class="side__link side__link--muted {% if request.path|slice:':11' == '/app/admin/' %}is-active{% endif %}" href="{% url 'ui:super_admin_home' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>Admin</a>
-                <a class="side__link side__link--muted" href="/admin/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>Django Admin</a>
-                <a class="side__link side__link--muted" href="/api/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>API</a>
-              {% endif %}
+	              {% if user.is_superuser %}
+	                <div class="side__sep"></div>
+	                <a class="side__link side__link--muted {% if request.path|slice:':11' == '/app/admin/' %}is-active{% endif %}" href="{% url 'ui:super_admin_home' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>Admin</a>
+	                <a class="side__link side__link--muted" href="/admin/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>Admin site</a>
+	                <a class="side__link side__link--muted" href="/api/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>API</a>
+	              {% endif %}
             </nav>
           {% else %}
             <nav class="side__nav">

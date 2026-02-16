@@ -1,6 +1,6 @@
 # Admin, Settings, and Operations
 
-HomeGlue aims to avoid requiring the Django admin UI for normal operations.
+HomeGlue aims to avoid requiring the built-in admin site for normal operations.
 
 ## Account vs Org vs System
 
@@ -93,9 +93,9 @@ It also contains governance actions (reauth required) such as audit retention po
   - integrations UI (`/app/integrations/`)
   - mapped Config Items (`/app/config-items/`)
 
-## Django Admin (Optional)
+## Admin Site (Optional)
 
-The Django admin remains available at:
+The built-in admin site remains available at:
 
 - `/admin/`
 

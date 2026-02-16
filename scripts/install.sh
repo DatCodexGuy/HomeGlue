@@ -6,12 +6,17 @@ cd "$ROOT"
 
 compose() {
   # Prefer docker compose; fallback to docker-compose if installed.
+  # Note: HOMEGLUE_COMPOSE_PROJECT is a convenience override for smoke tests and side-by-side installs.
+  local -a project=()
+  if [[ -n "${HOMEGLUE_COMPOSE_PROJECT:-}" ]]; then
+    project=(-p "$HOMEGLUE_COMPOSE_PROJECT")
+  fi
   if docker compose version >/dev/null 2>&1; then
-    docker compose "$@"
+    docker compose "${project[@]}" "$@"
     return
   fi
   if command -v docker-compose >/dev/null 2>&1; then
-    docker-compose "$@"
+    docker-compose "${project[@]}" "$@"
     return
   fi
   echo "ERROR: Docker Compose not found. Install Docker Engine + Compose plugin." >&2
@@ -166,7 +171,11 @@ echo "[3/4] Running migrations..."
 compose exec -T web python manage.py migrate_with_lock
 
 echo "[4/4] Ensuring default superuser exists..."
-compose exec -T web python manage.py shell -c "import os; from django.contrib.auth import get_user_model; User=get_user_model(); u=os.environ.get('DJANGO_SUPERUSER_USERNAME','admin'); e=os.environ.get('DJANGO_SUPERUSER_EMAIL','admin@example.local'); p=os.environ.get('DJANGO_SUPERUSER_PASSWORD',''); obj, created = User.objects.get_or_create(username=u, defaults={'email': e}); obj.email = e; obj.is_staff = True; obj.is_superuser = True;  created and obj.set_password(p); obj.save(); print('created' if created else 'updated (password unchanged)')"
+if [[ "$CREATED_ENV" -eq 1 ]]; then
+  compose exec -T -e HOMEGLUE_SET_SUPERUSER_PASSWORD=1 web python manage.py shell -c "import os; from django.contrib.auth import get_user_model; User=get_user_model(); u=os.environ.get('DJANGO_SUPERUSER_USERNAME','admin'); e=os.environ.get('DJANGO_SUPERUSER_EMAIL','admin@example.local'); p=os.environ.get('DJANGO_SUPERUSER_PASSWORD',''); force=os.environ.get('HOMEGLUE_SET_SUPERUSER_PASSWORD')=='1'; obj, created = User.objects.get_or_create(username=u, defaults={'email': e}); obj.email = e; obj.is_staff = True; obj.is_superuser = True;  (created or force) and obj.set_password(p); obj.save(); print('created' if created else ('updated (password set)' if force else 'updated (password unchanged)'))"
+else
+  compose exec -T web python manage.py shell -c "import os; from django.contrib.auth import get_user_model; User=get_user_model(); u=os.environ.get('DJANGO_SUPERUSER_USERNAME','admin'); e=os.environ.get('DJANGO_SUPERUSER_EMAIL','admin@example.local'); p=os.environ.get('DJANGO_SUPERUSER_PASSWORD',''); obj, created = User.objects.get_or_create(username=u, defaults={'email': e}); obj.email = e; obj.is_staff = True; obj.is_superuser = True;  created and obj.set_password(p); obj.save(); print('created' if created else 'updated (password unchanged)')"
+fi
 
 echo
 PORT="$(get_kv HOMEGLUE_PORT "$ENV_FILE")"
