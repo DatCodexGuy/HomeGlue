@@ -128,6 +128,7 @@ class Attachment(models.Model):
     content_object = GenericForeignKey("content_type", "object_id")
 
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
         if not self.filename and self.file:
@@ -149,6 +150,49 @@ class Attachment(models.Model):
     def __str__(self) -> str:
         return self.filename or f"Attachment {self.pk}"
 
+
+class AttachmentVersion(models.Model):
+    """
+    Historic versions of an Attachment.
+
+    The Attachment record is considered the "current" version; older versions are stored here.
+    """
+
+    attachment = models.ForeignKey(Attachment, on_delete=models.CASCADE, related_name="versions")
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    file = models.FileField(upload_to="attachments/%Y/%m/%d/")
+    filename = models.CharField(max_length=255, blank=True, default="")
+    bytes = models.BigIntegerField(null=True, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["attachment", "-created_at"], name="idx_core_attver_recent"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.filename and self.file:
+            self.filename = getattr(self.file, "name", "") or self.filename
+        if self.bytes is None and self.file:
+            try:
+                self.bytes = int(self.file.size)
+            except Exception:
+                self.bytes = None
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        storage = getattr(self.file, "storage", None)
+        name = getattr(self.file, "name", None)
+        super().delete(*args, **kwargs)
+        try:
+            if storage and name:
+                storage.delete(name)
+        except Exception:
+            pass
+
+    def __str__(self) -> str:
+        return self.filename or f"AttachmentVersion {self.pk}"
 
 class CustomField(models.Model):
     """

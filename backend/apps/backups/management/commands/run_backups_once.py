@@ -19,6 +19,7 @@ from apps.backups.models import BackupPolicy, BackupSnapshot
 from apps.checklists.models import Checklist, ChecklistItem, ChecklistRun, ChecklistRunItem, ChecklistSchedule
 from apps.core.models import (
     Attachment,
+    AttachmentVersion,
     CustomField,
     CustomFieldValue,
     Location,
@@ -180,6 +181,9 @@ class Command(BaseCommand):
             # Attachments + underlying media files
             attachments = list(Attachment.objects.filter(organization=org).select_related("content_type")[:20000])
             fixture_objects += _serialize_qs(Attachment.objects.filter(organization=org))
+            # Attachment versions (for GlueFiles-like versioning)
+            attachment_versions = list(AttachmentVersion.objects.filter(attachment__organization=org)[:200000])
+            fixture_objects += _serialize_qs(AttachmentVersion.objects.filter(attachment__organization=org))
 
             manifest = {
                 "homeglue_backup_version": 2,
@@ -189,6 +193,7 @@ class Command(BaseCommand):
                 "counts": {
                     "fixture_objects": len(fixture_objects),
                     "attachments": len(attachments),
+                    "attachment_versions": len(attachment_versions),
                 },
                 "notes": "Restore is still manual. Recommended: restore into a fresh HomeGlue stack (empty DB + media) then load fixture.json with Django loaddata.",
             }
@@ -216,6 +221,24 @@ class Command(BaseCommand):
                             # Stream into the zip to avoid reading entire files into memory.
                             with z.open(arc, "w") as dest:
                                 with a.file.open("rb") as src:
+                                    while True:
+                                        chunk = src.read(1024 * 256)
+                                        if not chunk:
+                                            break
+                                        dest.write(chunk)
+                        except Exception:
+                            continue
+
+                    for v in attachment_versions:
+                        try:
+                            if not v.file:
+                                continue
+                            name = getattr(v.file, "name", "") or ""
+                            if not name:
+                                continue
+                            arc = f"media/{name}"
+                            with z.open(arc, "w") as dest:
+                                with v.file.open("rb") as src:
                                     while True:
                                         chunk = src.read(1024 * 256)
                                         if not chunk:

@@ -28,6 +28,7 @@ import zipfile
 from apps.assets.models import Asset, ConfigurationItem
 from apps.core.models import (
     Attachment,
+    AttachmentVersion,
     FileFolder,
     CustomField,
     CustomFieldValue,
@@ -5298,6 +5299,28 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
     if not _can_view_attachment(request=request, org=org, a=a):
         raise PermissionDenied("Not allowed to view this file.")
 
+    if request.method == "POST" and request.POST.get("_action") == "upload_version":
+        if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
+            raise PermissionDenied("Not allowed.")
+        if not _is_reauthed(request):
+            return redirect(reverse("ui:reauth") + "?" + urlencode({"next": request.get_full_path()}))
+        fnew = request.FILES.get("file")
+        if fnew and a.file:
+            # Capture current file as a version without copying bytes; ownership transfers to the version record.
+            v = AttachmentVersion(attachment=a, uploaded_by=request.user, filename=a.filename or "")
+            v.file.name = getattr(a.file, "name", "") or ""
+            try:
+                v.bytes = int(a.file.size)
+            except Exception:
+                v.bytes = None
+            v.save()
+
+            a.file = fnew
+            a.filename = getattr(fnew, "name", "") or a.filename
+            a.uploaded_by = request.user
+            a.save()
+        return redirect("ui:file_detail", attachment_id=a.id)
+
     if request.method == "POST" and request.POST.get("_action") == "save_meta":
         folder_raw = (request.POST.get("folder_id") or "").strip()
         folder_id = int(folder_raw) if folder_raw.isdigit() else None
@@ -5390,6 +5413,10 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
             "content_type": content_type or "application/octet-stream",
             "folders": list(FileFolder.objects.filter(organization=org, archived_at__isnull=True).select_related("parent").order_by("parent_id", "name")[:5000]),
             "tags": list(_tags_available_for_org(org)[:500]),
+            "versions": list(a.versions.select_related("uploaded_by").order_by("-created_at")[:50]),
+            "can_admin": _is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False),
+            "is_reauthed": _is_reauthed(request),
+            "reauth_url": reverse("ui:reauth") + "?" + urlencode({"next": request.get_full_path()}),
         },
     )
 
@@ -5414,6 +5441,90 @@ def file_download(request: HttpRequest, attachment_id: int) -> HttpResponse:
 
     resp = FileResponse(f, as_attachment=not inline, filename=Path(filename).name, content_type=ctype)
     return resp
+
+
+@login_required
+def file_version_download(request: HttpRequest, attachment_id: int, version_id: int) -> HttpResponse:
+    ctx = require_current_org(request)
+    org = ctx.organization
+    a = get_object_or_404(Attachment, id=attachment_id, organization=org)
+    if not _can_view_attachment(request=request, org=org, a=a):
+        raise PermissionDenied("Not allowed to download this file.")
+    v = get_object_or_404(AttachmentVersion, id=version_id, attachment=a)
+
+    filename = v.filename or (Path(getattr(v.file, "name", "")).name if v.file else f"attachment-version-{v.id}")
+    ctype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    try:
+        f = v.file.open("rb")
+    except Exception:
+        raise PermissionDenied("File unavailable.")
+    return FileResponse(f, as_attachment=True, filename=Path(filename).name, content_type=ctype)
+
+
+@login_required
+@require_POST
+def file_version_restore(request: HttpRequest, attachment_id: int, version_id: int) -> HttpResponse:
+    ctx = require_current_org(request)
+    org = ctx.organization
+    if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
+        raise PermissionDenied("Not allowed.")
+    if not _is_reauthed(request):
+        nxt = reverse("ui:file_detail", kwargs={"attachment_id": attachment_id})
+        return redirect(reverse("ui:reauth") + "?" + urlencode({"next": nxt}))
+
+    a = get_object_or_404(Attachment, id=attachment_id, organization=org)
+    if not _can_view_attachment(request=request, org=org, a=a):
+        raise PermissionDenied("Not allowed.")
+    v = get_object_or_404(AttachmentVersion, id=version_id, attachment=a)
+
+    # Swap file pointers (no copy) so each DB row continues to own exactly one stored file.
+    cur_name = getattr(a.file, "name", "") or ""
+    cur_filename = a.filename or ""
+    cur_bytes = None
+    try:
+        cur_bytes = int(a.file.size) if a.file else None
+    except Exception:
+        cur_bytes = None
+
+    a.file.name = getattr(v.file, "name", "") or ""
+    a.filename = v.filename or a.filename
+    a.uploaded_by = request.user
+    a.save(update_fields=["file", "filename", "uploaded_by", "updated_at"])
+
+    v.file.name = cur_name
+    v.filename = cur_filename
+    v.bytes = cur_bytes
+    v.uploaded_by = request.user
+    v.save(update_fields=["file", "filename", "bytes", "uploaded_by"])
+
+    return redirect("ui:file_detail", attachment_id=a.id)
+
+
+@login_required
+def file_version_delete(request: HttpRequest, attachment_id: int, version_id: int) -> HttpResponse:
+    ctx = require_current_org(request)
+    org = ctx.organization
+    if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
+        raise PermissionDenied("Not allowed.")
+    a = get_object_or_404(Attachment, id=attachment_id, organization=org)
+    v = get_object_or_404(AttachmentVersion, id=version_id, attachment=a)
+    cancel_url = reverse("ui:file_detail", kwargs={"attachment_id": a.id})
+    redirect_url = cancel_url
+
+    def _go():
+        v.delete()
+
+    warning = "This deletes the version record and the underlying stored file."
+    return _confirm_delete(
+        request,
+        org=org,
+        kind="file version",
+        label=v.filename or f"Version #{v.id}",
+        cancel_url=cancel_url,
+        redirect_url=redirect_url,
+        warning=warning,
+        on_confirm=_go,
+    )
 
 
 @login_required

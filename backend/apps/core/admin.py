@@ -3,6 +3,7 @@ from django.contrib import admin
 from .admin_forms import RelationshipAdminForm
 from .models import (
     Attachment,
+    AttachmentVersion,
     FileFolder,
     Location,
     Note,
@@ -48,6 +49,13 @@ class AttachmentAdmin(admin.ModelAdmin):
     search_fields = ("filename", "organization__name")
     list_display = ("filename", "organization", "created_at", "uploaded_by")
     list_filter = ("organization",)
+
+
+@admin.register(AttachmentVersion)
+class AttachmentVersionAdmin(admin.ModelAdmin):
+    search_fields = ("filename", "attachment__filename", "attachment__organization__name")
+    list_display = ("filename", "attachment", "created_at", "uploaded_by", "bytes")
+    list_filter = ("attachment__organization",)
 
 
 @admin.register(FileFolder)

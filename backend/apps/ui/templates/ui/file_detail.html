@@ -85,6 +85,95 @@
     </div>
 
     <div style="margin-top:18px">
+      <h3 class="h3">Versions</h3>
+
+      {% if can_admin %}
+        <div class="mini" style="margin-bottom:12px">
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="pill pill--tiny">Upload</span>
+              <span class="muted">Create a new version</span>
+            </div>
+            <div class="mini__body">
+              {% if is_reauthed %}
+                <form method="post" enctype="multipart/form-data" class="form" style="max-width:860px">
+                  {% csrf_token %}
+                  <input type="hidden" name="_action" value="upload_version" />
+                  <div class="grid" style="grid-template-columns:1.4fr 1fr; gap:12px">
+                    <div>
+                      <label for="id_new_version">New file</label>
+                      <input id="id_new_version" type="file" name="file" required />
+                    </div>
+                    <div class="sub" style="align-self:end">
+                      This will keep the current file as a historic version.
+                    </div>
+                  </div>
+                  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px">
+                    <button class="btn btn--sm" type="submit">
+                      <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+                      Upload new version
+                    </button>
+                  </div>
+                </form>
+              {% else %}
+                <a class="btn btn--sm" href="{{ reauth_url }}">
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+                  Re-auth to upload versions
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="table">
+        <div class="row row--head" style="grid-template-columns:1.6fr 1fr 1fr 0.9fr">
+          <div>Filename</div><div>Created</div><div>By</div><div></div>
+        </div>
+        {% for v in versions %}
+          <div class="row" style="grid-template-columns:1.6fr 1fr 1fr 0.9fr">
+            <div class="mono">
+              {{ v.filename|default:"(file)" }}
+              {% if v.bytes %}<div class="muted mono" style="margin-top:6px">{{ v.bytes }} bytes</div>{% endif %}
+            </div>
+            <div class="muted mono">{{ v.created_at|date:"Y-m-d H:i" }}</div>
+            <div class="muted mono">{% if v.uploaded_by %}{{ v.uploaded_by.username }}{% else %}...{% endif %}</div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap">
+              <a class="btn btn--ghost btn--sm" href="{% url 'ui:file_version_download' attachment_id=a.id version_id=v.id %}">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+                Download
+              </a>
+              {% if can_admin %}
+                <form method="post" action="{% url 'ui:file_version_restore' attachment_id=a.id version_id=v.id %}">
+                  {% csrf_token %}
+                  <button class="btn btn--ghost btn--sm" type="submit" {% if not is_reauthed %}disabled{% endif %}>
+                    <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                    Restore
+                  </button>
+                </form>
+                <a class="btn btn--danger btn--sm" href="{% url 'ui:file_version_delete' attachment_id=a.id version_id=v.id %}">
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+                  Delete
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        {% empty %}
+          <div class="empty">
+            <div class="empty__title">No versions yet</div>
+            <div class="empty__body">Uploading a new version will keep the previous file here.</div>
+          </div>
+        {% endfor %}
+      </div>
+
+      {% if can_admin and not is_reauthed and versions %}
+        <div class="sub" style="margin-top:10px">
+          Restore is disabled until you <a class="link" href="{{ reauth_url }}">re-auth</a>.
+        </div>
+      {% endif %}
+    </div>
+
+    <div style="margin-top:18px">
       <h3 class="h3">Preview</h3>
       {% if preview_kind == "image" %}
         <div class="mini">
