@@ -26,7 +26,7 @@
         <div class="mini__row">
           <div class="mini__top">
             <span class="pill pill--tiny">Attached</span>
-            <span class="muted">{{ note.content_type.app_label }}.{{ note.content_type.model }}:{{ note.object_id }}</span>
+            <span class="muted">{{ attached_ref_label }}</span>
           </div>
           <div class="mini__body">
             {% if attached_url %}
@@ -57,4 +57,3 @@
     </div>
   </section>
 {% endblock %}
-

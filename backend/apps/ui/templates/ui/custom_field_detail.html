@@ -9,7 +9,7 @@
         <div class="sub">
           <span class="mono">{{ field.key }}</span>
           <span class="muted">for</span>
-          <span class="mono">{{ field.content_type.app_label }}.{{ field.content_type.model }}</span>
+          <span class="mono">{{ applies_to_label }}</span>
         </div>
       </div>
       <div class="listhead__actions">
@@ -34,4 +34,3 @@
     </form>
   </section>
 {% endblock %}
-

@@ -38,7 +38,7 @@
             <div class="mono">{{ n.title }}</div>
             {% if n.body %}<div class="muted">{{ n.body }}</div>{% endif %}
             {% if n.content_type_id and n.object_id %}
-              <div class="muted">Ref: <span class="mono">{{ n.content_type.app_label }}.{{ n.content_type.model }}:{{ n.object_id }}</span></div>
+              <div class="muted">Ref: <span class="mono">{{ n.ref_label }}</span></div>
             {% endif %}
           </div>
           <div class="mini__actions">
@@ -59,4 +59,3 @@
     </div>
   </section>
 {% endblock %}
-

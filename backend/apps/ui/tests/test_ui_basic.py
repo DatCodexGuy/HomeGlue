@@ -27,6 +27,8 @@ class UiBasicTests(TestCase):
 
         r = self.client.get("/app/dashboard/")
         self.assertContains(r, "Org", status_code=200)
+        self.assertContains(r, "Security / Org Session", status_code=200)
+        self.assertNotContains(r, "security.OrgSession")
         self.assertTrue(
             AuditEvent.objects.filter(
                 organization=self.org,
@@ -937,6 +939,29 @@ class UiBasicTests(TestCase):
                 summary__icontains="invalid passphrase",
             ).exists()
         )
+
+    def test_notifications_ref_is_humanized(self):
+        from django.contrib.contenttypes.models import ContentType
+        from apps.assets.models import Asset
+        from apps.workflows.models import Notification
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        asset = Asset.objects.create(organization=self.org, name="NotifAsset")
+        ct = ContentType.objects.get_for_model(Asset)
+        Notification.objects.create(
+            organization=self.org,
+            user=self.user,
+            level=Notification.LEVEL_INFO,
+            title="T",
+            body="B",
+            dedupe_key="n1",
+            content_type=ct,
+            object_id=str(asset.id),
+        )
+        r = self.client.get("/app/notifications/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Assets / Asset", status_code=200)
+        self.assertNotContains(r, "assets.asset:")
 
     def test_backup_create_is_audited(self):
         from apps.audit.models import AuditEvent

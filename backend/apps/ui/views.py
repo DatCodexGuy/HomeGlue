@@ -1312,6 +1312,21 @@ def _human_ref_label(*, ct, oid: str | int | None = None, obj=None, restricted: 
     return base
 
 
+def _audit_event_view_row(e: AuditEvent) -> dict:
+    return {
+        "ts": e.ts,
+        "action_badge": e.action,
+        "action_label": _human_action_label(e.action),
+        "model_raw": e.model,
+        "model_label": _human_model_label(e.model),
+        "object_pk": e.object_pk,
+        "target_label": f"{_human_model_label(e.model)} #{e.object_pk}",
+        "actor_label": (e.user.username if e.user else "System"),
+        "ip": e.ip,
+        "summary": e.summary,
+    }
+
+
 def _activity_for_object(*, org, model_cls, obj_id: int, limit: int = 20) -> list[dict]:
     model = f"{model_cls._meta.app_label}.{model_cls.__name__}"
     events = list(
@@ -1510,6 +1525,7 @@ def leave_org(request: HttpRequest) -> HttpResponse:
 def dashboard(request: HttpRequest) -> HttpResponse:
     ctx = require_current_org(request)
     org = ctx.organization
+    recent_events = list(AuditEvent.objects.filter(organization=org).select_related("user").order_by("-ts")[:20])
 
     return render(
         request,
@@ -1527,7 +1543,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
                 "flex_assets": FlexibleAsset.objects.filter(organization=org, archived_at__isnull=True).count(),
                 "relationships": Relationship.objects.filter(organization=org).count(),
             },
-            "recent": AuditEvent.objects.filter(organization=org).select_related("user").order_by("-ts")[:20],
+            "recent": [_audit_event_view_row(e) for e in recent_events],
         },
     )
 
@@ -1744,22 +1760,7 @@ def audit_log(request: HttpRequest) -> HttpResponse:
     )
 
     items = list(qs[:limit])
-    items_view = []
-    for e in items:
-        items_view.append(
-            {
-                "ts": e.ts,
-                "action_badge": e.action,
-                "action_label": _human_action_label(e.action),
-                "model_raw": e.model,
-                "model_label": _human_model_label(e.model),
-                "object_pk": e.object_pk,
-                "target_label": f"{_human_model_label(e.model)} #{e.object_pk}",
-                "actor_label": (e.user.username if e.user else "System"),
-                "ip": e.ip,
-                "summary": e.summary,
-            }
-        )
+    items_view = [_audit_event_view_row(e) for e in items]
     model_choices_raw = list(
         AuditEvent.objects.filter(organization=org).values_list("model", flat=True).distinct().order_by("model")[:200]
     )
@@ -1899,7 +1900,7 @@ def search(request: HttpRequest) -> HttpResponse:
             label = obj.title or f"Note {obj.id}"
             meta = obj.created_at.strftime("%Y-%m-%d")
             if obj.content_type_id and obj.object_id:
-                meta = f"{meta} · {obj.content_type.app_label}.{obj.content_type.model}:{obj.object_id}"
+                meta = f"{meta} · {_human_ref_label(ct=obj.content_type, oid=obj.object_id)}"
             score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
             results.append({"type": "note", "label": label, "url": reverse("ui:note_detail", kwargs={"note_id": obj.id}), "meta": meta, "obj_id": obj.id, "ref": _ref_for_obj(obj), "score": score})
             ids_by_type.setdefault("note", []).append(int(obj.id))
@@ -2234,6 +2235,9 @@ def note_detail(request: HttpRequest, note_id: int) -> HttpResponse:
     attached_obj = note.content_object
     attached_url = None
     attached_label = None
+    attached_ref_label = None
+    if note.content_type_id and note.object_id:
+        attached_ref_label = _human_ref_label(ct=note.content_type, oid=note.object_id)
     if attached_obj is not None:
         try:
             attached_url = _url_for_object_detail(attached_obj)
@@ -2251,6 +2255,7 @@ def note_detail(request: HttpRequest, note_id: int) -> HttpResponse:
             "note": note,
             "attached_url": attached_url,
             "attached_label": attached_label,
+            "attached_ref_label": attached_ref_label,
         },
     )
 
@@ -2328,6 +2333,14 @@ def notifications_list(request: HttpRequest) -> HttpResponse:
         qs = qs.filter(read_at__isnull=True)
 
     items = list(qs[:200])
+    for n in items:
+        ref_label = None
+        if n.content_type_id and n.object_id:
+            try:
+                ref_label = _human_ref_label(ct=n.content_type, oid=n.object_id)
+            except Exception:
+                ref_label = None
+        setattr(n, "ref_label", ref_label)
     unread_count = Notification.objects.filter(organization=org, user=request.user, read_at__isnull=True).count()
     return render(
         request,
@@ -2860,13 +2873,19 @@ def custom_fields_list(request: HttpRequest) -> HttpResponse:
         .select_related("content_type", "flexible_asset_type")
         .order_by("content_type__app_label", "content_type__model", "flexible_asset_type__name", "sort_order", "name")
     )
+    fields = list(qs)
+    for f in fields:
+        label = _human_ct_label(f.content_type)
+        if f.flexible_asset_type_id:
+            label = f"{label} (Type: {f.flexible_asset_type.name})"
+        setattr(f, "applies_to_label", label)
     return render(
         request,
         "ui/custom_fields_list.html",
         {
             "org": org,
             "crumbs": _crumbs(("Custom Fields", None)),
-            "fields": qs,
+            "fields": fields,
             "custom_fields_new_url": reverse("ui:custom_fields_new"),
         },
     )
@@ -2913,6 +2932,7 @@ def custom_field_detail(request: HttpRequest, field_id: int) -> HttpResponse:
             "org": org,
             "crumbs": _crumbs(("Custom Fields", reverse("ui:custom_fields_list")), (field.name, None)),
             "field": field,
+            "applies_to_label": _human_ct_label(field.content_type),
             "form": form,
         },
     )

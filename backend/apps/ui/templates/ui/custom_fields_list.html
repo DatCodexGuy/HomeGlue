@@ -14,12 +14,7 @@
           <div class="mono">{{ f.name }}</div>
           <div class="muted mono">{{ f.key }}</div>
           <div>{{ f.get_field_type_display }}</div>
-          <div class="muted mono">
-            {{ f.content_type.app_label }}.{{ f.content_type.model }}
-            {% if f.flexible_asset_type_id %}
-              <span class="pill pill--tiny pill--ghost">type: {{ f.flexible_asset_type.name }}</span>
-            {% endif %}
-          </div>
+          <div class="muted mono">{{ f.applies_to_label }}</div>
         </a>
       {% empty %}
         <div class="empty">
