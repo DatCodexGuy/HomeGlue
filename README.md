@@ -24,6 +24,13 @@ One-liner installer (installs to `/opt/homeglue`, creates `.env` if missing):
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
 ```
 
+If the repo is private, install via SSH:
+
+```bash
+HOMEGLUE_REPO_URL=git@github.com:DatCodexGuy/HomeGlue.git \
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
+```
+
 Install from git:
 
 ```bash

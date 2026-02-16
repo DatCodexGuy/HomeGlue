@@ -6,6 +6,10 @@ set -euo pipefail
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
 #
 # This script clones/updates the repo into /opt/homeglue (default) and then runs ./scripts/install.sh.
+#
+# Private repo installs:
+# - Prefer SSH: HOMEGLUE_REPO_URL=git@github.com:DatCodexGuy/HomeGlue.git ...
+# - Ensure your SSH key is loaded and has repo access.
 
 log() { printf '%s\n' "$*"; }
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -62,7 +66,14 @@ if command -v git >/dev/null 2>&1; then
       die "DEST exists and is not empty (and not a git repo): $DEST"
     fi
     $ROOT_PREFIX rm -rf "$DEST"
-    $ROOT_PREFIX git clone --depth 1 --branch "$REF" "$REPO_URL" "$DEST"
+    if ! $ROOT_PREFIX git clone --depth 1 --branch "$REF" "$REPO_URL" "$DEST"; then
+      log
+      log "Git clone failed."
+      log "If the repo is private, re-run with:"
+      log "  HOMEGLUE_REPO_URL=git@github.com:DatCodexGuy/HomeGlue.git bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)\""
+      log "And ensure your SSH key has access to the repo."
+      exit 1
+    fi
   fi
 else
   # Git-less install: pull a tarball from GitHub and extract.
