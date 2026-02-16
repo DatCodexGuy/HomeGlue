@@ -89,7 +89,12 @@ else
 fi
 
 if [[ "$CREATED_ENV" -eq 1 ]]; then
-  set_kv "HOMEGLUE_PORT" "8080" "$ENV_FILE"
+  # Allow caller to override port for fresh installs (useful for smoke tests / running side-by-side).
+  if [[ -n "${HOMEGLUE_PORT:-}" ]]; then
+    set_kv "HOMEGLUE_PORT" "${HOMEGLUE_PORT}" "$ENV_FILE"
+  else
+    set_kv "HOMEGLUE_PORT" "8080" "$ENV_FILE"
+  fi
   set_kv "HOMEGLUE_SECRET_KEY" "$(py_rand django_secret)" "$ENV_FILE"
   set_kv "HOMEGLUE_FERNET_KEY" "$(py_rand fernet)" "$ENV_FILE"
   set_kv "POSTGRES_PASSWORD" "$(py_rand token 18)" "$ENV_FILE"
