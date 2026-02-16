@@ -51,7 +51,7 @@ Notes:
 
 ```text
 HOMEGLUE_SECRET_KEY=change-me
-HOMEGLUE_ALLOWED_HOSTS=localhost,127.0.0.1
+HOMEGLUE_ALLOWED_HOSTS=*
 HOMEGLUE_FERNET_KEY=your-fernet-key
 POSTGRES_PASSWORD=change-me
 ```

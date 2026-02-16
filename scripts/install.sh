@@ -174,6 +174,25 @@ if [[ "$CREATED_ENV" -eq 1 ]]; then
   else
     set_kv "HOMEGLUE_PORT" "8080" "$ENV_FILE"
   fi
+
+  # Make fresh installs reachable from the LAN by default (common in LXCs).
+  # Caller can override explicitly via HOMEGLUE_ALLOWED_HOSTS.
+  if [[ -n "${HOMEGLUE_ALLOWED_HOSTS:-}" ]]; then
+    set_kv "HOMEGLUE_ALLOWED_HOSTS" "${HOMEGLUE_ALLOWED_HOSTS}" "$ENV_FILE"
+  else
+    # Always include local loopback hosts.
+    hosts="localhost,127.0.0.1,::1"
+    # Include hostname(s).
+    hn="$(hostname 2>/dev/null || true)"
+    hnf="$(hostname -f 2>/dev/null || true)"
+    if [[ -n "${hn:-}" && "$hosts" != *"$hn"* ]]; then hosts="${hosts},${hn}"; fi
+    if [[ -n "${hnf:-}" && "$hosts" != *"$hnf"* ]]; then hosts="${hosts},${hnf}"; fi
+    # Include primary non-loopback IPv4 if available.
+    ip4="$(hostname -I 2>/dev/null | tr ' ' '\n' | rg -m1 '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$' || true)"
+    if [[ -n "${ip4:-}" ]]; then hosts="${hosts},${ip4}"; fi
+    set_kv "HOMEGLUE_ALLOWED_HOSTS" "$hosts" "$ENV_FILE"
+  fi
+
   set_kv "HOMEGLUE_SECRET_KEY" "$(py_rand django_secret)" "$ENV_FILE"
   set_kv "HOMEGLUE_FERNET_KEY" "$(py_rand fernet)" "$ENV_FILE"
   set_kv "POSTGRES_PASSWORD" "$(py_rand token 18)" "$ENV_FILE"
