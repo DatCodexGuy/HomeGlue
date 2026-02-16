@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import get_user_model
+from django.contrib.auth import update_session_auth_hash
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
@@ -1857,6 +1858,274 @@ def enter_org(request: HttpRequest, org_id: int) -> HttpResponse:
     if next_url and next_url.startswith("/app/") and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
         return redirect(next_url)
     return redirect("ui:dashboard")
+
+
+@login_required
+def account_view(request: HttpRequest) -> HttpResponse:
+    """
+    Account/profile settings that should be accessible even when no org is selected.
+    """
+
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    default_org = profile.default_organization
+    allowed_orgs = list(get_allowed_org_qs(request.user).order_by("name")[:500])
+
+    # API token (personal).
+    if request.method == "POST" and request.POST.get("_action") == "api_token_reveal":
+        Token.objects.get_or_create(user=request.user)
+        request.session["homeglue_show_api_token"] = True
+        return redirect("ui:account")
+
+    if request.method == "POST" and request.POST.get("_action") == "api_token_hide":
+        request.session.pop("homeglue_show_api_token", None)
+        return redirect("ui:account")
+
+    if request.method == "POST" and request.POST.get("_action") == "api_token_rotate":
+        Token.objects.filter(user=request.user).delete()
+        tok = Token.objects.create(user=request.user)
+        request.session["homeglue_show_api_token"] = True
+        request.session["homeglue_new_api_token"] = tok.key
+        return redirect("ui:account")
+
+    # Default org.
+    if request.method == "POST" and request.POST.get("_action") == "set_default_org":
+        raw = (request.POST.get("default_org_id") or "").strip()
+        if raw and raw.isdigit():
+            o = get_allowed_org_qs(request.user).filter(id=int(raw)).first()
+            profile.default_organization = o
+        else:
+            profile.default_organization = None
+        profile.save(update_fields=["default_organization", "updated_at"])
+        return redirect("ui:account")
+
+    pw_changed = False
+    pw_error = ""
+    if request.method == "POST" and request.POST.get("_action") == "change_password":
+        old_pw = request.POST.get("old_password") or ""
+        new1 = request.POST.get("new_password1") or ""
+        new2 = request.POST.get("new_password2") or ""
+        if not request.user.check_password(old_pw):
+            pw_error = "Current password is incorrect."
+        elif not new1 or len(new1) < 8:
+            pw_error = "New password must be at least 8 characters."
+        elif new1 != new2:
+            pw_error = "New passwords do not match."
+        else:
+            request.user.set_password(new1)
+            request.user.save(update_fields=["password"])
+            update_session_auth_hash(request, request.user)
+            pw_changed = True
+
+    api_tok = Token.objects.filter(user=request.user).first()
+    show_api_tok = bool(request.session.get("homeglue_show_api_token"))
+    new_api_tok = request.session.pop("homeglue_new_api_token", None)
+    api_token_value = None
+    if show_api_tok:
+        if api_tok:
+            api_token_value = api_tok.key
+        else:
+            api_tok = Token.objects.create(user=request.user)
+            api_token_value = api_tok.key
+
+    return render(
+        request,
+        "ui/account.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Account", None)),
+            "default_org": default_org,
+            "allowed_orgs": allowed_orgs,
+            "api_token_exists": bool(api_tok),
+            "api_token_value": api_token_value,
+            "api_token_new_value": new_api_tok,
+            "pw_changed": pw_changed,
+            "pw_error": pw_error,
+        },
+    )
+
+
+@login_required
+def super_admin_home(request: HttpRequest) -> HttpResponse:
+    """
+    Superuser-only admin dashboard for initial setup and ongoing management.
+    This intentionally avoids requiring the Django admin site.
+    """
+
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+
+    flash = request.session.pop("homeglue_flash", None)
+
+    def _set_flash(*, title: str, body: str, secret: str | None = None, secret_label: str | None = None):
+        request.session["homeglue_flash"] = {"title": title, "body": body, "secret": secret, "secret_label": secret_label}
+
+    if request.method == "POST":
+        action = (request.POST.get("_action") or "").strip()
+        if action == "org_create":
+            name = (request.POST.get("org_name") or "").strip()
+            desc = (request.POST.get("org_description") or "").strip()
+            add_me = (request.POST.get("org_add_me_owner") or "").strip() == "1"
+            if not name:
+                _set_flash(title="Org not created", body="Name is required.")
+                return redirect("ui:super_admin_home")
+            try:
+                o = Organization.objects.create(name=name, description=desc)
+                if add_me:
+                    OrganizationMembership.objects.get_or_create(user=request.user, organization=o, defaults={"role": OrganizationMembership.ROLE_OWNER})
+                _set_flash(title="Org created", body=f"Created '{o.name}'.")
+            except IntegrityError:
+                _set_flash(title="Org not created", body="An organization with that name already exists.")
+            return redirect("ui:super_admin_home")
+
+        if action == "user_create":
+            username = (request.POST.get("username") or "").strip()
+            email = (request.POST.get("email") or "").strip()
+            pw = (request.POST.get("password") or "").strip()
+            if not username:
+                _set_flash(title="User not created", body="Username is required.")
+                return redirect("ui:super_admin_home")
+            User = get_user_model()
+            if User.objects.filter(username=username).exists():
+                _set_flash(title="User not created", body="That username already exists.")
+                return redirect("ui:super_admin_home")
+            if not pw:
+                import secrets
+
+                pw = secrets.token_urlsafe(12)
+            u = User.objects.create_user(username=username, email=email or "", password=pw)
+            _set_flash(title="User created", body=f"Created user '{u.username}'.", secret=pw, secret_label="Temp password")
+            return redirect("ui:super_admin_home")
+
+    orgs = list(
+        Organization.objects.all()
+        .order_by("name")[:500]
+    )
+    # Annotate member counts (bounded).
+    by_org = {row["organization_id"]: int(row["c"]) for row in OrganizationMembership.objects.values("organization_id").annotate(c=Count("id"))}
+    for o in orgs:
+        setattr(o, "member_count", by_org.get(o.id, 0))
+
+    User = get_user_model()
+    users = list(User.objects.order_by("-id")[:12])
+
+    return render(
+        request,
+        "ui/super_admin_home.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Admin", None)),
+            "flash": flash,
+            "orgs": orgs,
+            "users": users,
+        },
+    )
+
+
+@login_required
+def super_admin_org_detail(request: HttpRequest, org_id: int) -> HttpResponse:
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+
+    org_obj = get_object_or_404(Organization, id=org_id)
+    flash = request.session.pop("homeglue_flash", None)
+
+    def _set_flash(*, title: str, body: str, secret: str | None = None, secret_label: str | None = None):
+        request.session["homeglue_flash"] = {"title": title, "body": body, "secret": secret, "secret_label": secret_label}
+
+    if request.method == "POST":
+        action = (request.POST.get("_action") or "").strip()
+        if action == "org_update":
+            name = (request.POST.get("org_name") or "").strip()
+            desc = (request.POST.get("org_description") or "").strip()
+            if not name:
+                _set_flash(title="Not saved", body="Name is required.")
+                return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+            # Enforce global uniqueness.
+            if Organization.objects.exclude(id=org_obj.id).filter(name=name).exists():
+                _set_flash(title="Not saved", body="That organization name already exists.")
+                return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+            org_obj.name = name
+            org_obj.description = desc
+            org_obj.save(update_fields=["name", "description"])
+            _set_flash(title="Saved", body="Organization updated.")
+            return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+
+        if action == "member_add":
+            username = (request.POST.get("username") or "").strip()
+            role = (request.POST.get("role") or "member").strip()
+            User = get_user_model()
+            u = User.objects.filter(username=username).first()
+            if not u:
+                _set_flash(title="Member not added", body="User not found.")
+                return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+            role = role if role in {OrganizationMembership.ROLE_MEMBER, OrganizationMembership.ROLE_ADMIN, OrganizationMembership.ROLE_OWNER} else OrganizationMembership.ROLE_MEMBER
+            OrganizationMembership.objects.update_or_create(organization=org_obj, user=u, defaults={"role": role})
+            _set_flash(title="Member added", body=f"Added '{u.username}' to '{org_obj.name}'.")
+            return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+
+        if action == "member_set_role":
+            mid = (request.POST.get("membership_id") or "").strip()
+            role = (request.POST.get("role") or "member").strip()
+            role = role if role in {OrganizationMembership.ROLE_MEMBER, OrganizationMembership.ROLE_ADMIN, OrganizationMembership.ROLE_OWNER} else OrganizationMembership.ROLE_MEMBER
+            if mid.isdigit():
+                m = OrganizationMembership.objects.filter(id=int(mid), organization=org_obj).first()
+                if m:
+                    m.role = role
+                    m.save(update_fields=["role"])
+                    _set_flash(title="Role updated", body=f"{m.user.username} is now {role}.")
+            return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+
+        if action == "member_remove":
+            mid = (request.POST.get("membership_id") or "").strip()
+            if mid.isdigit():
+                OrganizationMembership.objects.filter(id=int(mid), organization=org_obj).delete()
+                _set_flash(title="Member removed", body="Membership removed.")
+            return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+
+        if action == "user_create_and_add":
+            username = (request.POST.get("username") or "").strip()
+            email = (request.POST.get("email") or "").strip()
+            pw = (request.POST.get("password") or "").strip()
+            role = (request.POST.get("role") or "member").strip()
+            role = role if role in {OrganizationMembership.ROLE_MEMBER, OrganizationMembership.ROLE_ADMIN, OrganizationMembership.ROLE_OWNER} else OrganizationMembership.ROLE_MEMBER
+            if not username:
+                _set_flash(title="User not created", body="Username is required.")
+                return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+            User = get_user_model()
+            if User.objects.filter(username=username).exists():
+                _set_flash(title="User not created", body="That username already exists.")
+                return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+            if not pw:
+                import secrets
+
+                pw = secrets.token_urlsafe(12)
+            u = User.objects.create_user(username=username, email=email or "", password=pw)
+            OrganizationMembership.objects.create(organization=org_obj, user=u, role=role)
+            _set_flash(title="User created", body=f"Created '{u.username}' and added to '{org_obj.name}'.", secret=pw, secret_label="Temp password")
+            return redirect("ui:super_admin_org_detail", org_id=org_obj.id)
+
+    memberships = list(OrganizationMembership.objects.filter(organization=org_obj).select_related("user").order_by("role", "user__username")[:5000])
+
+    return render(
+        request,
+        "ui/super_admin_org_detail.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), (org_obj.name, None)),
+            "org_obj": org_obj,
+            "memberships": memberships,
+            "flash": flash,
+        },
+    )
 
 
 @login_required

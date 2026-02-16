@@ -27,7 +27,10 @@ class OrgRequiredMiddleware:
             return None
 
         match = getattr(request, "resolver_match", None)
-        if match and match.view_name in {"ui:home", "ui:enter_org", "ui:leave_org", "ui:reauth"}:
+        if match and (
+            match.view_name in {"ui:home", "ui:enter_org", "ui:leave_org", "ui:reauth", "ui:account"}
+            or str(match.view_name or "").startswith("ui:super_admin_")
+        ):
             return None
 
         # If we don't have a valid org context yet, force the org picker.

@@ -60,6 +60,21 @@ class UiBasicTests(TestCase):
         profile = UserProfile.objects.get(user=self.user)
         self.assertEqual(profile.default_organization_id, self.org.id)
 
+    def test_account_page_renders_without_selected_org(self):
+        # Ensure account settings are accessible even when user hasn't entered an org yet.
+        r = self.client.get("/app/account/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Account", status_code=200)
+
+    def test_super_admin_requires_superuser(self):
+        User = get_user_model()
+        u = User.objects.create_user(username="nonroot", password="pw")
+        OrganizationMembership.objects.create(user=u, organization=self.org, role=OrganizationMembership.ROLE_MEMBER)
+        c = Client(HTTP_HOST="localhost")
+        assert c.login(username="nonroot", password="pw")
+        r = c.get("/app/admin/")
+        self.assertEqual(r.status_code, 403)
+
     def test_relationship_detail_renders(self):
         from django.contrib.contenttypes.models import ContentType
         from apps.assets.models import Asset

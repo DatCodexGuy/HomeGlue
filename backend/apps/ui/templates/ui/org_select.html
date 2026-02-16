@@ -4,6 +4,14 @@
   <section class="hero reveal">
     <h1 class="h1">Pick an organization</h1>
     <p class="sub">Everything in HomeGlue is viewed through an org lens. Enter an org to continue.</p>
+    {% if user.is_superuser %}
+      <div style="margin-top:12px">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_home' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+          Admin
+        </a>
+      </div>
+    {% endif %}
   </section>
 
   <section class="panel reveal">
@@ -19,7 +27,12 @@
     {% else %}
       <div class="empty">
         <div class="empty__title">No organizations</div>
-        <div class="empty__body">Ask an admin to add you to an organization.</div>
+        <div class="empty__body">
+          Ask an admin to add you to an organization.
+          {% if user.is_superuser %}
+            Or create one from <a class="link" href="{% url 'ui:super_admin_home' %}">Admin</a>.
+          {% endif %}
+        </div>
       </div>
     {% endif %}
   </section>

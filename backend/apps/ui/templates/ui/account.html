@@ -1,0 +1,158 @@
+{% extends "ui/base.html" %}
+{% block title %}Account | HomeGlue{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Account</h1>
+        <div class="sub">Profile, password, and API access.</div>
+      </div>
+    </div>
+
+    {% if pw_changed %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">Password updated</div>
+        <div class="warn__body">Your password has been changed.</div>
+      </div>
+    {% endif %}
+
+    {% if pw_error %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">Unable to change password</div>
+        <div class="warn__body">{{ pw_error }}</div>
+      </div>
+    {% endif %}
+
+    <div class="split" style="margin-top:14px">
+      <div class="split__main">
+        <h3 class="h3">Profile</h3>
+        <div class="mini">
+          <div class="mini__row">
+            <div class="muted">Username</div>
+            <div class="mono">{{ user.username }}</div>
+          </div>
+          <div class="mini__row">
+            <div class="muted">Email</div>
+            <div class="mono">{% if user.email %}{{ user.email }}{% else %}<span class="muted">None</span>{% endif %}</div>
+          </div>
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Change Password</h3>
+        <div class="mini">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="change_password" />
+            <div class="grid2">
+              <label class="field">
+                <div class="field__label">Current password</div>
+                <input class="input" type="password" name="old_password" autocomplete="current-password" required />
+              </label>
+              <div></div>
+              <label class="field">
+                <div class="field__label">New password</div>
+                <input class="input" type="password" name="new_password1" autocomplete="new-password" required />
+              </label>
+              <label class="field">
+                <div class="field__label">Confirm new password</div>
+                <input class="input" type="password" name="new_password2" autocomplete="new-password" required />
+              </label>
+            </div>
+            <div style="margin-top:10px">
+              <button class="btn" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                Update password
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">API Token</h3>
+        <div class="mini">
+          <div class="muted">Use a personal token for scripting against the API.</div>
+
+          {% if api_token_new_value %}
+            <div class="warn" style="margin-top:12px">
+              <div class="warn__title">New token</div>
+              <div class="warn__body">This token is shown once. Copy it now.</div>
+              <div class="secretbox" style="margin-top:10px">
+                <div class="secretbox__label">Token</div>
+                <div class="secretbox__value mono" data-copy>{{ api_token_new_value }}</div>
+                <div class="muted">Click to copy</div>
+              </div>
+            </div>
+          {% elif api_token_value %}
+            <div class="secretbox" style="margin-top:12px">
+              <div class="secretbox__label">Token</div>
+              <div class="secretbox__value mono" data-copy>{{ api_token_value }}</div>
+              <div class="muted">Click to copy</div>
+            </div>
+          {% endif %}
+
+          <div class="mini__actions">
+            {% if api_token_value %}
+              <form method="post" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="_action" value="api_token_hide" />
+                <button class="btn btn--ghost btn--sm" type="submit">Hide</button>
+              </form>
+            {% else %}
+              <form method="post" style="display:inline">
+                {% csrf_token %}
+                <input type="hidden" name="_action" value="api_token_reveal" />
+                <button class="btn btn--ghost btn--sm" type="submit">{% if api_token_exists %}Reveal{% else %}Create{% endif %}</button>
+              </form>
+            {% endif %}
+            <form method="post" style="display:inline">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="api_token_rotate" />
+              <button class="btn btn--danger btn--sm" type="submit">{% if api_token_exists %}Rotate{% else %}Create and show{% endif %}</button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Default Org</h3>
+        <div class="mini">
+          <div class="muted">Your current default:</div>
+          <div class="mono" style="margin-top:6px">
+            {% if default_org %}{{ default_org.name }}{% else %}<span class="muted">None</span>{% endif %}
+          </div>
+
+          <form method="post" style="margin-top:12px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="set_default_org" />
+            <label class="field">
+              <div class="field__label">Choose default org</div>
+              <select class="input" name="default_org_id">
+                <option value="">None</option>
+                {% for o in allowed_orgs %}
+                  <option value="{{ o.id }}" {% if default_org and default_org.id == o.id %}selected{% endif %}>{{ o.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <button class="btn" type="submit" style="margin-top:10px">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+              Save default org
+            </button>
+          </form>
+        </div>
+
+        {% if user.is_superuser %}
+          <h3 class="h3" style="margin-top:16px">Admin</h3>
+          <div class="mini">
+            <div class="muted">Superuser tools (org/user management).</div>
+            <div style="margin-top:10px">
+              <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_home' %}">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+                Open admin dashboard
+              </a>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+{% endblock %}
+

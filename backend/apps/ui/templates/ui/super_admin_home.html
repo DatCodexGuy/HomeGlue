@@ -1,0 +1,126 @@
+{% extends "ui/base.html" %}
+{% block title %}Admin | HomeGlue{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Admin</h1>
+        <div class="sub">Superuser-only management (no Django admin required).</div>
+      </div>
+    </div>
+
+    {% if flash %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">{{ flash.title }}</div>
+        <div class="warn__body">{{ flash.body }}</div>
+        {% if flash.secret %}
+          <div class="secretbox" style="margin-top:10px">
+            <div class="secretbox__label">{{ flash.secret_label|default:"Secret" }}</div>
+            <div class="secretbox__value mono" data-copy>{{ flash.secret }}</div>
+            <div class="muted">Click to copy</div>
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="split" style="margin-top:14px">
+      <div class="split__main">
+        <h3 class="h3">Organizations</h3>
+        <div class="mini">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="org_create" />
+            <div class="grid2">
+              <label class="field">
+                <div class="field__label">Name</div>
+                <input class="input" type="text" name="org_name" required />
+              </label>
+              <label class="field">
+                <div class="field__label">Description</div>
+                <input class="input" type="text" name="org_description" />
+              </label>
+            </div>
+            <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
+              <input type="checkbox" name="org_add_me_owner" value="1" checked />
+              <div class="muted">Add me as Owner in this org</div>
+            </label>
+            <div style="margin-top:10px">
+              <button class="btn" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+                Create org
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="table" style="margin-top:12px">
+          <div class="row row--head" style="grid-template-columns:2.2fr 1fr 1fr">
+            <div>Organization</div><div>Members</div><div></div>
+          </div>
+          {% for o in orgs %}
+            <a class="row" style="grid-template-columns:2.2fr 1fr 1fr" href="{% url 'ui:super_admin_org_detail' org_id=o.id %}">
+              <div class="titlecell">
+                <div class="mono">{{ o.name }}</div>
+                {% if o.description %}<div class="sub">{{ o.description }}</div>{% endif %}
+              </div>
+              <div class="muted mono">{{ o.member_count }}</div>
+              <div class="muted">Manage</div>
+            </a>
+          {% empty %}
+            <div class="empty">
+              <div class="empty__title">No orgs yet</div>
+              <div class="empty__body">Create your first organization above.</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Users</h3>
+        <div class="mini">
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="user_create" />
+            <label class="field">
+              <div class="field__label">Username</div>
+              <input class="input" type="text" name="username" required />
+            </label>
+            <label class="field" style="margin-top:10px">
+              <div class="field__label">Email (optional)</div>
+              <input class="input" type="email" name="email" />
+            </label>
+            <label class="field" style="margin-top:10px">
+              <div class="field__label">Password (optional)</div>
+              <input class="input" type="text" name="password" placeholder="Leave blank to generate" />
+            </label>
+            <div style="margin-top:10px">
+              <button class="btn" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+                Create user
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="mini" style="margin-top:12px">
+          <div class="muted">Recent users</div>
+          {% for u in users %}
+            <div class="mini__row">
+              <div class="mini__top">
+                <span class="mono">{{ u.username }}</span>
+                {% if u.is_superuser %}<span class="pill pill--tiny">superuser</span>{% endif %}
+              </div>
+              <div class="mini__body">
+                <span class="muted">{{ u.email }}</span>
+              </div>
+            </div>
+          {% empty %}
+            <div class="muted" style="margin-top:10px">No users found.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
