@@ -118,17 +118,33 @@ def _is_reauthed(request: HttpRequest) -> bool:
 def reauth_view(request: HttpRequest) -> HttpResponse:
     next_url = (request.GET.get("next") or "").strip() or reverse("ui:dashboard")
     error = None
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
     if request.method == "POST":
         form = ReauthForm(request.POST, user=request.user)
         if form.is_valid():
             mark_session_reauthed(session=request.session)
+            _audit_event(
+                request=request,
+                org=org,
+                action=AuditEvent.ACTION_UPDATE,
+                model="security.ReauthSession",
+                object_pk=str(getattr(request.user, "id", "")),
+                summary="Session re-authentication succeeded.",
+            )
             return redirect(next_url)
+        _audit_event(
+            request=request,
+            org=org,
+            action=AuditEvent.ACTION_UPDATE,
+            model="security.ReauthSession",
+            object_pk=str(getattr(request.user, "id", "")),
+            summary="Session re-authentication failed.",
+        )
         error = "Please enter your current password."
     else:
         form = ReauthForm(user=request.user)
 
-    ctx = get_current_org_context(request)
-    org = ctx.organization if ctx else None
     return render(request, "ui/reauth.html", {"org": org, "form": form, "next_url": next_url, "error": error})
 
 
@@ -144,6 +160,31 @@ def _is_org_admin(user, org) -> bool:
 def _require_org_admin(user, org) -> None:
     if not _is_org_admin(user, org):
         raise PermissionDenied("Org admin role required.")
+
+
+def _audit_event(*, request: HttpRequest | None, org, action: str, model: str, object_pk: str, summary: str) -> None:
+    """
+    Best-effort explicit audit event helper for security/operational events.
+    """
+
+    try:
+        user = None
+        if request is not None and getattr(request, "user", None) and request.user.is_authenticated:
+            user = request.user
+        ip = None
+        if request is not None:
+            ip = (request.META.get("REMOTE_ADDR") or "")[:64] or None
+        AuditEvent.objects.create(
+            organization=org,
+            user=user,
+            ip=ip,
+            action=action,
+            model=model,
+            object_pk=str(object_pk),
+            summary=(summary or "")[:500],
+        )
+    except Exception:
+        pass
 
 
 def _can_view_document(*, user, org, doc: Document) -> bool:
@@ -1365,6 +1406,14 @@ def home(request: HttpRequest) -> HttpResponse:
 def enter_org(request: HttpRequest, org_id: int) -> HttpResponse:
     org = get_object_or_404(get_allowed_org_qs(request.user), id=org_id)
     set_current_org_id(request, org.id)
+    _audit_event(
+        request=request,
+        org=org,
+        action=AuditEvent.ACTION_UPDATE,
+        model="security.OrgSession",
+        object_pk=str(getattr(request.user, "id", "")),
+        summary=f"Entered organization '{org.name}'.",
+    )
     next_url = (request.GET.get("next") or "").strip()
     if next_url and next_url.startswith("/app/") and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
         return redirect(next_url)
@@ -1373,6 +1422,17 @@ def enter_org(request: HttpRequest, org_id: int) -> HttpResponse:
 
 @login_required
 def leave_org(request: HttpRequest) -> HttpResponse:
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+    if org is not None:
+        _audit_event(
+            request=request,
+            org=org,
+            action=AuditEvent.ACTION_UPDATE,
+            model="security.OrgSession",
+            object_pk=str(getattr(request.user, "id", "")),
+            summary=f"Left organization '{org.name}'.",
+        )
     clear_current_org(request)
     return redirect("ui:home")
 
@@ -5183,7 +5243,15 @@ def backups_list(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         action = (request.POST.get("_action") or "").strip()
         if action == "create":
-            BackupSnapshot.objects.create(organization=org, created_by=request.user, status=BackupSnapshot.STATUS_PENDING)
+            snap = BackupSnapshot.objects.create(organization=org, created_by=request.user, status=BackupSnapshot.STATUS_PENDING)
+            _audit_event(
+                request=request,
+                org=org,
+                action=AuditEvent.ACTION_UPDATE,
+                model="backups.BackupSnapshot",
+                object_pk=str(snap.id),
+                summary="Manual backup snapshot requested.",
+            )
             return redirect("ui:backups_list")
         if action == "policy_save":
             enabled = (request.POST.get("enabled") or "").strip() == "1"
@@ -5208,13 +5276,29 @@ def backups_list(request: HttpRequest) -> HttpResponse:
             if policy.enabled and policy.next_run_at is None:
                 policy.next_run_at = timezone.now()
             policy.save()
+            _audit_event(
+                request=request,
+                org=org,
+                action=AuditEvent.ACTION_UPDATE,
+                model="backups.BackupPolicy",
+                object_pk=str(policy.id),
+                summary=f"Backup policy updated: enabled={int(enabled)}, interval_hours={interval_hours}, retention_count={retention_count}.",
+            )
             return redirect("ui:backups_list")
         if action == "schedule_now":
             # Best-effort: enqueue a system snapshot immediately unless one is already pending/running.
             if not BackupSnapshot.objects.filter(
                 organization=org, status__in=[BackupSnapshot.STATUS_PENDING, BackupSnapshot.STATUS_RUNNING]
             ).exists():
-                BackupSnapshot.objects.create(organization=org, created_by=None, status=BackupSnapshot.STATUS_PENDING)
+                snap = BackupSnapshot.objects.create(organization=org, created_by=None, status=BackupSnapshot.STATUS_PENDING)
+                _audit_event(
+                    request=request,
+                    org=org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="backups.BackupSnapshot",
+                    object_pk=str(snap.id),
+                    summary="Backup scheduler run-now requested.",
+                )
             return redirect("ui:backups_list")
 
     qs = BackupSnapshot.objects.filter(organization=org).order_by("-created_at")[:200]
@@ -5243,6 +5327,14 @@ def backup_download(request: HttpRequest, backup_id: int) -> HttpResponse:
         f = b.file.open("rb")
     except Exception:
         raise PermissionDenied("Backup file unavailable.")
+    _audit_event(
+        request=request,
+        org=org,
+        action=AuditEvent.ACTION_UPDATE,
+        model="backups.BackupSnapshot",
+        object_pk=str(b.id),
+        summary=f"Downloaded backup snapshot '{b.filename or b.id}'.",
+    )
     filename = b.filename or Path(getattr(b.file, "name", "")).name or f"backup-{b.id}.zip"
     return FileResponse(f, as_attachment=True, filename=Path(filename).name, content_type="application/zip")
 
@@ -5257,7 +5349,17 @@ def backup_delete(request: HttpRequest, backup_id: int) -> HttpResponse:
     redirect_url = reverse("ui:backups_list")
 
     def _go():
+        bid = b.id
+        label = b.filename or str(bid)
         b.delete()
+        _audit_event(
+            request=request,
+            org=org,
+            action=AuditEvent.ACTION_DELETE,
+            model="backups.BackupSnapshot",
+            object_pk=str(bid),
+            summary=f"Deleted backup snapshot '{label}'.",
+        )
 
     warning = "This deletes the backup record and the underlying zip file from storage."
     return _confirm_delete(
@@ -5415,10 +5517,26 @@ def backup_restore_list(request: HttpRequest) -> HttpResponse:
                 bundle.status = BackupRestoreBundle.STATUS_INVALID
                 bundle.error = err
                 bundle.manifest = {"_derived": derived, **(manifest or {})}
+                _audit_event(
+                    request=request,
+                    org=org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="backups.BackupRestoreBundle",
+                    object_pk=str(bundle.id),
+                    summary=f"Uploaded restore bundle '{bundle.filename}' (invalid): {err}",
+                )
             else:
                 bundle.status = BackupRestoreBundle.STATUS_VALID
                 bundle.error = ""
                 bundle.manifest = {"_derived": derived, **(manifest or {})}
+                _audit_event(
+                    request=request,
+                    org=org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="backups.BackupRestoreBundle",
+                    object_pk=str(bundle.id),
+                    summary=f"Uploaded restore bundle '{bundle.filename}' (valid).",
+                )
             bundle.validated_at = timezone.now()
             bundle.save(update_fields=["status", "error", "manifest", "validated_at", "updated_at"])
 
@@ -5498,6 +5616,14 @@ def backup_restore_manifest_download(request: HttpRequest, bundle_id: int) -> Ht
                 raw = z.read("manifest.json")
             except Exception:
                 raise PermissionDenied("manifest.json not found in this bundle.")
+    _audit_event(
+        request=request,
+        org=org,
+        action=AuditEvent.ACTION_UPDATE,
+        model="backups.BackupRestoreBundle",
+        object_pk=str(b.id),
+        summary=f"Downloaded restore manifest for bundle '{b.filename or b.id}'.",
+    )
     resp = HttpResponse(raw, content_type="application/json; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="manifest-{b.id}.json"'
     return resp
@@ -5518,6 +5644,14 @@ def backup_restore_fixture_download(request: HttpRequest, bundle_id: int) -> Htt
                 raw = z.read("fixture.json")
             except Exception:
                 raise PermissionDenied("fixture.json not found in this bundle.")
+    _audit_event(
+        request=request,
+        org=org,
+        action=AuditEvent.ACTION_UPDATE,
+        model="backups.BackupRestoreBundle",
+        object_pk=str(b.id),
+        summary=f"Downloaded restore fixture for bundle '{b.filename or b.id}'.",
+    )
     resp = HttpResponse(raw, content_type="application/json; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="fixture-{b.id}.json"'
     return resp
@@ -5545,6 +5679,14 @@ def backup_restore_extract_media(request: HttpRequest, bundle_id: int) -> HttpRe
 
     b.media_extracted_at = timezone.now()
     b.save(update_fields=["media_extracted_at", "updated_at"])
+    _audit_event(
+        request=request,
+        org=org,
+        action=AuditEvent.ACTION_UPDATE,
+        model="backups.BackupRestoreBundle",
+        object_pk=str(b.id),
+        summary=f"Extracted media from restore bundle '{b.filename or b.id}' ({extracted} file(s)).",
+    )
     return redirect(reverse("ui:backup_restore_detail", kwargs={"bundle_id": b.id}) + "?" + urlencode({"extracted": str(extracted)}))
 
 
@@ -5558,12 +5700,22 @@ def backup_restore_delete(request: HttpRequest, bundle_id: int) -> HttpResponse:
     redirect_url = reverse("ui:backup_restore_list")
 
     def _go():
+        bid = b.id
+        label = b.filename or str(bid)
         try:
             if b.file:
                 b.file.delete(save=False)
         except Exception:
             pass
         b.delete()
+        _audit_event(
+            request=request,
+            org=org,
+            action=AuditEvent.ACTION_DELETE,
+            model="backups.BackupRestoreBundle",
+            object_pk=str(bid),
+            summary=f"Deleted restore bundle '{label}'.",
+        )
 
     warning = "This deletes the uploaded restore bundle file from storage."
     return _confirm_delete(

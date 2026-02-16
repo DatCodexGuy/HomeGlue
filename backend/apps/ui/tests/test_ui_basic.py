@@ -17,6 +17,8 @@ class UiBasicTests(TestCase):
         assert self.client.login(username="u", password="pw")
 
     def test_enter_org_sets_session_and_dashboard_renders(self):
+        from apps.audit.models import AuditEvent
+
         r = self.client.get("/app/")
         self.assertContains(r, "Pick an organization", status_code=200)
 
@@ -25,6 +27,14 @@ class UiBasicTests(TestCase):
 
         r = self.client.get("/app/dashboard/")
         self.assertContains(r, "Org", status_code=200)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                organization=self.org,
+                model="security.OrgSession",
+                object_pk=str(self.user.id),
+                summary__icontains="Entered organization",
+            ).exists()
+        )
 
     def test_org_required_redirects_to_picker_and_preserves_next(self):
         # Accessing org-scoped pages without an entered org should bounce to the picker.
@@ -901,5 +911,37 @@ class UiBasicTests(TestCase):
                 model="core.Attachment",
                 object_pk=str(a.id),
                 summary__icontains="invalid passphrase",
+            ).exists()
+        )
+
+    def test_backup_create_is_audited(self):
+        from apps.audit.models import AuditEvent
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        r = self.client.post("/app/backups/", {"_action": "create"})
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                organization=self.org,
+                model="backups.BackupSnapshot",
+                summary__icontains="Manual backup snapshot requested",
+            ).exists()
+        )
+
+    def test_backup_restore_invalid_upload_is_audited(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.audit.models import AuditEvent
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        f = SimpleUploadedFile("bad.zip", b"not-a-zip", content_type="application/zip")
+        r = self.client.post("/app/backups/restore/", {"file": f})
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                organization=self.org,
+                model="backups.BackupRestoreBundle",
+                summary__icontains="(invalid)",
             ).exists()
         )
