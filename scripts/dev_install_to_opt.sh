@@ -75,10 +75,59 @@ if [[ ! -f "$DEST/.env" ]]; then
   cp -n "$DEST/.env.example" "$DEST/.env" || true
 fi
 
+upsert_env() {
+  local key="$1"
+  local value="$2"
+  local file="$3"
+  if grep -qE "^${key}=" "$file"; then
+    # shellcheck disable=SC2001
+    local esc
+    esc="$(printf '%s' "$value" | sed -e 's/[&/]/\\&/g')"
+    sed -i -E "s#^${key}=.*#${key}=${esc}#g" "$file"
+  else
+    printf '\n%s=%s\n' "$key" "$value" >>"$file"
+  fi
+}
+
+# Ensure required crypto keys exist in the /opt test install.
+# `.env.example` intentionally contains placeholders which break secrets encryption.
+fernet_raw="$(grep -E '^HOMEGLUE_FERNET_KEY=' "$DEST/.env" | head -n 1 | cut -d= -f2- || true)"
+secret_raw="$(grep -E '^HOMEGLUE_SECRET_KEY=' "$DEST/.env" | head -n 1 | cut -d= -f2- || true)"
+if [[ -z "${fernet_raw}" || "${fernet_raw}" == "change-me" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    fernet_raw="$(python3 - <<'PY'
+import base64
+import os
+
+print(base64.urlsafe_b64encode(os.urandom(32)).decode())
+PY
+)"
+  else
+    echo "python3 is required to generate HOMEGLUE_FERNET_KEY" >&2
+    exit 2
+  fi
+  upsert_env "HOMEGLUE_FERNET_KEY" "$fernet_raw" "$DEST/.env"
+fi
+if [[ -z "${secret_raw}" || "${secret_raw}" == "change-me" ]]; then
+  if command -v python3 >/dev/null 2>&1; then
+    secret_raw="$(python3 - <<'PY'
+import secrets
+
+print(secrets.token_urlsafe(48))
+PY
+)"
+  else
+    echo "python3 is required to generate HOMEGLUE_SECRET_KEY" >&2
+    exit 2
+  fi
+  upsert_env "HOMEGLUE_SECRET_KEY" "$secret_raw" "$DEST/.env"
+fi
+
 PORT="${HOMEGLUE_PORT:-8081}"
 echo "Bringing up stack in $DEST (HOMEGLUE_PORT=$PORT) ..."
 cd "$DEST"
-HOMEGLUE_PORT="$PORT" docker compose up -d --build --pull=false
+HOMEGLUE_PORT="$PORT" docker compose build --pull=false
+HOMEGLUE_PORT="$PORT" docker compose up -d --force-recreate
 
 echo "Done."
 echo "Open: http://localhost:$PORT/app/"
