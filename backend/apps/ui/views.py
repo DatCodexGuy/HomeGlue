@@ -2029,6 +2029,132 @@ def super_admin_home(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+def super_admin_config_status(request: HttpRequest) -> HttpResponse:
+    """
+    Superuser-only view of env-backed configuration, plus basic config tests.
+
+    Notes:
+    - Secrets are never displayed in full.
+    - For most settings, changes are applied by editing `.env` and recreating containers.
+    """
+
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org = ctx.organization if ctx else None
+
+    flash = request.session.pop("homeglue_flash", None)
+
+    def _set_flash(*, title: str, body: str):
+        request.session["homeglue_flash"] = {"title": title, "body": body}
+
+    def _mask(s: str, *, keep: int = 3) -> str:
+        s = (s or "").strip()
+        if not s:
+            return ""
+        if len(s) <= (keep * 2):
+            return "*" * len(s)
+        return f"{s[:keep]}...{s[-keep:]}"
+
+    # Email / notifications (env-backed)
+    email_enabled = bool(getattr(settings, "HOMEGLUE_EMAIL_NOTIFICATIONS_ENABLED", False))
+    email_backend = str(getattr(settings, "HOMEGLUE_EMAIL_BACKEND", "") or "").strip().lower()
+    default_from = str(getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
+    smtp_host = str(getattr(settings, "EMAIL_HOST", "") or "").strip()
+    smtp_port = getattr(settings, "EMAIL_PORT", "")
+    smtp_user = str(getattr(settings, "EMAIL_HOST_USER", "") or "").strip()
+    smtp_tls = bool(getattr(settings, "EMAIL_USE_TLS", False))
+    smtp_ssl = bool(getattr(settings, "EMAIL_USE_SSL", False))
+    email_ready = (not email_enabled) or (email_backend in {"smtp", "smtp+tls", "smtp+ssl"} and bool(smtp_host))
+
+    # OIDC SSO (env-backed)
+    oidc_enabled = bool(getattr(settings, "HOMEGLUE_OIDC_ENABLED", False))
+    oidc_client_id = str(getattr(settings, "OIDC_RP_CLIENT_ID", "") or "").strip()
+    oidc_client_secret = str(getattr(settings, "OIDC_RP_CLIENT_SECRET", "") or "").strip()
+    oidc_auth = str(getattr(settings, "OIDC_OP_AUTHORIZATION_ENDPOINT", "") or "").strip()
+    oidc_token = str(getattr(settings, "OIDC_OP_TOKEN_ENDPOINT", "") or "").strip()
+    oidc_user = str(getattr(settings, "OIDC_OP_USER_ENDPOINT", "") or "").strip()
+    oidc_jwks = str(getattr(settings, "OIDC_OP_JWKS_ENDPOINT", "") or "").strip()
+    oidc_sign_algo = str(getattr(settings, "OIDC_RP_SIGN_ALGO", "") or "").strip()
+    oidc_scopes = getattr(settings, "OIDC_RP_SCOPES", [])
+    oidc_ready = (not oidc_enabled) or (bool(oidc_client_id) and bool(oidc_client_secret) and bool(oidc_auth) and bool(oidc_token))
+
+    # Security / secrets (presence only)
+    secret_key_set = bool(str(getattr(settings, "SECRET_KEY", "") or "").strip())
+    fernet_key_set = bool(str(getattr(settings, "HOMEGLUE_FERNET_KEY", "") or "").strip())
+    base_url_env = str(getattr(settings, "HOMEGLUE_BASE_URL", "") or "").strip().rstrip("/")
+
+    # Host/CORS
+    allowed_hosts = list(getattr(settings, "ALLOWED_HOSTS", []) or [])
+    cors_allowed_origins = list(getattr(settings, "CORS_ALLOWED_ORIGINS", []) or [])
+
+    if request.method == "POST" and request.POST.get("_action") == "send_test_email":
+        to_addr = (request.POST.get("to") or "").strip()
+        if not to_addr:
+            to_addr = (getattr(request.user, "email", "") or "").strip()
+        if not to_addr:
+            _set_flash(title="Not sent", body="No email address provided (and your user has no email set).")
+            return redirect("ui:super_admin_config_status")
+        try:
+            from django.core.mail import send_mail
+
+            send_mail(
+                subject="HomeGlue test email",
+                message="This is a test email from HomeGlue.\n\nIf you received this, SMTP delivery is working.",
+                from_email=default_from or None,
+                recipient_list=[to_addr],
+                fail_silently=False,
+            )
+            _set_flash(title="Sent", body=f"Test email queued/sent to {to_addr}. Check your SMTP logs/inbox.")
+        except Exception as e:
+            _set_flash(title="Not sent", body=f"Email delivery failed: {e}")
+        return redirect("ui:super_admin_config_status")
+
+    return render(
+        request,
+        "ui/super_admin_config_status.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("Config & status", None)),
+            "flash": flash,
+            "email": {
+                "enabled": email_enabled,
+                "backend": email_backend,
+                "default_from": default_from,
+                "smtp_host": smtp_host,
+                "smtp_port": smtp_port,
+                "smtp_user": smtp_user,
+                "smtp_user_masked": _mask(smtp_user),
+                "smtp_tls": smtp_tls,
+                "smtp_ssl": smtp_ssl,
+                "ready": email_ready,
+            },
+            "oidc": {
+                "enabled": oidc_enabled,
+                "client_id": oidc_client_id,
+                "client_secret_set": bool(oidc_client_secret),
+                "client_secret_masked": _mask(oidc_client_secret),
+                "auth_endpoint": oidc_auth,
+                "token_endpoint": oidc_token,
+                "user_endpoint": oidc_user,
+                "jwks_endpoint": oidc_jwks,
+                "sign_algo": oidc_sign_algo,
+                "scopes": oidc_scopes,
+                "ready": oidc_ready,
+            },
+            "security": {
+                "secret_key_set": secret_key_set,
+                "fernet_key_set": fernet_key_set,
+                "base_url_env": base_url_env,
+                "base_url_effective": get_base_url(),
+            },
+            "hosts": {"allowed_hosts": allowed_hosts, "cors_allowed_origins": cors_allowed_origins},
+        },
+    )
+
+
+@login_required
 def super_admin_org_detail(request: HttpRequest, org_id: int) -> HttpResponse:
     if not getattr(request.user, "is_superuser", False):
         raise PermissionDenied("Superuser required.")

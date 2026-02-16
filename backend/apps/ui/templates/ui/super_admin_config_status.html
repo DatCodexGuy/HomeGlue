@@ -1,0 +1,181 @@
+{% extends "ui/base.html" %}
+{% block title %}Admin | Config & Status{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Config &amp; Status</h1>
+        <div class="sub">Read-only environment configuration, plus basic tests (superuser-only).</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_home' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    {% if flash %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">{{ flash.title }}</div>
+        <div class="warn__body">{{ flash.body }}</div>
+      </div>
+    {% endif %}
+
+    <div class="split" style="margin-top:14px">
+      <div class="split__main">
+        <h3 class="h3">Email Delivery</h3>
+        <div class="mini">
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="muted">Status</span>
+              {% if email.ready %}
+                <span class="pill pill--tiny">ready</span>
+              {% else %}
+                <span class="pill pill--tiny pill--danger">needs config</span>
+              {% endif %}
+            </div>
+            <div class="mini__body">
+              <div class="muted">Enabled</div><div class="mono">{% if email.enabled %}true{% else %}false{% endif %}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Backend</div><div class="mono">{{ email.backend|default:"(unset)" }}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">From</div><div class="mono">{{ email.default_from|default:"(unset)" }}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">SMTP</div>
+              <div class="mono">
+                {{ email.smtp_host|default:"(unset)" }}{% if email.smtp_port %}:{{ email.smtp_port }}{% endif %}
+                {% if email.smtp_tls %}<span class="pill pill--tiny">TLS</span>{% endif %}
+                {% if email.smtp_ssl %}<span class="pill pill--tiny">SSL</span>{% endif %}
+              </div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">SMTP user</div><div class="mono">{{ email.smtp_user_masked|default:"(unset)" }}</div>
+            </div>
+          </div>
+
+          <form method="post" style="margin-top:10px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="send_test_email" />
+            <div class="grid2">
+              <label class="field">
+                <div class="field__label">Send test email to</div>
+                <input class="input" type="email" name="to" placeholder="you@example.com (defaults to your user email)" />
+              </label>
+              <div class="field">
+                <div class="field__label">&nbsp;</div>
+                <button class="btn btn--ghost btn--sm" type="submit">Send test email</button>
+              </div>
+            </div>
+            <div class="muted" style="margin-top:8px">
+              SMTP settings are configured via `.env` (see <a class="link" href="{% url 'ui:wiki_page' slug='workflows' %}">Workflows</a> docs).
+            </div>
+          </form>
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Single Sign-On (OIDC)</h3>
+        <div class="mini">
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="muted">Status</span>
+              {% if oidc.ready %}
+                <span class="pill pill--tiny">ready</span>
+              {% else %}
+                <span class="pill pill--tiny pill--danger">needs config</span>
+              {% endif %}
+            </div>
+            <div class="mini__body">
+              <div class="muted">Enabled</div><div class="mono">{% if oidc.enabled %}true{% else %}false{% endif %}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Client ID</div><div class="mono">{{ oidc.client_id|default:"(unset)" }}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Client secret</div>
+              <div class="mono">{% if oidc.client_secret_set %}{{ oidc.client_secret_masked }}{% else %}(unset){% endif %}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Authorization</div><div class="mono">{{ oidc.auth_endpoint|default:"(unset)" }}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Token</div><div class="mono">{{ oidc.token_endpoint|default:"(unset)" }}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Userinfo</div><div class="mono">{{ oidc.user_endpoint|default:"(unset)" }}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">JWKS</div><div class="mono">{{ oidc.jwks_endpoint|default:"(unset)" }}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Sign algo</div><div class="mono">{{ oidc.sign_algo|default:"(unset)" }}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Scopes</div><div class="mono">{{ oidc.scopes|join:" " }}</div>
+            </div>
+          </div>
+          <div class="muted" style="margin-top:8px">
+            OIDC is configured via `.env` (see <a class="link" href="{% url 'ui:wiki_page' slug='security' %}">Security</a> docs).
+          </div>
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Security Basics</h3>
+        <div class="mini">
+          <div class="mini__row">
+            <div class="mini__body">
+              <div class="muted">Django SECRET_KEY</div><div class="mono">{% if security.secret_key_set %}set{% else %}missing{% endif %}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Encryption key (Fernet)</div><div class="mono">{% if security.fernet_key_set %}set{% else %}missing{% endif %}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Base URL (env)</div><div class="mono">{{ security.base_url_env|default:"(unset)" }}</div>
+            </div>
+            <div class="mini__body" style="margin-top:6px">
+              <div class="muted">Base URL (effective)</div><div class="mono">{{ security.base_url_effective|default:"(unset)" }}</div>
+            </div>
+          </div>
+          <div class="muted" style="margin-top:8px">
+            Note: the <a class="link" href="{% url 'ui:super_admin_system_settings' %}">System settings</a> page can override Base URL and IP access control in DB.
+          </div>
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Hosts &amp; CORS</h3>
+        <div class="mini">
+          <div class="mini__row">
+            <div class="muted">ALLOWED_HOSTS</div>
+            <div class="mono">
+              {% for h in hosts.allowed_hosts %}<span class="pill pill--tiny">{{ h }}</span>{% empty %}(none){% endfor %}
+            </div>
+          </div>
+          <div class="mini__row" style="margin-top:8px">
+            <div class="muted">CORS_ALLOWED_ORIGINS</div>
+            <div class="mono">
+              {% for o in hosts.cors_allowed_origins %}<span class="pill pill--tiny">{{ o }}</span>{% empty %}(none){% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">How To Apply Changes</h3>
+        <div class="mini">
+          <div class="muted">
+            Most settings on this page are environment-backed.
+            Edit `.env`, then recreate containers so `env_file` changes apply.
+          </div>
+          <pre class="code" style="margin-top:10px; white-space:pre-wrap">cd /opt/homeglue
+docker compose up -d --force-recreate --no-deps web worker</pre>
+          <div class="muted" style="margin-top:10px">
+            For IP access control and Base URL overrides, you can also use the DB-backed
+            <a class="link" href="{% url 'ui:super_admin_system_settings' %}">System settings</a> page.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+

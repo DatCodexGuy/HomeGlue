@@ -73,6 +73,12 @@ class UiBasicTests(TestCase):
         assert c.login(username="nonroot", password="pw")
         r = c.get("/app/admin/")
         self.assertEqual(r.status_code, 403)
+        r = c.get("/app/admin/config/")
+        self.assertEqual(r.status_code, 403)
+        r = c.get("/app/admin/system/")
+        self.assertEqual(r.status_code, 403)
+        r = c.get("/app/admin/users/")
+        self.assertEqual(r.status_code, 403)
 
     def test_relationship_detail_renders(self):
         from django.contrib.contenttypes.models import ContentType
