@@ -15,6 +15,7 @@ urlpatterns = [
     path("search/", views.search, name="search"),
     path("quick/", views.quick_palette, name="quick_palette"),
     path("reports/", views.reports, name="reports"),
+    path("audit/", views.audit_log, name="audit_log"),
     path("settings/", views.settings_view, name="settings"),
     path("integrations/", views.integrations_list, name="integrations_list"),
     path("integrations/proxmox/new/", views.proxmox_new, name="proxmox_new"),

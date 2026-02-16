@@ -110,12 +110,36 @@ def file_share(request: HttpRequest, token: str) -> HttpResponse:
                 if not s.is_active():
                     share = s
                     active = False
+                    try:
+                        AuditEvent.objects.create(
+                            organization=s.organization,
+                            user=None,
+                            ip=(request.META.get("REMOTE_ADDR") or "")[:64] or None,
+                            action=AuditEvent.ACTION_UPDATE,
+                            model="core.Attachment",
+                            object_pk=str(s.attachment_id),
+                            summary=f"File SafeShare denied (inactive link) #{s.id}.",
+                        )
+                    except Exception:
+                        pass
                 else:
                     passphrase = (request.POST.get("passphrase") or "").strip()
                     if s.has_passphrase() and not s.check_passphrase(passphrase):
                         passphrase_error = "Invalid passphrase."
                         share = s
                         active = share.is_active()
+                        try:
+                            AuditEvent.objects.create(
+                                organization=s.organization,
+                                user=None,
+                                ip=(request.META.get("REMOTE_ADDR") or "")[:64] or None,
+                                action=AuditEvent.ACTION_UPDATE,
+                                model="core.Attachment",
+                                object_pk=str(s.attachment_id),
+                                summary=f"File SafeShare denied (invalid passphrase) #{s.id}.",
+                            )
+                        except Exception:
+                            pass
                     else:
                         now = timezone.now()
                         s.view_count = int(s.view_count or 0) + 1

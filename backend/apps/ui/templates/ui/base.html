@@ -95,6 +95,7 @@
               <a class="side__link {% if request.path|slice:':23' == '/app/relationship-types/' %}is-active{% endif %}" href="{% url 'ui:relationship_types_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Relationship Types</a>
               <div class="side__sep"></div>
               <a class="side__link side__link--muted {% if request.path|slice:':13' == '/app/backups/' %}is-active{% endif %}" href="{% url 'ui:backups_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>Backups</a>
+              <a class="side__link side__link--muted {% if request.path|slice:':11' == '/app/audit/' %}is-active{% endif %}" href="{% url 'ui:audit_log' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>Audit Log</a>
               <a class="side__link side__link--muted {% if request.path|slice:':14' == '/app/settings/' %}is-active{% endif %}" href="{% url 'ui:settings' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</a>
               <a class="side__link side__link--muted" href="{% url 'ui:leave_org' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-switch"/></svg>Switch Org</a>
               <a class="side__link side__link--muted" href="/accounts/logout/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-logout"/></svg>Logout</a>

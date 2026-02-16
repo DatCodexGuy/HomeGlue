@@ -779,3 +779,75 @@ class UiBasicTests(TestCase):
         r = self.client.post(f"/app/files/{a.id}/", {"_action": "share_delete", "share_id": str(share.id)})
         self.assertEqual(r.status_code, 302)
         self.assertEqual(AttachmentShareLink.objects.filter(id=share.id).count(), 0)
+
+    def test_audit_log_requires_org_admin(self):
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        r = self.client.get("/app/audit/")
+        self.assertEqual(r.status_code, 403)
+
+    def test_audit_log_admin_filter_and_csv(self):
+        from apps.audit.models import AuditEvent
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        AuditEvent.objects.create(
+            organization=self.org,
+            user=self.user,
+            action=AuditEvent.ACTION_UPDATE,
+            model="core.Attachment",
+            object_pk="99",
+            summary="unit-test audit event",
+        )
+
+        r = self.client.get("/app/audit/?model=core.Attachment&q=unit-test")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "unit-test audit event", status_code=200)
+
+        r = self.client.get("/app/audit/?model=core.Attachment&q=unit-test&format=csv")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("text/csv", r.headers.get("Content-Type", ""))
+        self.assertIn("unit-test audit event", r.content.decode("utf-8"))
+
+    def test_file_safeshare_invalid_passphrase_is_audited(self):
+        from urllib.parse import urlsplit
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.audit.models import AuditEvent
+        from apps.core.models import Attachment
+        from apps.core.reauth import mark_session_reauthed
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        sess = self.client.session
+        mark_session_reauthed(session=sess)
+        sess.save()
+
+        a = Attachment.objects.create(
+            organization=self.org,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("secure2.txt", b"secret2", content_type="text/plain"),
+            filename="secure2.txt",
+        )
+
+        r = self.client.post(
+            f"/app/files/{a.id}/",
+            {
+                "_action": "share_create",
+                "expires_in_hours": "1",
+                "passphrase": "TopSecret",
+            },
+        )
+        self.assertEqual(r.status_code, 302)
+        share_url = self.client.session.get(f"file_share_new_url_{self.org.id}_{a.id}", "")
+        share_path = urlsplit(share_url).path
+
+        r = self.client.post(share_path, {"_action": "download", "passphrase": "bad"})
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Invalid passphrase", status_code=200)
+        self.assertTrue(
+            AuditEvent.objects.filter(
+                organization=self.org,
+                model="core.Attachment",
+                object_pk=str(a.id),
+                summary__icontains="invalid passphrase",
+            ).exists()
+        )

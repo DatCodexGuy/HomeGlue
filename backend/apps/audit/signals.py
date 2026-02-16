@@ -37,7 +37,20 @@ def _get_org_id(instance) -> int | None:
 def audit_save(sender, instance, created, **kwargs):
     if not _should_audit(sender):
         return
-    if sender._meta.app_label not in {"core", "people", "assets", "docsapp", "secretsapp"}:
+    if sender._meta.app_label not in {
+        "core",
+        "people",
+        "assets",
+        "docsapp",
+        "secretsapp",
+        "netapp",
+        "flexassets",
+        "checklists",
+        "integrations",
+        "workflows",
+        "versionsapp",
+        "backups",
+    }:
         return
 
     ctx = get_audit_context()
@@ -56,7 +69,20 @@ def audit_save(sender, instance, created, **kwargs):
 def audit_delete(sender, instance, **kwargs):
     if not _should_audit(sender):
         return
-    if sender._meta.app_label not in {"core", "people", "assets", "docsapp", "secretsapp"}:
+    if sender._meta.app_label not in {
+        "core",
+        "people",
+        "assets",
+        "docsapp",
+        "secretsapp",
+        "netapp",
+        "flexassets",
+        "checklists",
+        "integrations",
+        "workflows",
+        "versionsapp",
+        "backups",
+    }:
         return
 
     ctx = get_audit_context()

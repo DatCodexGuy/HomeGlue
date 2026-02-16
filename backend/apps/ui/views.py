@@ -1481,6 +1481,118 @@ def reports(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+def audit_log(request: HttpRequest) -> HttpResponse:
+    """
+    Central audit explorer for org admins.
+    """
+
+    ctx = require_current_org(request)
+    org = ctx.organization
+    _require_org_admin(request.user, org)
+
+    q = (request.GET.get("q") or "").strip()
+    action = (request.GET.get("action") or "").strip().lower()
+    model = (request.GET.get("model") or "").strip()
+    user_filter = (request.GET.get("user") or "").strip().lower()
+    date_from_raw = (request.GET.get("date_from") or "").strip()
+    date_to_raw = (request.GET.get("date_to") or "").strip()
+    out_format = (request.GET.get("format") or "").strip().lower()
+    limit_raw = (request.GET.get("limit") or "").strip()
+
+    try:
+        limit = int(limit_raw or 500)
+    except Exception:
+        limit = 500
+    limit = max(1, min(5000, limit))
+
+    qs = AuditEvent.objects.filter(organization=org).select_related("user").order_by("-ts")
+
+    if action in {AuditEvent.ACTION_CREATE, AuditEvent.ACTION_UPDATE, AuditEvent.ACTION_DELETE}:
+        qs = qs.filter(action=action)
+    if model:
+        qs = qs.filter(model__icontains=model)
+    if user_filter == "system":
+        qs = qs.filter(user__isnull=True)
+    elif user_filter == "human":
+        qs = qs.filter(user__isnull=False)
+    elif user_filter.isdigit():
+        qs = qs.filter(user_id=int(user_filter))
+    if q:
+        qs = qs.filter(
+            Q(summary__icontains=q)
+            | Q(model__icontains=q)
+            | Q(object_pk__icontains=q)
+            | Q(user__username__icontains=q)
+            | Q(ip__icontains=q)
+        )
+
+    try:
+        if date_from_raw:
+            dt = datetime.strptime(date_from_raw, "%Y-%m-%d")
+            qs = qs.filter(ts__date__gte=dt.date())
+    except Exception:
+        date_from_raw = ""
+    try:
+        if date_to_raw:
+            dt = datetime.strptime(date_to_raw, "%Y-%m-%d")
+            qs = qs.filter(ts__date__lte=dt.date())
+    except Exception:
+        date_to_raw = ""
+
+    if out_format == "csv":
+        rows = list(qs[:limit])
+        resp = HttpResponse(content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = f'attachment; filename="audit-log-{org.id}.csv"'
+        w = csv.writer(resp)
+        w.writerow(["timestamp", "action", "model", "object_pk", "user", "ip", "summary"])
+        for e in rows:
+            w.writerow(
+                [
+                    e.ts.isoformat() if e.ts else "",
+                    e.action or "",
+                    e.model or "",
+                    e.object_pk or "",
+                    (e.user.username if e.user else "system"),
+                    e.ip or "",
+                    e.summary or "",
+                ]
+            )
+        return resp
+
+    items = list(qs[:limit])
+    model_choices = list(AuditEvent.objects.filter(organization=org).values_list("model", flat=True).distinct().order_by("model")[:200])
+    return render(
+        request,
+        "ui/audit_log.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Audit Log", None)),
+            "items": items,
+            "q": q,
+            "action": action,
+            "model": model,
+            "user_filter": user_filter,
+            "date_from": date_from_raw,
+            "date_to": date_to_raw,
+            "limit": limit,
+            "model_choices": model_choices,
+            "export_url": reverse("ui:audit_log") + "?" + urlencode(
+                {
+                    "q": q,
+                    "action": action,
+                    "model": model,
+                    "user": user_filter,
+                    "date_from": date_from_raw,
+                    "date_to": date_to_raw,
+                    "limit": str(limit),
+                    "format": "csv",
+                }
+            ),
+        },
+    )
+
+
+@login_required
 def search(request: HttpRequest) -> HttpResponse:
     ctx = require_current_org(request)
     org = ctx.organization

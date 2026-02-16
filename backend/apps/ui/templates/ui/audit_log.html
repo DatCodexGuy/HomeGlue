@@ -1,0 +1,70 @@
+{% extends "ui/base.html" %}
+{% block title %}Audit Log | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Audit Log</h1>
+        <div class="sub">Central event trail for {{ org.name }}.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{{ export_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
+          Export CSV
+        </a>
+      </div>
+    </div>
+
+    <form class="search" method="get" style="margin-bottom:10px">
+      <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search summary/model/user/ip..." />
+      <select class="bulkbar__select" name="action" aria-label="Action">
+        <option value="">All actions</option>
+        <option value="create" {% if action == "create" %}selected{% endif %}>Create</option>
+        <option value="update" {% if action == "update" %}selected{% endif %}>Update</option>
+        <option value="delete" {% if action == "delete" %}selected{% endif %}>Delete</option>
+      </select>
+      <select class="bulkbar__select" name="model" aria-label="Model" style="max-width:300px">
+        <option value="">All models</option>
+        {% for m in model_choices %}
+          <option value="{{ m }}" {% if model == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+      <select class="bulkbar__select" name="user" aria-label="Actor">
+        <option value="" {% if not user_filter %}selected{% endif %}>Any actor</option>
+        <option value="human" {% if user_filter == "human" %}selected{% endif %}>Human</option>
+        <option value="system" {% if user_filter == "system" %}selected{% endif %}>System</option>
+      </select>
+      <input class="bulkbar__select" type="date" name="date_from" value="{{ date_from }}" />
+      <input class="bulkbar__select" type="date" name="date_to" value="{{ date_to }}" />
+      <input class="bulkbar__select" type="number" min="1" max="5000" name="limit" value="{{ limit }}" style="max-width:120px" />
+      <button class="btn btn--ghost btn--sm" type="submit">
+        <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+        Filter
+      </button>
+      <a class="btn btn--ghost btn--sm" href="{% url 'ui:audit_log' %}">Clear</a>
+    </form>
+
+    <div class="table">
+      <div class="row row--head" style="grid-template-columns:0.9fr 0.7fr 1fr 0.7fr 0.7fr 0.7fr 2fr">
+        <div>When</div><div>Action</div><div>Model</div><div>PK</div><div>User</div><div>IP</div><div>Summary</div>
+      </div>
+      {% for e in items %}
+        <div class="row" style="grid-template-columns:0.9fr 0.7fr 1fr 0.7fr 0.7fr 0.7fr 2fr">
+          <div class="mono muted">{{ e.ts|date:"Y-m-d H:i:s" }}</div>
+          <div><span class="pill pill--tiny">{{ e.action }}</span></div>
+          <div class="mono">{{ e.model }}</div>
+          <div class="mono">{{ e.object_pk }}</div>
+          <div class="mono">{% if e.user %}{{ e.user.username }}{% else %}system{% endif %}</div>
+          <div class="mono muted">{{ e.ip|default:"..." }}</div>
+          <div class="muted">{{ e.summary|default:"..." }}</div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No events found</div>
+          <div class="empty__body">Try broader filters or a larger limit.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
