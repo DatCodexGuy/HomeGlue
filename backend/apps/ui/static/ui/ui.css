@@ -500,6 +500,10 @@ html[data-theme="dark"] .md th{background: rgba(231,240,236,.06)}
 }
 .mdedit__btn{
   appearance: none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
   border: 1px solid rgba(31,42,36,.14);
   background: var(--ghost-bg);
   color: rgba(31,42,36,.88);
@@ -510,6 +514,8 @@ html[data-theme="dark"] .md th{background: rgba(231,240,236,.06)}
   cursor: pointer;
   line-height: 1;
 }
+.mdedit__btn--icon{padding: 8px 9px}
+.mdedit__btn .ico{width:16px; height:16px; flex:0 0 16px; color: currentColor}
 .mdedit__btn:hover{background: var(--ghost-bg-hover); border-color: rgba(31,42,36,.24)}
 .mdedit__sep{
   color: rgba(31,42,36,.38);
@@ -517,17 +523,6 @@ html[data-theme="dark"] .md th{background: rgba(231,240,236,.06)}
   font-size: 12px;
   padding: 0 2px;
   user-select: none;
-}
-.mdedit__select{
-  border: 1px solid rgba(31,42,36,.14);
-  background: var(--input-bg);
-  color: var(--ink);
-  border-radius: 12px;
-  padding: 8px 10px;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-  line-height: 1;
 }
 .mdedit__preview{
   border: 1px solid var(--line);
@@ -539,7 +534,6 @@ html[data-theme="dark"] .md th{background: rgba(231,240,236,.06)}
 html[data-theme="dark"] .mdedit__btn{border-color: rgba(231,240,236,.18); color: rgba(231,240,236,.90)}
 html[data-theme="dark"] .mdedit__btn:hover{border-color: rgba(231,240,236,.28)}
 html[data-theme="dark"] .mdedit__sep{color: rgba(231,240,236,.38)}
-html[data-theme="dark"] .mdedit__select{border-color: rgba(231,240,236,.18)}
 
 .panel{
   margin-top:18px;

@@ -173,6 +173,79 @@
   };
   const csrfToken = () => getCookie("csrftoken");
 
+  const insertAt = (ta, start, end, text) => {
+    if (!(ta instanceof HTMLTextAreaElement)) return;
+    const val = ta.value || "";
+    ta.value = val.slice(0, start) + text + val.slice(end);
+    const caret = start + (text || "").length;
+    ta.focus();
+    ta.setSelectionRange(caret, caret);
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  const insertAtCaret = (ta, text) => {
+    if (!(ta instanceof HTMLTextAreaElement)) return;
+    const start = ta.selectionStart || 0;
+    const end = ta.selectionEnd || 0;
+    insertAt(ta, start, end, text);
+  };
+
+  const lineInfoAt = (val, pos) => {
+    const start = val.lastIndexOf("\n", Math.max(0, pos - 1)) + 1;
+    let end = val.indexOf("\n", pos);
+    if (end === -1) end = val.length;
+    const text = val.slice(start, end);
+    return { start, end, text };
+  };
+
+  const findPrevNonEmptyLine = (val, fromIdx) => {
+    let i = Math.max(0, fromIdx);
+    while (i > 0) {
+      const end = i;
+      const start = val.lastIndexOf("\n", Math.max(0, end - 1)) + 1;
+      const line = val.slice(start, end);
+      if (line.trim()) return { start, end, text: line };
+      i = Math.max(0, start - 1);
+    }
+    return null;
+  };
+
+  const parseListMarker = (line) => {
+    // Returns { indent, kind, num } or null.
+    const m = (line || "").match(/^(\s*)([-*+]|(\d+)\.)\s+/);
+    if (!m) return null;
+    return { indent: (m[1] || "").length, kind: (m[2] || ""), num: m[3] ? parseInt(m[3], 10) : null };
+  };
+
+  const indentKey = (ta) => {
+    const val = ta.value || "";
+    const s = ta.selectionStart || 0;
+    const e = ta.selectionEnd || 0;
+    if (s !== e) return indentSelection(ta, 4);
+    const li = lineInfoAt(val, s);
+    if (/^\s*$/.test(li.text || "")) {
+      const prev = findPrevNonEmptyLine(val, Math.max(0, li.start - 1));
+      const pm = prev ? parseListMarker(prev.text) : null;
+      if (pm) return insertAtCaret(ta, " ".repeat(pm.indent + 4) + "- ");
+      return insertAtCaret(ta, " ".repeat(4));
+    }
+    return indentSelection(ta, 4);
+  };
+
+  const outdentKey = (ta) => {
+    const val = ta.value || "";
+    const s = ta.selectionStart || 0;
+    const e = ta.selectionEnd || 0;
+    if (s !== e) return outdentSelection(ta, 4);
+    const li = lineInfoAt(val, s);
+    const rel = s - li.start;
+    const left = (li.text || "").slice(0, rel);
+    const m = left.match(/ +$/);
+    const n = Math.min(4, m ? m[0].length : 0);
+    if (n > 0) return insertAt(ta, s - n, s, "");
+    return outdentSelection(ta, 4);
+  };
+
   const surround = (ta, before, after) => {
     if (!(ta instanceof HTMLTextAreaElement)) return;
     const start = ta.selectionStart || 0;
@@ -276,9 +349,10 @@
     const btn = (label, title, onClick) => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "mdedit__btn";
+      b.className = "mdedit__btn mdedit__btn--text";
       b.textContent = label;
       b.title = title;
+      b.setAttribute("aria-label", title || label);
       b.addEventListener("click", (e) => {
         e.preventDefault();
         onClick();
@@ -286,7 +360,19 @@
       return b;
     };
 
-    const previewBtn = btn("Preview", "Render Markdown preview", () => {});
+    const ibtn = (iconId, label, title, onClick) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mdedit__btn mdedit__btn--icon";
+      b.title = title || label || "";
+      b.setAttribute("aria-label", title || label || "");
+      b.innerHTML = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#${iconId}"></use></svg><span class="sr">${label || ""}</span>`;
+      b.addEventListener("click", (e) => {
+        e.preventDefault();
+        onClick();
+      });
+      return b;
+    };
 
     const sep = () => {
       const s = document.createElement("span");
@@ -296,23 +382,65 @@
       return s;
     };
 
-    bar.appendChild(btn("B", "Bold", () => surround(ta, "**", "**")));
-    bar.appendChild(btn("I", "Italic", () => surround(ta, "*", "*")));
-    bar.appendChild(btn("`", "Inline code", () => surround(ta, "`", "`")));
-    bar.appendChild(btn("Link", "Insert link", () => surround(ta, "[", "](https://example.com)")));
+    const doUl = () => {
+      const val = ta.value || "";
+      const s = ta.selectionStart || 0;
+      const e = ta.selectionEnd || 0;
+      if (s !== e) return bulletSelection(ta);
+      const li = lineInfoAt(val, s);
+      if (/^\s*$/.test(li.text || "")) {
+        const prev = findPrevNonEmptyLine(val, Math.max(0, li.start - 1));
+        const pm = prev ? parseListMarker(prev.text) : null;
+        const pad = pm ? " ".repeat(pm.indent) : "";
+        return insertAtCaret(ta, pad + "- ");
+      }
+      if (!parseListMarker(li.text)) return prefixLine(ta, "- ");
+      return;
+    };
+
+    const doOl = () => {
+      const val = ta.value || "";
+      const s = ta.selectionStart || 0;
+      const e = ta.selectionEnd || 0;
+      if (s !== e) return numberSelection(ta);
+      const li = lineInfoAt(val, s);
+      if (/^\s*$/.test(li.text || "")) {
+        const prev = findPrevNonEmptyLine(val, Math.max(0, li.start - 1));
+        const pm = prev ? parseListMarker(prev.text) : null;
+        const pad = pm ? " ".repeat(pm.indent) : "";
+        return insertAtCaret(ta, pad + "1. ");
+      }
+      if (!/^\s*\d+\.\s+/.test(li.text || "")) return prefixLine(ta, "1. ");
+      return;
+    };
+
+    const doIndent = () => {
+      return indentKey(ta);
+    };
+
+    const doOutdent = () => {
+      return outdentKey(ta);
+    };
+
+    const previewBtn = ibtn("i-eye", "Preview", "Preview", () => {});
+
+    bar.appendChild(ibtn("i-bold", "Bold", "Bold", () => surround(ta, "**", "**")));
+    bar.appendChild(ibtn("i-italic", "Italic", "Italic", () => surround(ta, "*", "*")));
+    bar.appendChild(ibtn("i-code", "Inline code", "Inline code", () => surround(ta, "`", "`")));
+    bar.appendChild(ibtn("i-link", "Link", "Insert link", () => surround(ta, "[", "](https://example.com)")));
     bar.appendChild(sep());
     bar.appendChild(btn("H2", "Heading 2", () => prefixSelectionLines(ta, "## ")));
     bar.appendChild(btn("H3", "Heading 3", () => prefixSelectionLines(ta, "### ")));
-    bar.appendChild(btn("Quote", "Quote", () => prefixSelectionLines(ta, "> ")));
+    bar.appendChild(ibtn("i-quote", "Quote", "Quote", () => prefixSelectionLines(ta, "> ")));
     bar.appendChild(sep());
-    bar.appendChild(btn("UL", "Bulleted list", () => bulletSelection(ta)));
-    bar.appendChild(btn("OL", "Numbered list", () => numberSelection(ta)));
-    bar.appendChild(btn("Indent", "Indent (nest list)", () => indentSelection(ta, 4)));
-    bar.appendChild(btn("Outdent", "Outdent", () => outdentSelection(ta, 4)));
+    bar.appendChild(ibtn("i-list-ul", "Bulleted list", "Bulleted list", () => doUl()));
+    bar.appendChild(ibtn("i-list-ol", "Numbered list", "Numbered list", () => doOl()));
+    bar.appendChild(ibtn("i-indent", "Indent", "Indent / nest", () => doIndent()));
+    bar.appendChild(ibtn("i-outdent", "Outdent", "Outdent", () => doOutdent()));
     bar.appendChild(sep());
-    bar.appendChild(btn("Task", "Task list item", () => prefixSelectionLines(ta, "- [ ] ")));
-    bar.appendChild(btn("Code", "Code block", () => surround(ta, "```\n", "\n```\n")));
-    bar.appendChild(btn("HR", "Horizontal rule", () => surround(ta, "\n---\n", "")));
+    bar.appendChild(ibtn("i-task", "Task", "Task list", () => prefixSelectionLines(ta, "- [ ] ")));
+    bar.appendChild(ibtn("i-codeblock", "Code block", "Code block", () => surround(ta, "```\n", "\n```\n")));
+    bar.appendChild(ibtn("i-hr", "Horizontal rule", "Horizontal rule", () => surround(ta, "\n---\n", "")));
     bar.appendChild(sep());
     bar.appendChild(previewBtn);
 
@@ -324,11 +452,15 @@
       if (mode === "preview") {
         preview.style.display = "";
         ta.style.display = "none";
-        previewBtn.textContent = "Edit";
+        previewBtn.innerHTML = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-edit"></use></svg><span class="sr">Edit</span>`;
+        previewBtn.title = "Edit";
+        previewBtn.setAttribute("aria-label", "Edit");
       } else {
         preview.style.display = "none";
         ta.style.display = "";
-        previewBtn.textContent = "Preview";
+        previewBtn.innerHTML = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-eye"></use></svg><span class="sr">Preview</span>`;
+        previewBtn.title = "Preview";
+        previewBtn.setAttribute("aria-label", "Preview");
       }
     };
 
@@ -381,6 +513,48 @@
     wrap.appendChild(bar);
     wrap.appendChild(ta);
     wrap.appendChild(preview);
+
+    // Editor UX: Tab indents/outdents, Enter continues lists.
+    ta.addEventListener("keydown", (e) => {
+      if (!(e instanceof KeyboardEvent)) return;
+      if (e.key === "Tab") {
+        e.preventDefault();
+        if (e.shiftKey) outdentKey(ta);
+        else indentKey(ta);
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const val = ta.value || "";
+        const s = ta.selectionStart || 0;
+        const epos = ta.selectionEnd || 0;
+        if (s !== epos) return;
+        const li = lineInfoAt(val, s);
+        if (s !== li.end) return; // only auto-continue when cursor is at end of line
+        const m = (li.text || "").match(/^(\s*)([-*+]|(\d+)\.)\s+(.*)$/);
+        if (!m) return;
+        e.preventDefault();
+        const indent = m[1] || "";
+        const kind = m[2] || "-";
+        const num = m[3] ? parseInt(m[3], 10) : null;
+        const rest = (m[4] || "");
+        if (!rest.trim()) {
+          // Empty list item: terminate the list by creating a blank line.
+          const before = val.slice(0, li.start);
+          const after = val.slice(li.end);
+          ta.value = before + "\n" + after;
+          const caret = li.start + 1;
+          ta.focus();
+          ta.setSelectionRange(caret, caret);
+          ta.dispatchEvent(new Event("input", { bubbles: true }));
+          return;
+        }
+        if (num !== null) {
+          insertAtCaret(ta, "\n" + indent + String(num + 1) + ". ");
+        } else {
+          insertAtCaret(ta, "\n" + indent + kind + " ");
+        }
+      }
+    });
   });
 
   // ACL UI: show/hide allowed_users based on visibility.
