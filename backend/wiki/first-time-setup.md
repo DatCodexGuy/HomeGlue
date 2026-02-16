@@ -91,16 +91,19 @@ Download one snapshot and store it somewhere safe.
 
 ## 10. (Optional) Enable Email Notifications
 
-1. Configure SMTP settings in `.env`
-2. Recreate containers:
+1. Configure email in the UI:
+   - `/app/admin/email/`
+
+Or configure SMTP settings in `.env` and rebuild:
 
 ```bash
 cd /opt/homeglue
 docker compose up -d --build
 ```
 
-3. Test:
-   - `/app/admin/config/` (Send test email)
+2. Test:
+   - `/app/admin/email/` (Send test email)
+   - `/app/admin/config/` (Config & status page)
 
 ## Where To Verify Everything
 
@@ -108,4 +111,3 @@ docker compose up -d --build
 - Audit: `/app/audit/`
 - Backups: `/app/backups/`
 - Proxmox sync: `/app/admin/ops/` and worker logs (`docker compose logs worker`)
-

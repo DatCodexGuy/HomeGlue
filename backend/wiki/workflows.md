@@ -23,6 +23,9 @@ Rules are org-scoped and can be enabled/disabled.
    - `/app/notifications/`
 
 If you want email delivery, configure SMTP in `.env` and rebuild containers.
+Alternatively (recommended), configure email in the UI:
+
+- `/app/admin/email/`
 
 ## Notifications
 
@@ -42,6 +45,10 @@ HomeGlue supports:
 - Webhook delivery (optional, org-scoped endpoints)
 
 ### Email (Environment Variables)
+
+Email can be configured in the UI:
+
+- `/app/admin/email/`
 
 Email sending is controlled by these environment variables (see `homeglue/backend/homeglue/settings.py`):
 

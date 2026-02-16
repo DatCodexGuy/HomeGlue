@@ -98,7 +98,8 @@ The API uses a short-lived re-auth token:
 
 ### Configuration
 
-- `HOMEGLUE_REAUTH_TTL_SECONDS` (default: `900`)
+- UI: configure in `Admin -> System settings` (`/app/admin/system/`) under `Hosts & Timeouts`.
+- Env var: `HOMEGLUE_REAUTH_TTL_SECONDS` (default: `900`)
 
 ## Password Storage
 

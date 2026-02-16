@@ -118,7 +118,11 @@ DJANGO_SUPERUSER_USERNAME=admin DJANGO_SUPERUSER_EMAIL=admin@example.local DJANG
 
 ## Email Notifications (Optional)
 
-Configure:
+Configure (recommended):
+
+- `/app/admin/email/`
+
+Or via `.env`:
 
 ```text
 HOMEGLUE_EMAIL_NOTIFICATIONS_ENABLED=true
