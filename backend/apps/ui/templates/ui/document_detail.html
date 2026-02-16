@@ -19,6 +19,8 @@
           {% else %}
             No template
           {% endif %}
+          <span class="dot"></span>
+          <span class="pill pill--tiny {% if document.review_state == 'approved' %}pill--ok{% elif document.review_state == 'in_review' %}pill--warn{% else %}pill--ghost{% endif %}">Review: {{ review_state_label }}</span>
           {% if document.flagged_at %}<span class="pill pill--tiny pill--warn">Flagged</span>{% endif %}
           {% if document.archived_at %}<span class="pill pill--tiny pill--ghost">Archived</span>{% endif %}
         </div>
@@ -77,6 +79,45 @@
         </button>
       </form>
     {% else %}
+      <h3 class="h3">Review</h3>
+      <div class="mini">
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="pill pill--tiny {% if document.review_state == 'approved' %}pill--ok{% elif document.review_state == 'in_review' %}pill--warn{% else %}pill--ghost{% endif %}">{{ review_state_label }}</span>
+            {% if document.reviewed_at %}<span class="muted">{{ document.reviewed_at|date:"Y-m-d H:i" }}</span>{% endif %}
+          </div>
+          <div class="mini__body">
+            {% if document.reviewed_by %}
+              <span class="muted">Last changed by {{ document.reviewed_by.username }}</span>
+            {% else %}
+              <span class="muted">No review activity yet.</span>
+            {% endif %}
+          </div>
+          <div class="mini__actions">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="set_review_state" />
+              <input type="hidden" name="review_state" value="draft" />
+              <button class="btn btn--ghost btn--sm" type="submit">Set Draft</button>
+            </form>
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="set_review_state" />
+              <input type="hidden" name="review_state" value="in_review" />
+              <button class="btn btn--ghost btn--sm" type="submit">Mark In Review</button>
+            </form>
+            {% if can_admin %}
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="_action" value="set_review_state" />
+                <input type="hidden" name="review_state" value="approved" />
+                <button class="btn btn--sm" type="submit">Approve</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
       <h3 class="h3">Document</h3>
       <div class="mini">
         {% if document.body %}
@@ -108,6 +149,11 @@
     <div style="margin-top:18px">
       <h3 class="h3">Notes</h3>
       {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+    </div>
+
+    <div style="margin-top:18px">
+      <h3 class="h3">Comments</h3>
+      {% include "ui/_document_comments.html" with comments=comments comment_form=comment_form %}
     </div>
 
     <div style="margin-top:18px">

@@ -1,0 +1,46 @@
+{% load ui_extras %}
+{% if comments %}
+  <div class="mini">
+    {% for c in comments %}
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">Comment</span>
+          <span class="muted">
+            {{ c.created_at|date:"Y-m-d H:i" }}{% if c.created_by %} by {{ c.created_by.username }}{% endif %}
+          </span>
+        </div>
+        <div class="mini__body md">{{ c.body|markdown }}</div>
+        {% if can_admin or c.created_by_id == request.user.id %}
+          <div class="mini__actions">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="_action" value="delete_comment" />
+              <input type="hidden" name="comment_id" value="{{ c.id }}" />
+              <button class="btn btn--ghost btn--sm" type="submit">
+                <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+                Delete
+              </button>
+            </form>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="muted">No comments yet.</div>
+{% endif %}
+
+<div style="margin-top:12px">
+  <form method="post" class="form">
+    {% csrf_token %}
+    <input type="hidden" name="_action" value="add_comment" />
+    <p>
+      <label for="comment_body">Add a comment</label>
+      <textarea id="comment_body" class="js-md" name="body" rows="4" placeholder="Comment on this document... Use @username to notify a teammate."></textarea>
+    </p>
+    <button class="btn btn--sm" type="submit">
+      <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+      Add comment
+    </button>
+  </form>
+</div>

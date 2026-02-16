@@ -224,6 +224,61 @@ class UiBasicTests(TestCase):
         d.refresh_from_db()
         self.assertIsNotNone(d.flagged_at)
 
+    def test_document_review_state_flow(self):
+        from apps.docsapp.models import Document
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        d = Document.objects.create(organization=self.org, title="ReviewMe", body="x", created_by=self.user)
+
+        r1 = self.client.post(f"/app/documents/{d.id}/", {"_action": "set_review_state", "review_state": "in_review"})
+        self.assertEqual(r1.status_code, 302)
+        d.refresh_from_db()
+        self.assertEqual(d.review_state, Document.REVIEW_IN_REVIEW)
+        self.assertIsNotNone(d.reviewed_by_id)
+        self.assertIsNotNone(d.reviewed_at)
+
+        r2 = self.client.post(f"/app/documents/{d.id}/", {"_action": "set_review_state", "review_state": "approved"})
+        self.assertEqual(r2.status_code, 302)
+        d.refresh_from_db()
+        self.assertEqual(d.review_state, Document.REVIEW_APPROVED)
+
+    def test_document_approve_requires_org_admin(self):
+        from apps.docsapp.models import Document
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        d = Document.objects.create(organization=self.org, title="NeedsAdmin", body="x", created_by=self.user)
+        r = self.client.post(f"/app/documents/{d.id}/", {"_action": "set_review_state", "review_state": "approved"})
+        self.assertEqual(r.status_code, 403)
+        d.refresh_from_db()
+        self.assertEqual(d.review_state, Document.REVIEW_DRAFT)
+
+    def test_document_comment_mention_creates_notification(self):
+        from django.contrib.auth import get_user_model
+        from apps.docsapp.models import Document, DocumentComment
+        from apps.workflows.models import Notification
+
+        User = get_user_model()
+        teammate = User.objects.create_user(username="teammate", password="pw")
+        OrganizationMembership.objects.create(user=teammate, organization=self.org, role=OrganizationMembership.ROLE_MEMBER)
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        d = Document.objects.create(organization=self.org, title="CommentDoc", body="x", created_by=self.user)
+        r = self.client.post(f"/app/documents/{d.id}/", {"_action": "add_comment", "body": "Please review @teammate"})
+        self.assertEqual(r.status_code, 302)
+        self.assertTrue(DocumentComment.objects.filter(organization=self.org, document=d).exists())
+
+        n = Notification.objects.filter(organization=self.org, user=teammate, title__icontains="Mention in document").first()
+        self.assertIsNotNone(n)
+        self.assertEqual(getattr(n, "object_id", None), str(d.id))
+
+        teammate_client = Client(HTTP_HOST="localhost")
+        self.assertTrue(teammate_client.login(username="teammate", password="pw"))
+        teammate_client.get(f"/app/orgs/{self.org.id}/enter/")
+        r2 = teammate_client.get("/app/notifications/")
+        self.assertEqual(r2.status_code, 200)
+        self.assertContains(r2, "Mention in document", status_code=200)
+
     def test_docs_and_passwords_acl_visibility(self):
         from django.contrib.auth import get_user_model
         from apps.docsapp.models import Document

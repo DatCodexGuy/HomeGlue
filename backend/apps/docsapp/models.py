@@ -72,6 +72,14 @@ class Document(models.Model):
         (VIS_PRIVATE, "Private (creator only)"),
         (VIS_SHARED, "Shared (selected users)"),
     ]
+    REVIEW_DRAFT = "draft"
+    REVIEW_IN_REVIEW = "in_review"
+    REVIEW_APPROVED = "approved"
+    REVIEW_CHOICES = [
+        (REVIEW_DRAFT, "Draft"),
+        (REVIEW_IN_REVIEW, "In review"),
+        (REVIEW_APPROVED, "Approved"),
+    ]
 
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="documents")
     created_by = models.ForeignKey(
@@ -109,6 +117,15 @@ class Document(models.Model):
         related_name="flagged_documents",
     )
     archived_at = models.DateTimeField(null=True, blank=True)
+    review_state = models.CharField(max_length=16, choices=REVIEW_CHOICES, default=REVIEW_DRAFT)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_documents",
+    )
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -119,8 +136,26 @@ class Document(models.Model):
             models.Index(fields=["organization", "visibility"]),
             models.Index(fields=["organization", "created_by"]),
             models.Index(fields=["organization", "flagged_at"]),
+            models.Index(fields=["organization", "review_state"]),
             models.Index(fields=["organization", "folder"]),
         ]
 
     def __str__(self) -> str:
         return f"{self.organization}: {self.title}"
+
+
+class DocumentComment(models.Model):
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="document_comments")
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="comments")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["organization", "document", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization}: {self.document_id}: comment {self.id}"

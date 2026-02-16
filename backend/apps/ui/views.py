@@ -43,7 +43,7 @@ from apps.core.models import (
     Tag,
     UserProfile,
 )
-from apps.docsapp.models import Document, DocumentFolder, DocumentTemplate
+from apps.docsapp.models import Document, DocumentComment, DocumentFolder, DocumentTemplate
 from apps.netapp.models import Domain, SSLCertificate
 from apps.checklists.models import Checklist, ChecklistItem, ChecklistRun, ChecklistRunItem, ChecklistSchedule
 from apps.netapp.public_info import (
@@ -81,6 +81,7 @@ from .forms import (
     FlexibleAssetForm,
     FlexibleAssetTypeForm,
     DocumentForm,
+    DocumentCommentForm,
     DocumentTemplateForm,
     DocumentFolderForm,
     DomainForm,
@@ -240,6 +241,70 @@ def _visible_docs_q(user, org) -> Q:
         | (Q(visibility=Document.VIS_PRIVATE) & Q(created_by=user))
         | (Q(visibility=Document.VIS_SHARED) & (Q(created_by=user) | Q(allowed_users=user)))
     )
+
+
+def _doc_review_label(state: str) -> str:
+    return {
+        Document.REVIEW_DRAFT: "Draft",
+        Document.REVIEW_IN_REVIEW: "In review",
+        Document.REVIEW_APPROVED: "Approved",
+    }.get((state or "").strip(), "Draft")
+
+
+def _doc_comments_for_document(*, org, doc: Document, limit: int = 200) -> list[DocumentComment]:
+    return list(
+        DocumentComment.objects.filter(organization=org, document=doc)
+        .select_related("created_by")
+        .order_by("created_at")[:limit]
+    )
+
+
+def _create_doc_mention_notifications(*, org, doc: Document, comment: DocumentComment, actor) -> int:
+    body = (comment.body or "").strip()
+    if not body:
+        return 0
+    usernames = {m.lower() for m in re.findall(r"(?<!\w)@([A-Za-z0-9_.-]{3,150})", body)}
+    if not usernames:
+        return 0
+
+    memberships = (
+        OrganizationMembership.objects.filter(organization=org)
+        .select_related("user")
+        .order_by("user_id")
+    )
+    users_by_name = {}
+    for m in memberships:
+        u = getattr(m, "user", None)
+        uname = (getattr(u, "username", "") or "").strip().lower()
+        if not u or not uname:
+            continue
+        users_by_name[uname] = u
+
+    ct = ContentType.objects.get_for_model(Document)
+    actor_name = getattr(actor, "username", "Someone")
+    created = 0
+    for uname in sorted(usernames):
+        user = users_by_name.get(uname)
+        if not user:
+            continue
+        if actor and getattr(actor, "id", None) and int(user.id) == int(actor.id):
+            continue
+        dedupe_key = f"doc_comment_mention:{comment.id}:{int(user.id)}"
+        obj, was_created = Notification.objects.get_or_create(
+            organization=org,
+            user=user,
+            dedupe_key=dedupe_key,
+            defaults={
+                "level": Notification.LEVEL_INFO,
+                "title": f"Mention in document: {doc.title}",
+                "body": f"{actor_name} mentioned you in a document comment.",
+                "content_type": ct,
+                "object_id": str(doc.id),
+            },
+        )
+        if was_created and obj:
+            created += 1
+    return created
 
 
 def _visible_passwords_q(user, org) -> Q:
@@ -4452,6 +4517,70 @@ def document_detail(request: HttpRequest, document_id: int) -> HttpResponse:
         _save_custom_fields_from_post(request=request, org=org, obj=doc)
         return redirect("ui:document_detail", document_id=doc.id)
 
+    if request.method == "POST" and request.POST.get("_action") == "set_review_state":
+        next_state = (request.POST.get("review_state") or "").strip()
+        allowed_states = {Document.REVIEW_DRAFT, Document.REVIEW_IN_REVIEW, Document.REVIEW_APPROVED}
+        if next_state in allowed_states:
+            if next_state == Document.REVIEW_APPROVED and not _is_org_admin(request.user, org):
+                raise PermissionDenied("Org admin role required to approve documents.")
+            old_state = doc.review_state
+            if old_state != next_state:
+                doc.review_state = next_state
+                if next_state == Document.REVIEW_DRAFT:
+                    doc.reviewed_by = None
+                    doc.reviewed_at = None
+                else:
+                    doc.reviewed_by = request.user
+                    doc.reviewed_at = timezone.now()
+                doc.save(update_fields=["review_state", "reviewed_by", "reviewed_at", "updated_at"])
+                _audit_event(
+                    request=request,
+                    org=org,
+                    action=AuditEvent.ACTION_UPDATE,
+                    model="docsapp.DocumentReview",
+                    object_pk=str(doc.id),
+                    summary=f"Review state changed: {_doc_review_label(old_state)} -> {_doc_review_label(next_state)}.",
+                )
+        return redirect("ui:document_detail", document_id=doc.id)
+
+    if request.method == "POST" and request.POST.get("_action") == "add_comment":
+        comment_form = DocumentCommentForm(request.POST, org=org)
+        if comment_form.is_valid():
+            comment = comment_form.save(commit=False)
+            comment.organization = org
+            comment.document = doc
+            comment.created_by = request.user
+            comment.save()
+            _create_doc_mention_notifications(org=org, doc=doc, comment=comment, actor=request.user)
+            _audit_event(
+                request=request,
+                org=org,
+                action=AuditEvent.ACTION_CREATE,
+                model="docsapp.DocumentComment",
+                object_pk=str(comment.id),
+                summary=f"Comment added on document '{doc.title}'.",
+            )
+        return redirect("ui:document_detail", document_id=doc.id)
+
+    if request.method == "POST" and request.POST.get("_action") == "delete_comment":
+        try:
+            comment_id = int(request.POST.get("comment_id") or "0")
+        except Exception:
+            comment_id = 0
+        comment = get_object_or_404(DocumentComment, organization=org, document=doc, id=comment_id)
+        if not (_is_org_admin(request.user, org) or (comment.created_by_id and int(comment.created_by_id) == int(request.user.id))):
+            raise PermissionDenied("Not allowed.")
+        _audit_event(
+            request=request,
+            org=org,
+            action=AuditEvent.ACTION_DELETE,
+            model="docsapp.DocumentComment",
+            object_pk=str(comment.id),
+            summary=f"Comment deleted from document '{doc.title}'.",
+        )
+        comment.delete()
+        return redirect("ui:document_detail", document_id=doc.id)
+
     if request.method == "POST":
         form = DocumentForm(request.POST, instance=doc, org=org)
         if form.is_valid():
@@ -4484,6 +4613,8 @@ def document_detail(request: HttpRequest, document_id: int) -> HttpResponse:
             "can_admin": can_admin,
             "attachments": _attachments_for_object(org=org, obj=doc),
             "notes": _notes_for_object(org=org, obj=doc),
+            "comment_form": DocumentCommentForm(org=org),
+            "comments": _doc_comments_for_document(org=org, doc=doc, limit=200),
             "note_ref": _ref_for_obj(doc),
             "custom_fields": _custom_fields_for_model(org=org, model_cls=Document),
             "custom_values": _custom_field_values_for_object(org=org, obj=doc),
@@ -4493,6 +4624,7 @@ def document_detail(request: HttpRequest, document_id: int) -> HttpResponse:
             "relationships": relationships,
             "relationships_view": relationships_view,
             "add_relationship_url": reverse("ui:relationships_new") + f"?source_ref={_ref_for_obj(doc)}",
+            "review_state_label": _doc_review_label(doc.review_state),
         },
     )
 
