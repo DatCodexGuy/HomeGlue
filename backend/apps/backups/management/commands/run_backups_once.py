@@ -51,7 +51,7 @@ from apps.netapp.models import Domain, SSLCertificate
 from apps.people.models import Contact
 from apps.secretsapp.models import PasswordEntry, PasswordFolder, PasswordShareLink
 from apps.versionsapp.models import ObjectVersion
-from apps.audit.models import AuditEvent
+from apps.audit.models import AuditEvent, AuditPolicy
 from apps.workflows.models import Notification, NotificationDeliveryAttempt, WebhookEndpoint, WorkflowRule
 
 
@@ -165,6 +165,7 @@ class Command(BaseCommand):
 
             # Audit
             fixture_objects += _serialize_qs(AuditEvent.objects.filter(organization=org))
+            fixture_objects += _serialize_qs(AuditPolicy.objects.filter(organization=org))
 
             # Integrations
             fixture_objects += _serialize_qs(ProxmoxConnection.objects.filter(organization=org))

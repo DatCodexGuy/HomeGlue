@@ -43,3 +43,22 @@ class AuditEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.ts} {self.action} {self.model}:{self.object_pk}"
+
+
+class AuditPolicy(models.Model):
+    """
+    Org-scoped retention and governance controls for audit logs.
+    """
+
+    organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name="audit_policy")
+    enabled = models.BooleanField(default=True)
+    retention_days = models.PositiveIntegerField(default=365)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["enabled", "retention_days"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization} audit policy ({self.retention_days}d)"

@@ -56,7 +56,7 @@ from apps.netapp.public_info import (
 from apps.people.models import Contact
 from apps.secretsapp.models import PasswordEntry, PasswordFolder, PasswordShareLink
 from apps.secretsapp.totp import TotpError, build_otpauth_url, generate_base32_secret
-from apps.audit.models import AuditEvent
+from apps.audit.models import AuditEvent, AuditPolicy
 from rest_framework.authtoken.models import Token
 from apps.core.reauth import is_session_reauthed, mark_session_reauthed
 
@@ -1490,6 +1490,47 @@ def audit_log(request: HttpRequest) -> HttpResponse:
     org = ctx.organization
     _require_org_admin(request.user, org)
 
+    policy, _ = AuditPolicy.objects.get_or_create(organization=org)
+    reauth_url = reverse("ui:reauth") + "?" + urlencode({"next": request.get_full_path()})
+
+    if request.method == "POST":
+        action_post = (request.POST.get("_action") or "").strip()
+        if action_post in {"policy_save", "purge_now"} and not _is_reauthed(request):
+            return redirect(reauth_url)
+        if action_post == "policy_save":
+            enabled = (request.POST.get("enabled") or "").strip() == "1"
+            try:
+                retention_days = int(request.POST.get("retention_days") or 365)
+            except Exception:
+                retention_days = 365
+            retention_days = max(7, min(3650, retention_days))
+            policy.enabled = enabled
+            policy.retention_days = retention_days
+            policy.save(update_fields=["enabled", "retention_days", "updated_at"])
+            AuditEvent.objects.create(
+                organization=org,
+                user=request.user if request.user.is_authenticated else None,
+                action=AuditEvent.ACTION_UPDATE,
+                model="audit.AuditPolicy",
+                object_pk=str(policy.id),
+                summary=f"Updated audit policy: enabled={int(enabled)}, retention_days={retention_days}.",
+            )
+            return redirect("ui:audit_log")
+        if action_post == "purge_now":
+            purged = 0
+            if policy.enabled:
+                cutoff = timezone.now() - timedelta(days=int(policy.retention_days or 365))
+                purged, _ = AuditEvent.objects.filter(organization=org, ts__lt=cutoff).delete()
+            AuditEvent.objects.create(
+                organization=org,
+                user=request.user if request.user.is_authenticated else None,
+                action=AuditEvent.ACTION_UPDATE,
+                model="audit.AuditPolicy",
+                object_pk=str(policy.id),
+                summary=f"Audit purge executed; removed {int(purged)} event(s).",
+            )
+            return redirect("ui:audit_log")
+
     q = (request.GET.get("q") or "").strip()
     action = (request.GET.get("action") or "").strip().lower()
     model = (request.GET.get("model") or "").strip()
@@ -1559,6 +1600,20 @@ def audit_log(request: HttpRequest) -> HttpResponse:
             )
         return resp
 
+    now = timezone.now()
+    day_ago = now - timedelta(days=1)
+    stats_24h_qs = AuditEvent.objects.filter(organization=org, ts__gte=day_ago)
+    stats_24h = {
+        "total": stats_24h_qs.count(),
+        "create": stats_24h_qs.filter(action=AuditEvent.ACTION_CREATE).count(),
+        "update": stats_24h_qs.filter(action=AuditEvent.ACTION_UPDATE).count(),
+        "delete": stats_24h_qs.filter(action=AuditEvent.ACTION_DELETE).count(),
+        "system": stats_24h_qs.filter(user__isnull=True).count(),
+    }
+    top_models = list(
+        stats_24h_qs.values("model").annotate(c=Count("id")).order_by("-c", "model")[:8]
+    )
+
     items = list(qs[:limit])
     model_choices = list(AuditEvent.objects.filter(organization=org).values_list("model", flat=True).distinct().order_by("model")[:200])
     return render(
@@ -1576,6 +1631,11 @@ def audit_log(request: HttpRequest) -> HttpResponse:
             "date_to": date_to_raw,
             "limit": limit,
             "model_choices": model_choices,
+            "policy": policy,
+            "is_reauthed": _is_reauthed(request),
+            "reauth_url": reauth_url,
+            "stats_24h": stats_24h,
+            "top_models": top_models,
             "export_url": reverse("ui:audit_log") + "?" + urlencode(
                 {
                     "q": q,

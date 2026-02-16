@@ -808,6 +808,58 @@ class UiBasicTests(TestCase):
         self.assertIn("text/csv", r.headers.get("Content-Type", ""))
         self.assertIn("unit-test audit event", r.content.decode("utf-8"))
 
+    def test_audit_policy_save_requires_reauth(self):
+        from apps.audit.models import AuditPolicy
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+
+        r = self.client.post("/app/audit/", {"_action": "policy_save", "enabled": "1", "retention_days": "30"})
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/app/reauth/", r["Location"])
+
+        policy = AuditPolicy.objects.get(organization=self.org)
+        self.assertEqual(int(policy.retention_days), 365)
+
+    def test_audit_purge_now_respects_retention_policy(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from apps.audit.models import AuditEvent
+        from apps.core.reauth import mark_session_reauthed
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+        sess = self.client.session
+        mark_session_reauthed(session=sess)
+        sess.save()
+
+        old_evt = AuditEvent.objects.create(
+            organization=self.org,
+            user=self.user,
+            action=AuditEvent.ACTION_UPDATE,
+            model="core.Asset",
+            object_pk="1",
+            summary="old-event",
+        )
+        AuditEvent.objects.filter(id=old_evt.id).update(ts=timezone.now() - timedelta(days=60))
+
+        new_evt = AuditEvent.objects.create(
+            organization=self.org,
+            user=self.user,
+            action=AuditEvent.ACTION_UPDATE,
+            model="core.Asset",
+            object_pk="2",
+            summary="new-event",
+        )
+
+        r = self.client.post("/app/audit/", {"_action": "policy_save", "enabled": "1", "retention_days": "30"})
+        self.assertEqual(r.status_code, 302)
+        r = self.client.post("/app/audit/", {"_action": "purge_now"})
+        self.assertEqual(r.status_code, 302)
+
+        self.assertFalse(AuditEvent.objects.filter(id=old_evt.id).exists())
+        self.assertTrue(AuditEvent.objects.filter(id=new_evt.id).exists())
+
     def test_file_safeshare_invalid_passphrase_is_audited(self):
         from urllib.parse import urlsplit
         from django.core.files.uploadedfile import SimpleUploadedFile

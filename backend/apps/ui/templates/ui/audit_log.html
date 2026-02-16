@@ -16,6 +16,83 @@
       </div>
     </div>
 
+    <div class="mini" style="margin-bottom:12px">
+      <div class="mini__row">
+        <div class="mini__top">
+          <span class="pill pill--tiny">Governance</span>
+          <span class="muted">Retention and purge controls</span>
+        </div>
+        <div class="mini__body">
+          {% if not is_reauthed %}
+            <div class="muted" style="margin-bottom:8px">Re-authentication required for policy changes and purge.</div>
+            <a class="btn btn--ghost btn--sm" href="{{ reauth_url }}">
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
+              Re-authenticate
+            </a>
+          {% endif %}
+          <form method="post" class="form" style="margin-top:10px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="policy_save" />
+            <div class="grid" style="grid-template-columns:1fr 1fr 1fr; gap:10px">
+              <div>
+                <label for="id_enabled">Retention enabled</label>
+                <select id="id_enabled" name="enabled">
+                  <option value="1" {% if policy.enabled %}selected{% endif %}>Yes</option>
+                  <option value="0" {% if not policy.enabled %}selected{% endif %}>No</option>
+                </select>
+              </div>
+              <div>
+                <label for="id_retention">Retention days</label>
+                <input id="id_retention" type="number" min="7" max="3650" name="retention_days" value="{{ policy.retention_days }}" />
+              </div>
+              <div style="display:flex; align-items:flex-end; gap:8px">
+                <button class="btn btn--ghost btn--sm" type="submit" {% if not is_reauthed %}disabled{% endif %}>
+                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+                  Save policy
+                </button>
+              </div>
+            </div>
+          </form>
+          <form method="post" style="margin-top:8px">
+            {% csrf_token %}
+            <input type="hidden" name="_action" value="purge_now" />
+            <button class="btn btn--danger btn--sm" type="submit" {% if not is_reauthed %}disabled{% endif %}>
+              <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
+              Purge now (by retention policy)
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="table" style="margin-bottom:12px">
+      <div class="row row--head" style="grid-template-columns:repeat(5,1fr)">
+        <div>Total (24h)</div><div>Create</div><div>Update</div><div>Delete</div><div>System</div>
+      </div>
+      <div class="row" style="grid-template-columns:repeat(5,1fr)">
+        <div class="mono">{{ stats_24h.total }}</div>
+        <div class="mono">{{ stats_24h.create }}</div>
+        <div class="mono">{{ stats_24h.update }}</div>
+        <div class="mono">{{ stats_24h.delete }}</div>
+        <div class="mono">{{ stats_24h.system }}</div>
+      </div>
+    </div>
+
+    {% if top_models %}
+      <div class="mini" style="margin-bottom:12px">
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="pill pill--tiny">Top Models (24h)</span>
+          </div>
+          <div class="mini__body">
+            {% for m in top_models %}
+              <span class="pill pill--tiny">{{ m.model }}: {{ m.c }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
     <form class="search" method="get" style="margin-bottom:10px">
       <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search summary/model/user/ip..." />
       <select class="bulkbar__select" name="action" aria-label="Action">
