@@ -61,6 +61,11 @@ cd /opt/homeglue
 ./scripts/install.sh
 ```
 
+Notes:
+
+- `./scripts/install.sh` will auto-install prerequisites like Docker on Debian/Ubuntu if they are missing.
+- To opt out of prerequisite installs, set: `HOMEGLUE_NO_PREREQS=1`.
+
 If you do not want to use `scripts/install.sh`, you can:
 
 ```bash

@@ -46,6 +46,17 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+### Private Repo Install Notes
+
+If the GitHub repo is private, the `raw.githubusercontent.com` one-liner will return `404` unless you authenticate.
+
+Recommended private-repo flow:
+
+- Clone via SSH: `git clone git@github.com:DatCodexGuy/HomeGlue.git /opt/homeglue`
+- Run: `./scripts/install.sh`
+
+`./scripts/install.sh` will now auto-install prerequisites like Docker (Debian/Ubuntu) if missing.
+
 If you want to run on a different port, set `HOMEGLUE_PORT` in `.env` (default: 8080).
 
 Open:

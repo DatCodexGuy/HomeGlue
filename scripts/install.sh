@@ -67,9 +67,83 @@ require_cmd() {
   fi
 }
 
+log() { printf '%s\n' "$*"; }
+
+as_root_prefix() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    echo ""
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    echo "sudo"
+    return
+  fi
+  echo "ERROR: This installer needs root (or sudo) to install prerequisites." >&2
+  exit 1
+}
+
+ROOT_PREFIX="$(as_root_prefix)"
+
+os_id() {
+  # shellcheck disable=SC1091
+  . /etc/os-release 2>/dev/null || true
+  echo "${ID:-unknown}"
+}
+
+ensure_pkg_deb() {
+  local pkgs=("$@")
+  $ROOT_PREFIX apt-get update -y
+  $ROOT_PREFIX apt-get install -y "${pkgs[@]}"
+}
+
+install_docker_get() {
+  # Uses Docker's convenience script. This is intentionally the "fast path" for one-liner installs.
+  # It typically installs docker engine + compose plugin on Debian/Ubuntu.
+  if ! command -v curl >/dev/null 2>&1; then
+    ensure_pkg_deb ca-certificates curl
+  fi
+  log "Installing Docker via get.docker.com..."
+  curl -fsSL https://get.docker.com | $ROOT_PREFIX sh
+  $ROOT_PREFIX systemctl enable --now docker >/dev/null 2>&1 || true
+}
+
+ensure_prereqs() {
+  # Opt-out: HOMEGLUE_NO_PREREQS=1
+  if [[ "${HOMEGLUE_NO_PREREQS:-}" == "1" ]]; then
+    return
+  fi
+
+  local id
+  id="$(os_id)"
+  case "$id" in
+    debian|ubuntu|pop|linuxmint)
+      # Common minimal host dependencies.
+      if ! command -v git >/dev/null 2>&1; then
+        ensure_pkg_deb git
+      fi
+      if ! command -v python3 >/dev/null 2>&1; then
+        ensure_pkg_deb python3
+      fi
+      if ! command -v docker >/dev/null 2>&1; then
+        install_docker_get
+      fi
+      ;;
+    *)
+      # Non-deb hosts: don't try to be clever.
+      if ! command -v docker >/dev/null 2>&1; then
+        echo "ERROR: Docker not found. Install Docker + Compose for your OS, then re-run ./scripts/install.sh" >&2
+        exit 1
+      fi
+      ;;
+  esac
+}
+
+ensure_prereqs
+
 require_cmd docker
 if ! docker info >/dev/null 2>&1; then
   echo "ERROR: Docker daemon not running or not accessible to current user." >&2
+  echo "If you just installed Docker, try: systemctl enable --now docker" >&2
   exit 1
 fi
 
