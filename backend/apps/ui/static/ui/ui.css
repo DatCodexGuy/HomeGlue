@@ -343,6 +343,27 @@ html[data-theme="dark"] .top__center{color: rgba(231,240,236,.70)}
 html[data-theme="dark"] .md mark, html[data-theme="dark"] .table mark{
   background: rgba(253, 214, 99, .22);
 }
+
+.meter{
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(31,42,36,.10);
+  border: 1px solid rgba(31,42,36,.12);
+  overflow: hidden;
+  margin-top: 10px;
+}
+.meter__fill{
+  height: 100%;
+  background: linear-gradient(90deg, rgba(47,125,111,.55), rgba(58,110,165,.55));
+  border-right: 1px solid rgba(31,42,36,.14);
+}
+html[data-theme="dark"] .meter{
+  background: rgba(231,240,236,.06);
+  border-color: rgba(231,240,236,.14);
+}
+html[data-theme="dark"] .meter__fill{
+  border-right-color: rgba(231,240,236,.18);
+}
 .md table{
   width:100%;
   border-collapse: collapse;

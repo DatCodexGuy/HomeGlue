@@ -11,6 +11,54 @@
     </div>
 
     <div class="grid">
+      <div class="mini" style="grid-column:1/-1">
+        <div class="mini__row">
+          <div class="mini__top">
+            <span class="mono">Completion profile</span>
+            <span class="pill pill--tiny {% if completion.overall_pct >= 85 %}pill--ok{% elif completion.overall_pct >= 65 %}pill--warn{% else %}pill--danger{% endif %}">{{ completion.overall_pct }}%</span>
+          </div>
+          <div class="mini__body">
+            <div class="muted">A quick completeness score based on key fields across core objects.</div>
+            <div class="meter" role="img" aria-label="Completion {{ completion.overall_pct }} percent">
+              <div class="meter__fill" style="width: {{ completion.overall_pct }}%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="mini__row" style="padding-top:0">
+          <div class="table" style="margin-top:8px">
+            <div class="row row--head" style="grid-template-columns:1.2fr .9fr .9fr 1.2fr">
+              <div>Area</div><div>Score</div><div>Items</div><div>Top missing</div>
+            </div>
+            {% for t in completion.types %}
+              <a class="row" style="grid-template-columns:1.2fr .9fr .9fr 1.2fr" href="{{ t.url }}">
+                <div class="mono">{{ t.label }}</div>
+                <div>
+                  <span class="pill pill--tiny {% if t.pct >= 85 %}pill--ok{% elif t.pct >= 65 %}pill--warn{% else %}pill--danger{% endif %}">{{ t.pct }}%</span>
+                </div>
+                <div class="muted mono">{{ t.items }}</div>
+                <div class="muted">
+                  {% for m in t.missing|slice:":2" %}
+                    {% if m.missing %}<span class="pill pill--tiny">{{ m.label }}: {{ m.missing }}</span>{% endif %}
+                  {% endfor %}
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% for t in completion.types %}
+          {% if t.examples %}
+            <div class="mini__row">
+              <div class="mini__top"><span class="muted">Examples ({{ t.label }})</span></div>
+              <div class="mini__body">
+                {% for e in t.examples %}
+                  <a class="link mono" href="{{ e.url }}">{{ e.label }}</a>{% if not forloop.last %} · {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+
       <div class="mini">
         <div class="mini__row">
           <div class="mini__top"><span class="mono">Domains expiring in 30 days</span><span class="pill pill--tiny">{{ domains_30|length }}</span></div>

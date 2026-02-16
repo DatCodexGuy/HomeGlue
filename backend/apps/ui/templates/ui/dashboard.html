@@ -33,6 +33,10 @@
         <div class="stat__num">{{ counts.sslcerts }}</div>
         <div class="stat__label">SSL Certs</div>
       </a>
+      <a class="stat" href="{% url 'ui:reports' %}">
+        <div class="stat__num">{{ completion.overall_pct }}%</div>
+        <div class="stat__label">Completion</div>
+      </a>
       <a class="stat" href="{% url 'ui:relationships_list' %}">
         <div class="stat__num">{{ counts.relationships }}</div>
         <div class="stat__label">Relationships</div>

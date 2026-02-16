@@ -477,6 +477,30 @@ class UiBasicTests(TestCase):
         r4 = self.client.get(f"/app/passwords/{p.id}/totp/")
         self.assertEqual(r4.status_code, 404)
 
+    def test_reports_does_not_leak_private_passwords(self):
+        from django.contrib.auth import get_user_model
+        from apps.secretsapp.models import PasswordEntry
+
+        User = get_user_model()
+        other = User.objects.create_user(username="repother", password="pw")
+        OrganizationMembership.objects.create(user=other, organization=self.org, role=OrganizationMembership.ROLE_MEMBER)
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        pw_private = PasswordEntry.objects.create(
+            organization=self.org,
+            created_by=other,
+            visibility=PasswordEntry.VIS_PRIVATE,
+            name="ReportSecretPw",
+            username="u",
+            url="",  # would match "missing URL" report if not filtered
+        )
+        pw_private.set_password("Secret123")
+        pw_private.save(update_fields=["password_ciphertext"])
+
+        r = self.client.get("/app/reports/")
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, "ReportSecretPw")
+
     def test_document_folders_basic_flow(self):
         from apps.docsapp.models import Document, DocumentFolder
 

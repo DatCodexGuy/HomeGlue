@@ -1409,6 +1409,173 @@ def _versions_for_object(*, org, obj, limit: int = 20) -> list[ObjectVersion]:
     return items
 
 
+def _completion_profile(*, org, user, details: bool = True) -> dict:
+    """
+    IT Glue-ish "completion profile" scoring (MVP).
+
+    We score common object types based on whether key fields are filled out.
+    This is intentionally opinionated and will likely become configurable later.
+    """
+
+    can_admin = _is_org_admin(user, org) or getattr(user, "is_superuser", False)
+
+    def pct(earned: int, total: int) -> int:
+        if total <= 0:
+            return 100
+        return int(round((earned / float(total)) * 100.0))
+
+    def visible_docs_qs():
+        qs = Document.objects.filter(organization=org, archived_at__isnull=True)
+        if not can_admin:
+            qs = qs.filter(_visible_docs_q(user, org)).distinct()
+        return qs
+
+    def visible_passwords_qs():
+        qs = PasswordEntry.objects.filter(organization=org, archived_at__isnull=True)
+        if not can_admin:
+            qs = qs.filter(_visible_passwords_q(user, org)).distinct()
+        return qs
+
+    out_types: list[dict] = []
+    overall_earned = 0
+    overall_total = 0
+
+    def add_type(*, key: str, label: str, url: str, qs, rules: list[dict], examples_q: Q):
+        nonlocal overall_earned, overall_total
+        total_items = int(qs.count())
+        fields_total = total_items * len(rules)
+        fields_earned = 0
+        missing = []
+        for r in rules:
+            missing_q = r["missing_q"]
+            missing_count = int(qs.filter(missing_q).count())
+            fields_earned += (total_items - missing_count)
+            missing.append({"label": r["label"], "missing": missing_count})
+
+        examples = []
+        if details and total_items:
+            for obj in list(qs.filter(examples_q).order_by("name")[:8]):
+                try:
+                    obj_url = _url_for_object_detail(obj)
+                except Exception:
+                    obj_url = url
+                examples.append({"label": str(getattr(obj, "name", "") or getattr(obj, "title", "") or obj.pk), "url": obj_url})
+
+        t = {
+            "key": key,
+            "label": label,
+            "url": url,
+            "items": total_items,
+            "earned": int(fields_earned),
+            "total": int(fields_total),
+            "pct": pct(int(fields_earned), int(fields_total)),
+            "missing": sorted(missing, key=lambda x: (-int(x["missing"]), str(x["label"]))),
+            "examples": examples,
+        }
+        out_types.append(t)
+        overall_earned += int(fields_earned)
+        overall_total += int(fields_total)
+
+    # Assets: encourage location + basic identification.
+    assets_qs = Asset.objects.filter(organization=org, archived_at__isnull=True)
+    add_type(
+        key="assets",
+        label="Assets",
+        url=reverse("ui:assets_list"),
+        qs=assets_qs,
+        rules=[
+            {"label": "Location", "missing_q": Q(location__isnull=True)},
+            {"label": "Manufacturer", "missing_q": Q(manufacturer="")},
+            {"label": "Model", "missing_q": Q(model="")},
+            {"label": "Serial #", "missing_q": Q(serial_number="")},
+        ],
+        examples_q=Q(location__isnull=True) | Q(manufacturer="") | Q(model="") | Q(serial_number=""),
+    )
+
+    # Config items: at least a hostname or an IP, plus OS when known.
+    cfg_qs = ConfigurationItem.objects.filter(organization=org, archived_at__isnull=True)
+    add_type(
+        key="config",
+        label="Config Items",
+        url=reverse("ui:config_items_list"),
+        qs=cfg_qs,
+        rules=[
+            {"label": "Hostname or IP", "missing_q": Q(hostname="") & Q(primary_ip__isnull=True)},
+            {"label": "Operating system", "missing_q": Q(operating_system="")},
+        ],
+        examples_q=(Q(hostname="") & Q(primary_ip__isnull=True)) | Q(operating_system=""),
+    )
+
+    # Documents: body + folder + non-draft review state (basic hygiene).
+    docs_qs = visible_docs_qs()
+    add_type(
+        key="docs",
+        label="Docs",
+        url=reverse("ui:documents_list"),
+        qs=docs_qs,
+        rules=[
+            {"label": "Body", "missing_q": Q(body="")},
+            {"label": "Folder", "missing_q": Q(folder__isnull=True)},
+            {"label": "Reviewed (not Draft)", "missing_q": Q(review_state=Document.REVIEW_DRAFT)},
+        ],
+        examples_q=Q(body="") | Q(folder__isnull=True) | Q(review_state=Document.REVIEW_DRAFT),
+    )
+
+    # Passwords: secret present + username + URL (where applicable).
+    pws_qs = visible_passwords_qs()
+    add_type(
+        key="passwords",
+        label="Passwords",
+        url=reverse("ui:passwords_list"),
+        qs=pws_qs,
+        rules=[
+            {"label": "Secret set", "missing_q": Q(password_ciphertext="")},
+            {"label": "Username", "missing_q": Q(username="")},
+            {"label": "URL", "missing_q": Q(url="")},
+        ],
+        examples_q=Q(password_ciphertext="") | Q(username="") | Q(url=""),
+    )
+
+    # Domains: registrar + DNS provider + expiry date.
+    dom_qs = Domain.objects.filter(organization=org, archived_at__isnull=True)
+    add_type(
+        key="domains",
+        label="Domains",
+        url=reverse("ui:domains_list"),
+        qs=dom_qs,
+        rules=[
+            {"label": "Registrar", "missing_q": Q(registrar="")},
+            {"label": "DNS provider", "missing_q": Q(dns_provider="")},
+            {"label": "Expires on", "missing_q": Q(expires_on__isnull=True)},
+        ],
+        examples_q=Q(registrar="") | Q(dns_provider="") | Q(expires_on__isnull=True),
+    )
+
+    # SSL certs: identity + issuer + expiry.
+    cert_qs = SSLCertificate.objects.filter(organization=org, archived_at__isnull=True)
+    add_type(
+        key="ssl",
+        label="SSL Certs",
+        url=reverse("ui:sslcerts_list"),
+        qs=cert_qs,
+        rules=[
+            {"label": "Common name", "missing_q": Q(common_name="")},
+            {"label": "Issuer", "missing_q": Q(issuer="")},
+            {"label": "Not after", "missing_q": Q(not_after__isnull=True)},
+        ],
+        examples_q=Q(common_name="") | Q(issuer="") | Q(not_after__isnull=True),
+    )
+
+    out_types.sort(key=lambda t: (int(t.get("pct", 0)), str(t.get("label") or "")))
+    return {
+        "overall_pct": pct(int(overall_earned), int(overall_total)),
+        "overall_earned": int(overall_earned),
+        "overall_total": int(overall_total),
+        "types": out_types,
+        "can_admin": bool(can_admin),
+    }
+
+
 def _safe_snapshot_fields(snapshot: dict) -> dict:
     """
     Hide obviously sensitive fields in snapshots (future-proofing).
@@ -1798,6 +1965,15 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     ctx = require_current_org(request)
     org = ctx.organization
     recent_events = list(AuditEvent.objects.filter(organization=org).select_related("user").order_by("-ts")[:20])
+    can_admin = _is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)
+
+    docs_qs = Document.objects.filter(organization=org, archived_at__isnull=True)
+    if not can_admin:
+        docs_qs = docs_qs.filter(_visible_docs_q(request.user, org)).distinct()
+
+    pw_qs = PasswordEntry.objects.filter(organization=org, archived_at__isnull=True)
+    if not can_admin:
+        pw_qs = pw_qs.filter(_visible_passwords_q(request.user, org)).distinct()
 
     return render(
         request,
@@ -1805,10 +1981,11 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         {
             "org": org,
             "crumbs": _crumbs(("Dashboard", None)),
+            "completion": _completion_profile(org=org, user=request.user, details=False),
             "counts": {
                 "assets": Asset.objects.filter(organization=org, archived_at__isnull=True).count(),
-                "documents": Document.objects.filter(organization=org, archived_at__isnull=True).count(),
-                "passwords": PasswordEntry.objects.filter(organization=org, archived_at__isnull=True).count(),
+                "documents": docs_qs.count(),
+                "passwords": pw_qs.count(),
                 "checklists": Checklist.objects.filter(organization=org, archived_at__isnull=True).count(),
                 "domains": Domain.objects.filter(organization=org, archived_at__isnull=True).count(),
                 "sslcerts": SSLCertificate.objects.filter(organization=org, archived_at__isnull=True).count(),
@@ -1828,6 +2005,15 @@ def reports(request: HttpRequest) -> HttpResponse:
     ctx = require_current_org(request)
     org = ctx.organization
     from datetime import date, timedelta
+
+    def _can_admin() -> bool:
+        return _is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)
+
+    def _visible_passwords_qs():
+        qs = PasswordEntry.objects.filter(organization=org, archived_at__isnull=True)
+        if not _can_admin():
+            qs = qs.filter(_visible_passwords_q(request.user, org)).distinct()
+        return qs
 
     today = date.today()
     soon30 = today + timedelta(days=30)
@@ -1852,15 +2038,11 @@ def reports(request: HttpRequest) -> HttpResponse:
     )
 
     assets_no_location = list(Asset.objects.filter(organization=org, archived_at__isnull=True, location__isnull=True).order_by("name")[:50])
-    passwords_no_url = list(
-        PasswordEntry.objects.filter(organization=org, archived_at__isnull=True)
-        .filter(Q(url="") | Q(url__isnull=True))
-        .order_by("name")[:50]
-    )
+    passwords_no_url = list(_visible_passwords_qs().filter(Q(url="") | Q(url__isnull=True)).order_by("name")[:50])
     # Rotation due in 30 days (best-effort; computed in Python for now).
     pw_rotation_due = []
     try:
-        for p in PasswordEntry.objects.filter(organization=org, archived_at__isnull=True, rotation_interval_days__gt=0).order_by("name")[:2000]:
+        for p in _visible_passwords_qs().filter(rotation_interval_days__gt=0).order_by("name")[:2000]:
             due = p.rotation_due_on()
             if due and due <= soon30:
                 pw_rotation_due.append({"entry": p, "due_on": due, "overdue": due < today})
@@ -1877,6 +2059,8 @@ def reports(request: HttpRequest) -> HttpResponse:
         .order_by("due_on")[:50]
     )
 
+    completion = _completion_profile(org=org, user=request.user)
+
     return render(
         request,
         "ui/reports.html",
@@ -1884,6 +2068,7 @@ def reports(request: HttpRequest) -> HttpResponse:
             "org": org,
             "crumbs": _crumbs(("Reports", None)),
             "today": today,
+            "completion": completion,
             "domains_30": domains_30,
             "domains_90": domains_90,
             "certs_30": certs_30,
