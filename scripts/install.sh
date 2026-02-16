@@ -48,6 +48,12 @@ set_kv() {
   fi
 }
 
+get_kv() {
+  local key="$1"
+  local file="$2"
+  grep -E "^${key}=" "$file" | head -n 1 | cut -d= -f2- || true
+}
+
 require_cmd() {
   local c="$1"
   if ! command -v "$c" >/dev/null 2>&1; then
@@ -83,12 +89,46 @@ else
 fi
 
 if [[ "$CREATED_ENV" -eq 1 ]]; then
+  set_kv "HOMEGLUE_PORT" "8080" "$ENV_FILE"
   set_kv "HOMEGLUE_SECRET_KEY" "$(py_rand django_secret)" "$ENV_FILE"
   set_kv "HOMEGLUE_FERNET_KEY" "$(py_rand fernet)" "$ENV_FILE"
   set_kv "POSTGRES_PASSWORD" "$(py_rand token 18)" "$ENV_FILE"
   set_kv "DJANGO_SUPERUSER_USERNAME" "admin" "$ENV_FILE"
   set_kv "DJANGO_SUPERUSER_EMAIL" "admin@example.local" "$ENV_FILE"
   set_kv "DJANGO_SUPERUSER_PASSWORD" "$(py_rand token 16)" "$ENV_FILE"
+else
+  # Existing .env: validate that required values are present and sane.
+  fernet="$(get_kv HOMEGLUE_FERNET_KEY "$ENV_FILE")"
+  secret="$(get_kv HOMEGLUE_SECRET_KEY "$ENV_FILE")"
+  pgpw="$(get_kv POSTGRES_PASSWORD "$ENV_FILE")"
+
+  if [[ -z "$fernet" || "$fernet" == "change-me" ]]; then
+    echo "ERROR: HOMEGLUE_FERNET_KEY is missing or still set to 'change-me' in $ENV_FILE" >&2
+    echo "This breaks secrets encryption. Generate a valid key (base64 32-byte) and set it in .env." >&2
+    exit 1
+  fi
+  # Validate fernet is urlsafe-base64 decodable to 32 bytes.
+  python3 - "$fernet" <<'PY' || { echo "ERROR: HOMEGLUE_FERNET_KEY is not a valid Fernet key." >&2; exit 1; }
+import base64, sys
+key = (sys.argv[1] or "").encode("utf-8")
+raw = base64.urlsafe_b64decode(key)
+assert len(raw) == 32
+PY
+
+  if [[ -z "$secret" ]]; then
+    echo "ERROR: HOMEGLUE_SECRET_KEY is missing in $ENV_FILE" >&2
+    exit 1
+  fi
+  if [[ "$secret" == "change-me" ]]; then
+    echo "WARNING: HOMEGLUE_SECRET_KEY is still set to 'change-me' in $ENV_FILE (insecure)." >&2
+  fi
+  if [[ -z "$pgpw" ]]; then
+    echo "ERROR: POSTGRES_PASSWORD is missing in $ENV_FILE" >&2
+    exit 1
+  fi
+  if [[ "$pgpw" == "change-me" ]]; then
+    echo "WARNING: POSTGRES_PASSWORD is still set to 'change-me' in $ENV_FILE (insecure)." >&2
+  fi
 fi
 
 chmod 600 "$ENV_FILE" || true
@@ -111,11 +151,13 @@ echo "[4/4] Ensuring default superuser exists..."
 compose exec -T web python manage.py shell -c "import os; from django.contrib.auth import get_user_model; User=get_user_model(); u=os.environ.get('DJANGO_SUPERUSER_USERNAME','admin'); e=os.environ.get('DJANGO_SUPERUSER_EMAIL','admin@example.local'); p=os.environ.get('DJANGO_SUPERUSER_PASSWORD',''); obj, created = User.objects.get_or_create(username=u, defaults={'email': e}); obj.email = e; obj.is_staff = True; obj.is_superuser = True;  created and obj.set_password(p); obj.save(); print('created' if created else 'updated (password unchanged)')"
 
 echo
+PORT="$(get_kv HOMEGLUE_PORT "$ENV_FILE")"
+PORT="${PORT:-8080}"
 echo "HomeGlue is running:"
-echo "- Web app:  http://localhost:8080/app/"
-echo "- Wiki:     http://localhost:8080/app/wiki/"
-echo "- Admin:    http://localhost:8080/admin/"
-echo "- API docs: http://localhost:8080/api/docs/"
+echo "- Web app:  http://localhost:${PORT}/app/"
+echo "- Wiki:     http://localhost:${PORT}/app/wiki/"
+echo "- Admin:    http://localhost:${PORT}/admin/"
+echo "- API docs: http://localhost:${PORT}/api/docs/"
 echo
 echo "Superuser credentials (from .env):"
 echo "- username: $(grep -E '^DJANGO_SUPERUSER_USERNAME=' "$ENV_FILE" | cut -d= -f2-)"
