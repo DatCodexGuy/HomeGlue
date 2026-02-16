@@ -16,10 +16,10 @@
       </div>
     </div>
 
-    <div class="mini" style="margin-bottom:12px">
-      <div class="muted">Filter snapshot:</div>
-      <div class="mono" style="margin-top:6px">{% if q %}q={{ q }}{% else %}None{% endif %}</div>
-    </div>
+	    <div class="mini mb-12">
+	      <div class="muted">Filter snapshot:</div>
+	      <div class="mono mt-6">{% if q %}q={{ q }}{% else %}None{% endif %}</div>
+	    </div>
 
     <form method="post" class="form form--grid">
       {% csrf_token %}

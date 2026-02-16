@@ -11,11 +11,11 @@
     </div>
 
     {% if flash %}
-      <div class="warn" style="margin-top:12px">
+      <div class="warn mt-12">
         <div class="warn__title">{{ flash.title }}</div>
         <div class="warn__body">{{ flash.body }}</div>
         {% if flash.secret %}
-          <div class="secretbox" style="margin-top:10px">
+          <div class="secretbox mt-10">
             <div class="secretbox__label">{{ flash.secret_label|default:"Secret" }}</div>
             <div class="secretbox__value mono" data-copy>{{ flash.secret }}</div>
             <div class="muted">Click to copy</div>
@@ -24,19 +24,19 @@
       </div>
     {% endif %}
 
-    <div class="split" style="margin-top:14px">
+    <div class="split mt-14">
       <div class="split__main">
-        <div class="mini" style="margin-bottom:12px">
+        <div class="mini mb-12">
           <div class="mini__row">
             <div class="mini__top"><span class="mono">System</span></div>
             <div class="mini__body">
               <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_config_status' %}">Config &amp; status</a>
-              <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_email_settings' %}" style="margin-left:6px">Email</a>
-              <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_sso' %}" style="margin-left:6px">SSO (OIDC)</a>
-              <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_operations' %}" style="margin-left:6px">Operations</a>
-              <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_system_settings' %}" style="margin-left:6px">System settings</a>
-              <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_setup' %}" style="margin-left:6px">Setup wizard</a>
-              <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_users_list' %}" style="margin-left:6px">All users</a>
+              <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:super_admin_email_settings' %}">Email</a>
+              <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:super_admin_sso' %}">SSO (OIDC)</a>
+              <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:super_admin_operations' %}">Operations</a>
+              <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:super_admin_system_settings' %}">System settings</a>
+              <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:super_admin_setup' %}">Setup wizard</a>
+              <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:super_admin_users_list' %}">All users</a>
             </div>
           </div>
         </div>
@@ -56,11 +56,11 @@
                 <input class="input" type="text" name="org_description" />
               </label>
             </div>
-            <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
+            <label class="field mt-10 flex gap-10 items-center">
               <input type="checkbox" name="org_add_me_owner" value="1" checked />
               <div class="muted">Add me as Owner in this org</div>
             </label>
-            <div style="margin-top:10px">
+            <div class="mt-10">
               <button class="btn" type="submit">
                 <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
                 Create org
@@ -69,12 +69,12 @@
           </form>
         </div>
 
-        <div class="table" style="margin-top:12px">
-          <div class="row row--head" style="grid-template-columns:2.2fr 1fr 1fr">
+        <div class="table mt-12">
+          <div class="row row--head row--admin-orgs">
             <div>Organization</div><div>Members</div><div></div>
           </div>
           {% for o in orgs %}
-            <a class="row" style="grid-template-columns:2.2fr 1fr 1fr" href="{% url 'ui:super_admin_org_detail' org_id=o.id %}">
+            <a class="row row--admin-orgs" href="{% url 'ui:super_admin_org_detail' org_id=o.id %}">
               <div class="titlecell">
                 <div class="mono">{{ o.name }}</div>
                 {% if o.description %}<div class="sub">{{ o.description }}</div>{% endif %}
@@ -101,15 +101,15 @@
               <div class="field__label">Username</div>
               <input class="input" type="text" name="username" required />
             </label>
-            <label class="field" style="margin-top:10px">
+            <label class="field mt-10">
               <div class="field__label">Email (optional)</div>
               <input class="input" type="email" name="email" />
             </label>
-            <label class="field" style="margin-top:10px">
+            <label class="field mt-10">
               <div class="field__label">Password (optional)</div>
               <input class="input" type="text" name="password" placeholder="Leave blank to generate" />
             </label>
-            <div style="margin-top:10px">
+            <div class="mt-10">
               <button class="btn" type="submit">
                 <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
                 Create user
@@ -118,7 +118,7 @@
           </form>
         </div>
 
-        <div class="mini" style="margin-top:12px">
+        <div class="mini mt-12">
           <div class="muted">Recent users</div>
           {% for u in users %}
             <div class="mini__row">
@@ -131,7 +131,7 @@
               </div>
             </div>
           {% empty %}
-            <div class="muted" style="margin-top:10px">No users found.</div>
+            <div class="muted mt-10">No users found.</div>
           {% endfor %}
         </div>
       </div>

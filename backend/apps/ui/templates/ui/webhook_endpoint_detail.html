@@ -34,11 +34,42 @@
       </button>
     </form>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Sample Payload</h3>
-      <pre class="code" style="white-space:pre-wrap; overflow:auto; max-height:320px">{{ sample_payload_json }}</pre>
-      <div class="muted" style="margin-top:8px">
-        Signature header: <span class="mono">X-HomeGlue-Signature: sha256=...</span> (only if a secret is set).
+	    <div class="mt-18">
+	      <h3 class="h3">Sample Payload</h3>
+	      <pre class="code prewrap maxh-320">{{ sample_payload_json }}</pre>
+	      <div class="muted mt-8">
+	        Signature header: <span class="mono">X-HomeGlue-Signature: sha256=...</span> (only if a secret is set).
+	      </div>
+	    </div>
+	
+	    <div class="mt-18">
+	      <div class="listhead mb-10">
+	        <div>
+	          <h3 class="h3">Recent Deliveries</h3>
+	          <div class="sub">Last delivery attempts for this webhook.</div>
+        </div>
+        <div class="listhead__actions">
+          <a class="btn btn--ghost btn--sm" href="{{ delivery_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+            View all
+          </a>
+        </div>
+      </div>
+      <div class="mini">
+        {% for a in recent_attempts %}
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="mono">{{ a.attempted_at|date:"Y-m-d H:i" }}</span>
+              {% if a.ok %}<span class="pill pill--tiny pill--ok">OK</span>{% else %}<span class="pill pill--tiny pill--danger">Fail</span>{% endif %}
+              {% if a.status_code %}<span class="muted">HTTP {{ a.status_code }}</span>{% endif %}
+              {% if a.notification and a.notification.user %}<span class="muted">{{ a.notification.user.username }}</span>{% endif %}
+            </div>
+            {% if a.notification %}<div class="mono">{{ a.notification.title }}</div>{% endif %}
+            {% if not a.ok and a.error %}<div class="muted">{{ a.error }}</div>{% endif %}
+          </div>
+        {% empty %}
+          <div class="muted">No deliveries attempted yet.</div>
+        {% endfor %}
       </div>
     </div>
   </section>

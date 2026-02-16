@@ -1,0 +1,84 @@
+{% extends "ui/base.html" %}
+{% block title %}Workflow Runs | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Workflow Runs</h1>
+        <div class="sub">Execution history for workflow rules (for troubleshooting and auditing).</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:workflows_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <a class="btn btn--ghost btn--sm" href="{{ delivery_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+          Delivery
+        </a>
+      </div>
+    </div>
+
+    <form class="searchwrap" method="get">
+      <div class="search">
+        <select class="input" name="rule_id">
+          <option value="">All rules</option>
+          {% for r in rules %}
+            <option value="{{ r.id }}" {% if rule_id|add:"" == r.id|add:"" %}selected{% endif %}>{{ r.name }}</option>
+          {% endfor %}
+        </select>
+        <select class="input" name="ok">
+          <option value="" {% if not ok %}selected{% endif %}>All</option>
+          <option value="ok" {% if ok == "ok" or ok == "1" %}selected{% endif %}>OK</option>
+          <option value="fail" {% if ok == "fail" or ok == "0" %}selected{% endif %}>Failed</option>
+        </select>
+        <select class="input" name="trigger">
+          <option value="" {% if not trigger %}selected{% endif %}>Any trigger</option>
+          <option value="worker" {% if trigger == "worker" %}selected{% endif %}>Worker</option>
+          <option value="manual" {% if trigger == "manual" %}selected{% endif %}>Manual</option>
+          <option value="ops" {% if trigger == "ops" %}selected{% endif %}>Ops</option>
+        </select>
+        <button class="btn btn--ghost btn--sm" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+          Filter
+        </button>
+      </div>
+    </form>
+
+	    <div class="table">
+	      <div class="row row--head row--workflow-runs">
+	        <div>When</div><div>Rule</div><div>Trigger</div><div>Status</div><div>Created</div><div>Time</div><div>Error</div>
+	      </div>
+	      {% for r in items %}
+	        <div class="row row--static row--workflow-runs">
+	          <div class="muted">{% if r.started_at %}{{ r.started_at|date:"Y-m-d H:i" }}{% else %}...{% endif %}</div>
+	          <div>
+	            {% if r.rule %}
+              <a class="link mono" href="{% url 'ui:workflow_rule_detail' rule_id=r.rule.id %}">{{ r.rule.name }}</a>
+              <div class="sub muted">{{ r.rule.get_kind_display }}</div>
+            {% else %}
+              <span class="mono">(deleted rule)</span>
+            {% endif %}
+          </div>
+          <div class="muted">
+            {{ r.get_triggered_by_display }}
+            {% if r.triggered_by_user %}<div class="sub muted">{{ r.triggered_by_user.username }}</div>{% endif %}
+          </div>
+          <div>
+            {% if r.ok %}<span class="pill pill--tiny pill--ok">OK</span>{% else %}<span class="pill pill--tiny pill--danger">Fail</span>{% endif %}
+          </div>
+          <div class="muted">{{ r.notifications_created }}</div>
+          <div class="muted">{{ r.duration_ms }}ms</div>
+          <div class="muted">{% if not r.ok and r.error %}{{ r.error }}{% else %}-{% endif %}</div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No runs yet</div>
+          <div class="empty__body">Runs appear after the worker evaluates rules, or when you click Run now on a rule.</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

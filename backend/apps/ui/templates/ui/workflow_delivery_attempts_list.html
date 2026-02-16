@@ -1,0 +1,87 @@
+{% extends "ui/base.html" %}
+{% block title %}Workflow Delivery | {{ org.name }}{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Workflow Delivery</h1>
+        <div class="sub">Email and webhook delivery attempts for notifications.</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:workflows_list' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+        <a class="btn btn--ghost btn--sm" href="{{ runs_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-clock"/></svg>
+          Runs
+        </a>
+      </div>
+    </div>
+
+    <form class="searchwrap" method="get">
+      <div class="search">
+        <select class="input" name="ok">
+          <option value="" {% if not ok %}selected{% endif %}>All</option>
+          <option value="ok" {% if ok == "ok" or ok == "1" %}selected{% endif %}>OK</option>
+          <option value="fail" {% if ok == "fail" or ok == "0" %}selected{% endif %}>Failed</option>
+        </select>
+        <select class="input" name="kind">
+          <option value="" {% if not kind %}selected{% endif %}>All channels</option>
+          <option value="email" {% if kind == "email" %}selected{% endif %}>Email</option>
+          <option value="webhook" {% if kind == "webhook" %}selected{% endif %}>Webhook</option>
+        </select>
+        <select class="input" name="endpoint_id">
+          <option value="">All webhooks</option>
+          {% for e in endpoints %}
+            <option value="{{ e.id }}" {% if endpoint_id|add:"" == e.id|add:"" %}selected{% endif %}>{{ e.name }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn--ghost btn--sm" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+          Filter
+        </button>
+      </div>
+    </form>
+
+	    <div class="table">
+	      <div class="row row--head row--workflow-deliveries">
+	        <div>When</div><div>Channel</div><div>Status</div><div>HTTP</div><div>Endpoint</div><div>Notification</div><div>User</div>
+	      </div>
+	      {% for a in items %}
+	        <div class="row row--static row--workflow-deliveries">
+	          <div class="muted">{% if a.attempted_at %}{{ a.attempted_at|date:"Y-m-d H:i" }}{% else %}...{% endif %}</div>
+	          <div class="muted">{{ a.get_kind_display }}</div>
+	          <div>
+	            {% if a.ok %}<span class="pill pill--tiny pill--ok">OK</span>{% else %}<span class="pill pill--tiny pill--danger">Fail</span>{% endif %}
+          </div>
+          <div class="muted">{% if a.status_code %}{{ a.status_code }}{% else %}-{% endif %}</div>
+          <div class="muted">
+            {% if a.endpoint %}
+              <a class="link" href="{% url 'ui:webhook_endpoint_detail' endpoint_id=a.endpoint.id %}">{{ a.endpoint.name }}</a>
+            {% else %}
+              -
+            {% endif %}
+          </div>
+          <div>
+            {% if a.notification %}
+              <div class="mono">{{ a.notification.title }}</div>
+              {% if not a.ok and a.error %}<div class="sub muted">{{ a.error }}</div>{% endif %}
+              {% if a.notification.rule %}<div class="sub muted">Rule: {{ a.notification.rule.name }}</div>{% endif %}
+            {% else %}
+              <span class="muted">-</span>
+            {% endif %}
+          </div>
+          <div class="muted">{% if a.notification and a.notification.user %}{{ a.notification.user.username }}{% else %}-{% endif %}</div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No delivery attempts</div>
+          <div class="empty__body">Delivery attempts appear after email/webhook delivery runs (worker loop or Ops).</div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

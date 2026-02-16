@@ -34,18 +34,18 @@
       </div>
     </div>
 
-    {% if notice %}
-      <div class="warn" style="margin-bottom:14px">
-        <div class="warn__title">{{ notice.title }}</div>
-        <div class="warn__body">{{ notice.body }}</div>
-      </div>
-    {% endif %}
-
-    {% if rule.last_run_at %}
-      <div class="mini" style="margin-bottom:14px">
-        <div class="mini__row">
-          <div class="mini__top">
-            <span class="mono">Last run</span>
+	    {% if notice %}
+	      <div class="warn mb-14">
+	        <div class="warn__title">{{ notice.title }}</div>
+	        <div class="warn__body">{{ notice.body }}</div>
+	      </div>
+	    {% endif %}
+	
+	    {% if rule.last_run_at %}
+	      <div class="mini mb-14">
+	        <div class="mini__row">
+	          <div class="mini__top">
+	            <span class="mono">Last run</span>
             <span class="muted">{{ rule.last_run_at|date:"Y-m-d H:i" }}</span>
           </div>
           {% if not rule.last_run_ok %}
@@ -62,9 +62,65 @@
       {{ form.as_p }}
       <button class="btn" type="submit">
         <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
-        Save
-      </button>
-    </form>
+	        Save
+	      </button>
+	    </form>
+	
+	    <div class="mt-18">
+	      <div class="listhead mb-10">
+	        <div>
+	          <h3 class="h3">Recent Runs</h3>
+	          <div class="sub">Operational history for this rule.</div>
+	        </div>
+        <div class="listhead__actions">
+          <a class="btn btn--ghost btn--sm" href="{{ runs_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-clock"/></svg>
+            View all
+          </a>
+          <a class="btn btn--ghost btn--sm" href="{{ delivery_url }}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+            Delivery
+          </a>
+        </div>
+      </div>
+
+      <div class="mini">
+        {% for r in recent_runs %}
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="mono">{{ r.started_at|date:"Y-m-d H:i" }}</span>
+              {% if r.ok %}<span class="pill pill--tiny pill--ok">OK</span>{% else %}<span class="pill pill--tiny pill--danger">Fail</span>{% endif %}
+              <span class="muted">{{ r.get_triggered_by_display }}</span>
+              <span class="muted">created {{ r.notifications_created }}</span>
+              <span class="muted">{{ r.duration_ms }}ms</span>
+            </div>
+            {% if not r.ok and r.error %}
+              <div class="muted">Error: {{ r.error }}</div>
+            {% endif %}
+          </div>
+        {% empty %}
+          <div class="muted">No runs yet.</div>
+        {% endfor %}
+	      </div>
+	    </div>
+	
+	    <div class="mt-18">
+	      <h3 class="h3">Recent Notifications (Org)</h3>
+	      <div class="mini">
+	        {% for n in recent_notifications %}
+          <div class="mini__row">
+            <div class="mini__top">
+              <span class="mono">{{ n.created_at|date:"Y-m-d H:i" }}</span>
+              <span class="pill pill--tiny">{{ n.level }}</span>
+              <span class="muted">{{ n.user.username }}</span>
+            </div>
+            <div class="mono">{{ n.title }}</div>
+            {% if n.body %}<div class="muted">{{ n.body }}</div>{% endif %}
+          </div>
+        {% empty %}
+          <div class="muted">No notifications created by this rule yet.</div>
+        {% endfor %}
+      </div>
+    </div>
   </section>
 {% endblock %}
-

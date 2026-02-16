@@ -7,10 +7,10 @@
     {% include "ui/_list_header.html" with title="Docs" subtitle="Runbooks, notes, checklists, and templates." new_url=documents_new_url export_url=export_url import_url=import_url %}
     {% include "ui/_views_bar.html" with saved_views=saved_views active_view=active_view save_view_url=save_view_url clear_view_url=clear_view_url %}
 
-    <div class="viewbar" style="margin-top:10px">
-      <div class="viewbar__left">
-        <div class="viewbar__label">Items</div>
-        <div class="viewbar__pills">
+	    <div class="viewbar mt-10">
+	      <div class="viewbar__left">
+	        <div class="viewbar__label">Items</div>
+	        <div class="viewbar__pills">
           <a class="pill pill--tiny {% if not flagged_only %}pill--active{% endif %}" href="{{ all_url }}">All</a>
           <a class="pill pill--tiny {% if flagged_only %}pill--active{% endif %}" href="{{ flagged_url }}">Flagged</a>
           <a class="pill pill--tiny {% if not show_archived %}pill--active{% endif %}" href="{{ active_url }}">Active</a>

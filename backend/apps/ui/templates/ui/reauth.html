@@ -15,12 +15,12 @@
       </div>
     </div>
 
-    {% if error %}
-      <div class="warn" style="margin-bottom:14px">
-        <div class="warn__title">Re-auth failed</div>
-        <div class="warn__body">{{ error }}</div>
-      </div>
-    {% endif %}
+	    {% if error %}
+	      <div class="warn mb-14">
+	        <div class="warn__title">Re-auth failed</div>
+	        <div class="warn__body">{{ error }}</div>
+	      </div>
+	    {% endif %}
 
     <form method="post" class="form form--grid">
       {% csrf_token %}
@@ -32,4 +32,3 @@
     </form>
   </section>
 {% endblock %}
-

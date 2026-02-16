@@ -48,49 +48,49 @@
 
     <div class="split">
       <div class="split__main">
-        <h3 class="h3">Items</h3>
-        <div class="mini">
-          {% for it in items %}
-            <div class="mini__row" style="display:flex; align-items:center; justify-content:space-between; gap:12px">
-              <form method="post" action="{% url 'ui:checklist_detail' checklist_id=checklist.id %}" style="display:flex; align-items:center; gap:10px; flex:1; min-width:0">
-                {% csrf_token %}
-                <input type="hidden" name="_action" value="toggle_item" />
-                <input type="hidden" name="item_id" value="{{ it.id }}" />
-                <input class="chk" type="checkbox" {% if it.is_done %}checked{% endif %} onchange="this.form.submit()" aria-label="Toggle item" />
-                <span style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; {% if it.is_done %}opacity:.72; text-decoration:line-through{% endif %}">{{ it.text }}</span>
-              </form>
-              <form method="post" action="{% url 'ui:checklist_detail' checklist_id=checklist.id %}">
-                {% csrf_token %}
-                <input type="hidden" name="_action" value="delete_item" />
+	        <h3 class="h3">Items</h3>
+	        <div class="mini">
+	          {% for it in items %}
+	            <div class="mini__row flex items-center justify-between gap-12">
+	              <form method="post" action="{% url 'ui:checklist_detail' checklist_id=checklist.id %}" class="flex items-center gap-10 flex-1 minw-0">
+	                {% csrf_token %}
+	                <input type="hidden" name="_action" value="toggle_item" />
+	                <input type="hidden" name="item_id" value="{{ it.id }}" />
+	                <input class="chk" type="checkbox" {% if it.is_done %}checked{% endif %} onchange="this.form.submit()" aria-label="Toggle item" />
+	                <span class="minw-0 truncate {% if it.is_done %}o72 strike{% endif %}">{{ it.text }}</span>
+	              </form>
+	              <form method="post" action="{% url 'ui:checklist_detail' checklist_id=checklist.id %}">
+	                {% csrf_token %}
+	                <input type="hidden" name="_action" value="delete_item" />
                 <input type="hidden" name="item_id" value="{{ it.id }}" />
                 <button class="btn btn--ghost btn--sm" type="submit">Remove</button>
               </form>
             </div>
-          {% empty %}
-            <div class="muted">No items yet.</div>
-          {% endfor %}
-        </div>
-
-        <div style="margin-top:12px">
-          <h3 class="h3">Add Item</h3>
-          <form method="post" class="form" action="{% url 'ui:checklist_detail' checklist_id=checklist.id %}">
-            {% csrf_token %}
-            <input type="hidden" name="_action" value="add_item" />
+	          {% empty %}
+	            <div class="muted">No items yet.</div>
+	          {% endfor %}
+	        </div>
+	
+	        <div class="mt-12">
+	          <h3 class="h3">Add Item</h3>
+	          <form method="post" class="form" action="{% url 'ui:checklist_detail' checklist_id=checklist.id %}">
+	            {% csrf_token %}
+	            <input type="hidden" name="_action" value="add_item" />
             <p>
               <label for="id_text">Item</label>
               <input type="text" name="text" id="id_text" placeholder="e.g. Verify backups, run updates, confirm service health..." />
             </p>
             <button class="btn btn--sm" type="submit">
               <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
-              Add
-            </button>
-        </form>
-      </div>
-
-      <div style="margin-top:18px">
-        <h3 class="h3">Recent Runs</h3>
-        <div class="mini">
-          {% for r in recent_runs %}
+	              Add
+	            </button>
+	        </form>
+	      </div>
+	
+	      <div class="mt-18">
+	        <h3 class="h3">Recent Runs</h3>
+	        <div class="mini">
+	          {% for r in recent_runs %}
             <div class="mini__row">
               <a class="link mono" href="{% url 'ui:checklist_run_detail' run_id=r.id %}">{{ r.name }}</a>
               <span class="pill pill--tiny">{% if r.status %}{{ r.status }}{% else %}...{% endif %}</span>
@@ -98,14 +98,14 @@
             </div>
           {% empty %}
             <div class="muted">No runs yet.</div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div style="margin-top:18px">
-        <h3 class="h3">Edit Checklist</h3>
-        <form method="post" class="form form--grid">
-          {% csrf_token %}
+	          {% endfor %}
+	        </div>
+	      </div>
+	
+	      <div class="mt-18">
+	        <h3 class="h3">Edit Checklist</h3>
+	        <form method="post" class="form form--grid">
+	          {% csrf_token %}
             {{ form.as_p }}
             <button class="btn" type="submit">
               <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
@@ -116,21 +116,21 @@
       </div>
 
       <div class="split__side">
-        <h3 class="h3">Relationships</h3>
-        {% include "ui/_relationships.html" with relationships=relationships relationships_view=relationships_view add_relationship_url=add_relationship_url %}
-
-        <h3 class="h3" style="margin-top:16px">Attachments</h3>
-        {% include "ui/_attachments.html" with attachments=attachments %}
-
-        <h3 class="h3" style="margin-top:16px">Notes</h3>
-        {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
-
-        <h3 class="h3" style="margin-top:16px">Activity</h3>
-        {% include "ui/_activity.html" with activity=activity %}
-
-        <h3 class="h3" style="margin-top:16px">Versions</h3>
-        {% include "ui/_versions.html" with versions=versions can_restore=can_restore %}
-      </div>
-    </div>
+	        <h3 class="h3">Relationships</h3>
+	        {% include "ui/_relationships.html" with relationships=relationships relationships_view=relationships_view add_relationship_url=add_relationship_url %}
+	
+	        <h3 class="h3 mt-16">Attachments</h3>
+	        {% include "ui/_attachments.html" with attachments=attachments %}
+	
+	        <h3 class="h3 mt-16">Notes</h3>
+	        {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+	
+	        <h3 class="h3 mt-16">Activity</h3>
+	        {% include "ui/_activity.html" with activity=activity %}
+	
+	        <h3 class="h3 mt-16">Versions</h3>
+	        {% include "ui/_versions.html" with versions=versions can_restore=can_restore %}
+	      </div>
+	    </div>
   </section>
 {% endblock %}

@@ -24,17 +24,17 @@
       </div>
     {% endif %}
 
-    <div class="mini" style="margin-bottom:14px">
+    <div class="mini mb-14">
       <div class="mini__row">
         <div class="mini__top">
           <span class="pill pill--tiny">Upload</span>
           <span class="muted">Org file (not attached)</span>
         </div>
         <div class="mini__body">
-          <form method="post" enctype="multipart/form-data" class="form" style="max-width:860px">
+          <form method="post" enctype="multipart/form-data" class="form maxw-860">
             {% csrf_token %}
             <input type="hidden" name="_action" value="upload" />
-            <div class="grid" style="grid-template-columns:1.4fr .9fr .9fr; gap:10px">
+            <div class="grid grid--upload-files">
               <div>
                 <label for="id_file">File</label>
                 <input id="id_file" type="file" name="file" required />
@@ -57,7 +57,7 @@
                 </select>
               </div>
             </div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px">
+            <div class="flex gap-8 items-center flex-wrap mt-10">
               <button class="btn btn--sm" type="submit">
                 <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
                 Upload
@@ -69,35 +69,35 @@
       </div>
     </div>
 
-    <form class="search" method="get" style="margin-bottom:10px">
+    <form class="search mb-10" method="get">
       <input type="hidden" name="q" value="{{ q }}" />
       {% if filter_ref %}<input type="hidden" name="ref" value="{{ filter_ref }}" />{% endif %}
-      <select class="bulkbar__select" name="folder" aria-label="Folder filter" style="max-width:360px">
+      <select class="bulkbar__select wmax-360" name="folder" aria-label="Folder filter">
         <option value="">All folders</option>
         {% for f in folders %}
           <option value="{{ f.id }}" {% if folder_id == f.id %}selected{% endif %}>{{ f.name }}</option>
         {% endfor %}
       </select>
-      <select class="bulkbar__select" name="tag" aria-label="Tag filter" style="max-width:360px">
+      <select class="bulkbar__select wmax-360" name="tag" aria-label="Tag filter">
         <option value="">All tags</option>
         {% for t in tags %}
           <option value="{{ t.id }}" {% if tag_id == t.id %}selected{% endif %}>{{ t.name }}</option>
         {% endfor %}
       </select>
-      <select class="bulkbar__select" name="attached" aria-label="Attachment scope" style="max-width:220px">
+      <select class="bulkbar__select wmax-220" name="attached" aria-label="Attachment scope">
         <option value="" {% if not attached_scope %}selected{% endif %}>Any scope</option>
         <option value="org" {% if attached_scope == "org" %}selected{% endif %}>Org files only</option>
         <option value="object" {% if attached_scope == "object" %}selected{% endif %}>Attached to object</option>
       </select>
-      <label class="mono" style="display:inline-flex; align-items:center; gap:6px; padding:0 6px">
+      <label class="mono inlinecheck">
         <input type="checkbox" name="has_versions" value="1" {% if has_versions %}checked{% endif %} />
         Has versions
       </label>
-      <label class="mono" style="display:inline-flex; align-items:center; gap:6px; padding:0 6px">
+      <label class="mono inlinecheck">
         <input type="checkbox" name="has_shares" value="1" {% if has_shares %}checked{% endif %} />
         Has shares
       </label>
-      <select class="bulkbar__select" name="sort" aria-label="Sort" style="max-width:220px">
+      <select class="bulkbar__select wmax-220" name="sort" aria-label="Sort">
         <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest first</option>
         <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Oldest first</option>
         <option value="name_asc" {% if sort == "name_asc" %}selected{% endif %}>Name (A-Z)</option>
@@ -128,17 +128,17 @@
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}" />
       <div class="table">
-        <div class="row row--head" style="grid-template-columns:34px 2.0fr 1fr 1fr 1.2fr 1fr 0.8fr">
+        <div class="row row--head row--files">
           <div><input class="chk js-bulk-all" type="checkbox" aria-label="Select all" /></div>
           <div>File</div><div>Folder</div><div>Tags</div><div>Attached to</div><div>Uploaded</div><div></div>
         </div>
         {% for it in items %}
-          <div class="row row--click" style="grid-template-columns:34px 2.0fr 1fr 1fr 1.2fr 1fr 0.8fr" data-href="{{ it.detail_url }}">
+          <div class="row row--click row--files" data-href="{{ it.detail_url }}">
             <div><input class="chk js-bulk-item" type="checkbox" name="ids" value="{{ it.id }}" aria-label="Select {{ it.filename }}" /></div>
             <div class="titlecell">
               <a class="row__link mono" href="{{ it.detail_url }}">{{ it.filename }}</a>
-              {% if it.size %}<div class="muted mono" style="margin-top:6px">{{ it.size }} bytes</div>{% endif %}
-              <div class="muted" style="margin-top:6px">
+              {% if it.size %}<div class="muted mono mt-6">{{ it.size }} bytes</div>{% endif %}
+              <div class="muted mt-6">
                 {% if it.has_versions %}<span class="pill pill--tiny">versions</span>{% endif %}
                 {% if it.has_shares %}<span class="pill pill--tiny">shared</span>{% endif %}
               </div>
@@ -159,7 +159,7 @@
               {% endif %}
             </div>
             <div class="muted mono">{{ it.created_at|date:"Y-m-d H:i" }}</div>
-            <div style="display:flex; justify-content:flex-end">
+            <div class="flex justify-end">
               <a class="btn btn--ghost btn--sm" href="{{ it.download_url }}">
                 <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
                 Download

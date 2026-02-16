@@ -10,7 +10,7 @@
         <div class="sub">A guided first-time setup path. You can skip anything and return later.</div>
       </div>
       <div class="listhead__actions">
-        <form method="post" style="display:inline">
+        <form method="post" class="inline">
           {% csrf_token %}
           <input type="hidden" name="_action" value="reset" />
           <button class="btn btn--ghost btn--sm" type="submit">Reset wizard</button>
@@ -23,11 +23,11 @@
     </div>
 
     {% if flash %}
-      <div class="warn" style="margin-top:12px">
+      <div class="warn mt-12">
         <div class="warn__title">{{ flash.title }}</div>
         <div class="warn__body">{{ flash.body }}</div>
         {% if flash.secret %}
-          <div class="secretbox" style="margin-top:10px">
+          <div class="secretbox mt-10">
             <div class="secretbox__label">{{ flash.secret_label|default:"Secret" }}</div>
             <div class="secretbox__value mono" data-copy>{{ flash.secret }}</div>
             <div class="muted">Click to copy</div>
@@ -36,9 +36,9 @@
       </div>
     {% endif %}
 
-    <div class="mini" style="margin-top:14px">
+    <div class="mini mt-14">
       <div class="muted">Progress</div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px">
+      <div class="flex gap-8 flex-wrap mt-8">
         {% for s in steps %}
           {% if s.n == step %}
             <span class="pill pill--tiny pill--ok">{{ s.n }}. {{ s.title }}</span>
@@ -49,13 +49,13 @@
           {% endif %}
         {% endfor %}
       </div>
-      <div class="muted" style="margin-top:10px">
+      <div class="muted mt-10">
         Selected org: {% if selected_org %}<span class="mono">{{ selected_org.name }}</span>{% else %}<span class="mono">(none)</span>{% endif %}
       </div>
     </div>
 
     {% if step == 1 %}
-      <div class="split" style="margin-top:14px">
+      <div class="split mt-14">
         <div class="split__main">
           <h3 class="h3">Select an Existing Organization</h3>
           <div class="mini">
@@ -71,13 +71,13 @@
                   {% endfor %}
                 </select>
               </label>
-              <div style="margin-top:10px">
+              <div class="mt-10">
                 <button class="btn" type="submit">Continue</button>
               </div>
             </form>
           </div>
 
-          <h3 class="h3" style="margin-top:16px">Or Create a New Organization</h3>
+          <h3 class="h3 mt-16">Or Create a New Organization</h3>
           <div class="mini">
             <form method="post">
               {% csrf_token %}
@@ -92,11 +92,11 @@
                   <input class="input" type="text" name="org_description" />
                 </label>
               </div>
-              <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
+              <label class="field mt-10 flex gap-10 items-center">
                 <input type="checkbox" name="org_add_me_owner" value="1" checked />
                 <div class="muted">Add me as Owner in this org</div>
               </label>
-              <div style="margin-top:10px">
+              <div class="mt-10">
                 <button class="btn" type="submit">Create and Continue</button>
               </div>
             </form>
@@ -106,20 +106,20 @@
           <h3 class="h3">Notes</h3>
           <div class="mini">
             <div class="muted">HomeGlue is org-first: users must enter an org before using org-scoped features.</div>
-            <div class="muted" style="margin-top:10px">Docs: <a class="link" href="{% url 'ui:wiki_page' slug='organizations' %}">Organizations</a></div>
+            <div class="muted mt-10">Docs: <a class="link" href="{% url 'ui:wiki_page' slug='organizations' %}">Organizations</a></div>
           </div>
         </div>
       </div>
     {% endif %}
 
     {% if step == 2 %}
-      <div class="split" style="margin-top:14px">
+      <div class="split mt-14">
         <div class="split__main">
           <h3 class="h3">Create Users</h3>
           <div class="mini">
             {% if not selected_org %}
               <div class="muted">Select or create an org first.</div>
-              <div style="margin-top:10px"><a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_setup' %}?step=1">Go to Org step</a></div>
+              <div class="mt-10"><a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_setup' %}?step=1">Go to Org step</a></div>
             {% else %}
               <form method="post">
                 {% csrf_token %}
@@ -134,7 +134,7 @@
                     <input class="input" type="email" name="email" />
                   </label>
                 </div>
-                <div class="grid2" style="margin-top:10px">
+                <div class="grid2 mt-10">
                   <label class="field">
                     <div class="field__label">Role</div>
                     <select class="input" name="role">
@@ -148,9 +148,9 @@
                     <input class="input" type="text" name="password" placeholder="leave blank to generate" />
                   </label>
                 </div>
-                <div style="margin-top:10px">
+                <div class="mt-10">
                   <button class="btn" type="submit">Create User</button>
-                  <a class="btn btn--ghost" href="{% url 'ui:super_admin_setup' %}?step=3" style="margin-left:6px">Continue</a>
+                  <a class="btn btn--ghost ml-6" href="{% url 'ui:super_admin_setup' %}?step=3">Continue</a>
                 </div>
               </form>
             {% endif %}
@@ -160,14 +160,14 @@
           <h3 class="h3">Notes</h3>
           <div class="mini">
             <div class="muted">You can also manage users and memberships from the main Admin pages.</div>
-            <div class="muted" style="margin-top:10px"><a class="link" href="{% url 'ui:super_admin_home' %}">Admin Home</a></div>
+            <div class="muted mt-10"><a class="link" href="{% url 'ui:super_admin_home' %}">Admin Home</a></div>
           </div>
         </div>
       </div>
     {% endif %}
 
     {% if step == 3 %}
-      <div class="split" style="margin-top:14px">
+      <div class="split mt-14">
         <div class="split__main">
           <h3 class="h3">System Settings</h3>
           <div class="mini">
@@ -179,38 +179,38 @@
                 <input class="input" type="text" name="base_url" value="{{ sys_obj.base_url }}" placeholder="https://homeglue.example.com" />
                 <div class="muted">Used for absolute links in notifications and share links.</div>
               </label>
-              <label class="field" style="margin-top:10px">
+              <label class="field mt-10">
                 <div class="field__label">IP Allowlist (optional)</div>
                 <textarea class="input" name="ip_allowlist" rows="2" placeholder="10.0.0.0/24,192.168.1.10">{{ sys_obj.ip_allowlist }}</textarea>
               </label>
-              <label class="field" style="margin-top:10px">
+              <label class="field mt-10">
                 <div class="field__label">IP Blocklist (optional)</div>
                 <textarea class="input" name="ip_blocklist" rows="2" placeholder="10.0.0.123/32">{{ sys_obj.ip_blocklist }}</textarea>
               </label>
-              <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
+              <label class="field mt-10 flex gap-10 items-center">
                 <input type="checkbox" name="trust_x_forwarded_for" value="1" {% if sys_obj.trust_x_forwarded_for %}checked{% endif %} />
                 <div class="muted">Trust `X-Forwarded-For` (only when REMOTE_ADDR is a trusted proxy)</div>
               </label>
-              <label class="field" style="margin-top:10px">
+              <label class="field mt-10">
                 <div class="field__label">Trusted proxy CIDRs (comma-separated)</div>
                 <textarea class="input" name="trusted_proxy_cidrs" rows="2" placeholder="10.0.0.0/24">{{ sys_obj.trusted_proxy_cidrs }}</textarea>
               </label>
-              <label class="field" style="margin-top:10px">
+              <label class="field mt-10">
                 <div class="field__label">CORS Allowed Origins (comma-separated, optional)</div>
                 <textarea class="input" name="cors_allowed_origins" rows="2" placeholder="https://homeglue.example.com">{{ sys_obj.cors_allowed_origins }}</textarea>
               </label>
-              <label class="field" style="margin-top:10px">
+              <label class="field mt-10">
                 <div class="field__label">CSRF Trusted Origins (comma-separated, optional)</div>
                 <textarea class="input" name="csrf_trusted_origins" rows="2" placeholder="https://homeglue.example.com">{{ sys_obj.csrf_trusted_origins }}</textarea>
               </label>
-              <label class="field" style="margin-top:10px">
+              <label class="field mt-10">
                 <div class="field__label">ALLOWED_HOSTS override (comma-separated, optional)</div>
                 <textarea class="input" name="allowed_hosts" rows="2" placeholder="homeglue.example.com,10.0.0.10">{{ sys_obj.allowed_hosts }}</textarea>
                 <div class="muted">Leave empty to use env-backed `HOMEGLUE_ALLOWED_HOSTS`.</div>
               </label>
-              <div style="margin-top:10px">
+              <div class="mt-10">
                 <button class="btn" type="submit">Save</button>
-                <a class="btn btn--ghost" href="{% url 'ui:super_admin_setup' %}?step=4" style="margin-left:6px">Continue</a>
+                <a class="btn btn--ghost ml-6" href="{% url 'ui:super_admin_setup' %}?step=4">Continue</a>
               </div>
             </form>
           </div>
@@ -219,14 +219,14 @@
           <h3 class="h3">More</h3>
           <div class="mini">
             <div class="muted">Full system settings page:</div>
-            <div style="margin-top:10px"><a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_system_settings' %}">System settings</a></div>
+            <div class="mt-10"><a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_system_settings' %}">System settings</a></div>
           </div>
         </div>
       </div>
     {% endif %}
 
     {% if step == 4 %}
-      <div class="split" style="margin-top:14px">
+      <div class="split mt-14">
         <div class="split__main">
           <h3 class="h3">Email (Optional)</h3>
           <div class="mini">
@@ -234,15 +234,15 @@
               {% csrf_token %}
               <input type="hidden" name="_action" value="email_save" />
               {{ email_form.as_p }}
-              <div class="mini" style="margin-top:10px">
+              <div class="mini mt-10">
                 <div class="mini__row"><div class="muted">Stored SMTP password</div><div>{% if pw_set %}<span class="pill pill--tiny pill--ok">set</span>{% else %}<span class="pill pill--tiny pill--ghost">not set</span>{% endif %}</div></div>
               </div>
-              <div style="margin-top:10px">
+              <div class="mt-10">
                 <button class="btn" type="submit">Save</button>
-                <a class="btn btn--ghost" href="{% url 'ui:super_admin_setup' %}?step=5" style="margin-left:6px">Continue</a>
+                <a class="btn btn--ghost ml-6" href="{% url 'ui:super_admin_setup' %}?step=5">Continue</a>
               </div>
             </form>
-            <div class="muted" style="margin-top:10px">
+            <div class="muted mt-10">
               You can also use the dedicated page to test email delivery:
               <a class="link" href="{% url 'ui:super_admin_email_settings' %}">Admin Email settings</a>.
             </div>
@@ -258,7 +258,7 @@
     {% endif %}
 
     {% if step == 5 %}
-      <div class="split" style="margin-top:14px">
+      <div class="split mt-14">
         <div class="split__main">
           <h3 class="h3">Proxmox Integration (Optional)</h3>
           <div class="mini">
@@ -267,25 +267,25 @@
             {% else %}
               {% if existing_prox %}
                 <div class="muted">Existing connections:</div>
-                <div class="mini" style="margin-top:8px">
+                <div class="mini mt-8">
                   {% for c in existing_prox %}
                     <div class="mini__row"><div class="mono">{{ c.name }}</div><div class="muted">{{ c.base_url }}</div></div>
                   {% endfor %}
                 </div>
               {% endif %}
-              <form method="post" class="form form--grid" style="margin-top:10px">
+              <form method="post" class="form form--grid mt-10">
                 {% csrf_token %}
                 <input type="hidden" name="_action" value="proxmox_add" />
                 {{ proxmox_form.as_p }}
-                <div style="margin-top:10px">
+                <div class="mt-10">
                   <button class="btn" type="submit">Add Proxmox</button>
                 </div>
               </form>
-              <div class="muted" style="margin-top:10px">
+              <div class="muted mt-10">
                 Sync runs in the worker. You can trigger it from <a class="link" href="{% url 'ui:super_admin_operations' %}">Admin Operations</a>.
               </div>
-              <div style="margin-top:12px">
-                <form method="post" style="display:inline">
+              <div class="mt-12">
+                <form method="post" class="inline">
                   {% csrf_token %}
                   <input type="hidden" name="_action" value="finish" />
                   <button class="btn" type="submit">Finish and Enter Org</button>
@@ -298,7 +298,7 @@
           <h3 class="h3">Docs</h3>
           <div class="mini">
             <div class="muted"><a class="link" href="{% url 'ui:wiki_page' slug='first-time-setup' %}">First-Time Setup</a></div>
-            <div class="muted" style="margin-top:8px"><a class="link" href="{% url 'ui:wiki_page' slug='integrations-proxmox' %}">Proxmox Integration</a></div>
+            <div class="muted mt-8"><a class="link" href="{% url 'ui:wiki_page' slug='integrations-proxmox' %}">Proxmox Integration</a></div>
           </div>
         </div>
       </div>

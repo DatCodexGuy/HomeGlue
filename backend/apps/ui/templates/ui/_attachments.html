@@ -6,7 +6,7 @@
           <a class="link mono" href="{% url 'ui:file_detail' attachment_id=a.id %}">{{ a.filename|default:"download" }}</a>
           <span class="muted">{{ a.created_at|date:"Y-m-d H:i" }}</span>
         </div>
-        <div class="muted" style="margin-top:6px">
+        <div class="muted mt-6">
           {% if a.uploaded_by %}Uploaded by {{ a.uploaded_by.username }}{% else %}Uploaded{% endif %}
         </div>
         <div class="mini__actions">
@@ -25,7 +25,7 @@
     <div class="muted">No attachments yet.</div>
   {% endif %}
 
-  <div class="mini__actions" style="margin-top:12px">
+  <div class="mini__actions mt-12">
     <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
       <input type="hidden" name="_action" value="upload_attachment" />

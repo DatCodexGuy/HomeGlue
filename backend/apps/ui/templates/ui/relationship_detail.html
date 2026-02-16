@@ -24,20 +24,20 @@
       <div class="split__main">
         <h3 class="h3">Endpoints</h3>
         <div class="mini">
-          <div class="mini__row">
-            <div class="muted">Source</div>
-            <div class="mono" style="margin-top:6px">
-              {% if src.url %}<a class="link" href="{{ src.url }}">{{ src.label }}</a>{% else %}{{ src.label }}{% endif %}
-            </div>
-            <div class="muted mono">{{ src.ref }}</div>
-          </div>
-          <div class="mini__row">
-            <div class="muted">Target</div>
-            <div class="mono" style="margin-top:6px">
-              {% if tgt.url %}<a class="link" href="{{ tgt.url }}">{{ tgt.label }}</a>{% else %}{{ tgt.label }}{% endif %}
-            </div>
-            <div class="muted mono">{{ tgt.ref }}</div>
-          </div>
+	          <div class="mini__row">
+	            <div class="muted">Source</div>
+	            <div class="mono mt-6">
+	              {% if src.url %}<a class="link" href="{{ src.url }}">{{ src.label }}</a>{% else %}{{ src.label }}{% endif %}
+	            </div>
+	            <div class="muted mono">{{ src.ref }}</div>
+	          </div>
+	          <div class="mini__row">
+	            <div class="muted">Target</div>
+	            <div class="mono mt-6">
+	              {% if tgt.url %}<a class="link" href="{{ tgt.url }}">{{ tgt.label }}</a>{% else %}{{ tgt.label }}{% endif %}
+	            </div>
+	            <div class="muted mono">{{ tgt.ref }}</div>
+	          </div>
         </div>
       </div>
 
@@ -52,12 +52,12 @@
           <button class="btn" type="submit">
             <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
             Save
-          </button>
-        </form>
-        <div class="muted" style="margin-top:10px">
-          {% if rel.created_by %}Created by {{ rel.created_by.username }}{% else %}Creator unknown{% endif %}
-        </div>
-      </div>
-    </div>
+	          </button>
+	        </form>
+	        <div class="muted mt-10">
+	          {% if rel.created_by %}Created by {{ rel.created_by.username }}{% else %}Creator unknown{% endif %}
+	        </div>
+	      </div>
+	    </div>
   </section>
 {% endblock %}

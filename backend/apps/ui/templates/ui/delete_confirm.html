@@ -1,10 +1,10 @@
 {% extends "ui/base.html" %}
 {% block title %}{{ verb|default:"Delete" }} | {{ org.name }}{% endblock %}
 {% block content %}
-  <section class="panel reveal" style="max-width:780px">
-    <div class="listhead">
-      <div>
-        <h1 class="h2">{{ verb|default:"Delete" }} {{ kind }}</h1>
+	  <section class="panel reveal maxw-840 mx-auto">
+	    <div class="listhead">
+	      <div>
+	        <h1 class="h2">{{ verb|default:"Delete" }} {{ kind }}</h1>
         <div class="sub">{% if sub %}{{ sub }}{% else %}This action cannot be undone.{% endif %}</div>
       </div>
       <div class="listhead__actions">

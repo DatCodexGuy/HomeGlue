@@ -16,58 +16,58 @@
       </div>
     </div>
 
-    {% if flash %}
-      <div class="warn" style="margin-top:12px">
-        <div class="warn__title">{{ flash.title }}</div>
-        <div class="warn__body">{{ flash.body }}</div>
-        {% if flash.secret %}
-          <div class="secretbox" style="margin-top:10px">
-            <div class="secretbox__label">{{ flash.secret_label|default:"Secret" }}</div>
-            <div class="secretbox__value mono" data-copy>{{ flash.secret }}</div>
-            <div class="muted">Click to copy</div>
-          </div>
-        {% endif %}
-      </div>
-    {% endif %}
+	    {% if flash %}
+	      <div class="warn mt-12">
+	        <div class="warn__title">{{ flash.title }}</div>
+	        <div class="warn__body">{{ flash.body }}</div>
+	        {% if flash.secret %}
+	          <div class="secretbox mt-10">
+	            <div class="secretbox__label">{{ flash.secret_label|default:"Secret" }}</div>
+	            <div class="secretbox__value mono" data-copy>{{ flash.secret }}</div>
+	            <div class="muted">Click to copy</div>
+	          </div>
+	        {% endif %}
+	      </div>
+	    {% endif %}
 
-    <div class="split" style="margin-top:14px">
-      <div class="split__main">
-        <h3 class="h3">Profile</h3>
-        <div class="mini">
-          <form method="post">
+	    <div class="split mt-14">
+	      <div class="split__main">
+	        <h3 class="h3">Profile</h3>
+	        <div class="mini">
+	          <form method="post">
             {% csrf_token %}
             <input type="hidden" name="_action" value="save_profile" />
-            <label class="field">
-              <div class="field__label">Email</div>
-              <input class="input" type="email" name="email" value="{{ target.email }}" />
-            </label>
-            <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
-              <input type="checkbox" name="is_active" value="1" {% if target.is_active %}checked{% endif %} />
-              <div class="muted">Active (can log in)</div>
-            </label>
-            <label class="field" style="margin-top:10px; display:flex; gap:10px; align-items:center">
-              <input type="checkbox" name="is_superuser" value="1" {% if target.is_superuser %}checked{% endif %} />
-              <div class="muted">Superuser</div>
-            </label>
-            <div style="margin-top:10px">
-              <button class="btn" type="submit">
-                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
-                Save
-              </button>
-            </div>
-          </form>
-        </div>
+	            <label class="field">
+	              <div class="field__label">Email</div>
+	              <input class="input" type="email" name="email" value="{{ target.email }}" />
+	            </label>
+	            <label class="field mt-10 flex gap-10 items-center">
+	              <input type="checkbox" name="is_active" value="1" {% if target.is_active %}checked{% endif %} />
+	              <div class="muted">Active (can log in)</div>
+	            </label>
+	            <label class="field mt-10 flex gap-10 items-center">
+	              <input type="checkbox" name="is_superuser" value="1" {% if target.is_superuser %}checked{% endif %} />
+	              <div class="muted">Superuser</div>
+	            </label>
+	            <div class="mt-10">
+	              <button class="btn" type="submit">
+	                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+	                Save
+	              </button>
+	            </div>
+	          </form>
+	        </div>
 
-        <h3 class="h3" style="margin-top:16px">Reset Password</h3>
-        <div class="mini">
-          <div class="muted">Generates a new temporary password and shows it once.</div>
-          <form method="post" style="margin-top:10px">
-            {% csrf_token %}
-            <input type="hidden" name="_action" value="reset_password" />
-            <button class="btn btn--danger btn--sm" type="submit">Reset password</button>
-          </form>
-        </div>
-      </div>
+	        <h3 class="h3 mt-16">Reset Password</h3>
+	        <div class="mini">
+	          <div class="muted">Generates a new temporary password and shows it once.</div>
+	          <form method="post" class="mt-10">
+	            {% csrf_token %}
+	            <input type="hidden" name="_action" value="reset_password" />
+	            <button class="btn btn--danger btn--sm" type="submit">Reset password</button>
+	          </form>
+	        </div>
+	      </div>
 
       <div class="split__side">
         <h3 class="h3">Organizations</h3>
@@ -87,4 +87,3 @@
     </div>
   </section>
 {% endblock %}
-

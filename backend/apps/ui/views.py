@@ -70,9 +70,8 @@ from apps.integrations.proxmox import sync_proxmox_connection
 from apps.flexassets.models import FlexibleAsset, FlexibleAssetType
 from apps.versionsapp.models import ObjectVersion
 from apps.versionsapp.utils import restore_instance_from_snapshot
-from apps.workflows.models import Notification, WorkflowRule
+from apps.workflows.models import Notification, WorkflowRule, WorkflowRuleRun, NotificationDeliveryAttempt, WebhookEndpoint
 from apps.workflows.engine import run_rule
-from apps.workflows.models import WebhookEndpoint
 
 from apps.ui.markdown import render_markdown
 from apps.backups.models import BackupPolicy, BackupRestoreBundle, BackupSnapshot
@@ -309,6 +308,8 @@ def _create_doc_mention_notifications(*, org, doc: Document, comment: DocumentCo
         if not user:
             continue
         if actor and getattr(actor, "id", None) and int(user.id) == int(actor.id):
+            continue
+        if not _can_view_document(user=user, org=org, doc=doc):
             continue
         dedupe_key = f"doc_comment_mention:{comment.id}:{int(user.id)}"
         obj, was_created = Notification.objects.get_or_create(
@@ -851,6 +852,26 @@ def _notes_qs_for_user(*, user, org):
     """
 
     qs = Note.objects.filter(organization=org).select_related("created_by", "content_type").order_by("-created_at")
+    can_admin = _is_org_admin(user, org) or getattr(user, "is_superuser", False)
+    if can_admin:
+        return qs
+
+    doc_ct = ContentType.objects.get_for_model(Document)
+    pw_ct = ContentType.objects.get_for_model(PasswordEntry)
+    doc_ids = list(Document.objects.filter(organization=org).filter(_visible_docs_q(user, org)).values_list("id", flat=True)[:5000])
+    pw_ids = list(PasswordEntry.objects.filter(organization=org).filter(_visible_passwords_q(user, org)).values_list("id", flat=True)[:5000])
+    qs = qs.exclude(Q(content_type=doc_ct) & ~Q(object_id__in=[str(i) for i in doc_ids]))
+    qs = qs.exclude(Q(content_type=pw_ct) & ~Q(object_id__in=[str(i) for i in pw_ids]))
+    return qs
+
+
+def _attachments_qs_for_user(*, user, org):
+    """
+    Attachments can be linked to restricted objects (Docs/Passwords); non-admins must not see those.
+    Keep this logic centralized so search + lists stay consistent.
+    """
+
+    qs = Attachment.objects.filter(organization=org).select_related("uploaded_by", "content_type", "folder").order_by("-created_at")
     can_admin = _is_org_admin(user, org) or getattr(user, "is_superuser", False)
     if can_admin:
         return qs
@@ -3579,6 +3600,19 @@ def search(request: HttpRequest) -> HttpResponse:
     q = (request.GET.get("q") or "").strip()
     results = []
     ids_by_type: dict[str, list[int]] = {}
+    archived_mode = _archived_mode(request)
+
+    # Build archived toggle URLs (Active / Archived / All) while preserving other query params.
+    params = request.GET.copy()
+    params.pop("archived", None)
+    base = request.path
+    active_url = base + (("?" + params.urlencode()) if params else "")
+    params_arch = request.GET.copy()
+    params_arch["archived"] = "1"
+    archived_url = base + "?" + params_arch.urlencode()
+    params_all = request.GET.copy()
+    params_all["archived"] = "include"
+    all_url = base + "?" + params_all.urlencode()
 
     TYPE_LABELS: dict[str, str] = {
         "asset": "Assets",
@@ -3586,6 +3620,7 @@ def search(request: HttpRequest) -> HttpResponse:
         "doc": "Docs",
         "template": "Templates",
         "note": "Notes",
+        "file": "Files",
         "password": "Passwords",
         "contact": "Contacts",
         "location": "Locations",
@@ -3608,7 +3643,7 @@ def search(request: HttpRequest) -> HttpResponse:
 
     if q:
         if _want("asset"):
-            aqs = Asset.objects.filter(organization=org, archived_at__isnull=True)
+            aqs = _filter_archived_qs(request, Asset.objects.filter(organization=org))
             if _is_postgres():
                 try:
                     from django.contrib.postgres.search import SearchVector
@@ -3647,7 +3682,7 @@ def search(request: HttpRequest) -> HttpResponse:
                 ids_by_type.setdefault("asset", []).append(int(obj.id))
 
         if _want("config"):
-            cqs = ConfigurationItem.objects.filter(organization=org, archived_at__isnull=True)
+            cqs = _filter_archived_qs(request, ConfigurationItem.objects.filter(organization=org))
             if _is_postgres():
                 try:
                     from django.contrib.postgres.search import SearchVector
@@ -3677,7 +3712,7 @@ def search(request: HttpRequest) -> HttpResponse:
                 ids_by_type.setdefault("config", []).append(int(obj.id))
 
         if _want("contact"):
-            coqs = Contact.objects.filter(organization=org, archived_at__isnull=True)
+            coqs = _filter_archived_qs(request, Contact.objects.filter(organization=org))
             if _is_postgres():
                 try:
                     from django.contrib.postgres.search import SearchVector
@@ -3706,7 +3741,7 @@ def search(request: HttpRequest) -> HttpResponse:
                 ids_by_type.setdefault("contact", []).append(int(obj.id))
 
         if _want("doc"):
-            dqs = Document.objects.filter(organization=org, archived_at__isnull=True)
+            dqs = _filter_archived_qs(request, Document.objects.filter(organization=org))
             if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
                 dqs = dqs.filter(_visible_docs_q(request.user, org)).distinct()
             if _is_postgres():
@@ -3781,8 +3816,44 @@ def search(request: HttpRequest) -> HttpResponse:
                 )
                 ids_by_type.setdefault("note", []).append(int(obj.id))
 
+        if _want("file"):
+            fqs = _attachments_qs_for_user(user=request.user, org=org)
+            if _is_postgres():
+                try:
+                    from django.contrib.postgres.search import SearchVector
+
+                    vector = SearchVector("filename", weight="A")
+                    fqs2 = _fts_ranked(fqs, q=q, vector=vector, rank_field="_fts_rank").order_by("-_fts_rank", "-created_at")
+                    if not fqs2.exists():
+                        fqs2 = fqs.filter(filename__icontains=q).order_by("-created_at")
+                except Exception:
+                    fqs2 = fqs.filter(filename__icontains=q).order_by("-created_at")
+            else:
+                fqs2 = fqs.filter(filename__icontains=q).order_by("-created_at")
+            for obj in fqs2[:25]:
+                score = float(getattr(obj, "_fts_rank", 0.0) or 0.0)
+                meta = obj.created_at.strftime("%Y-%m-%d")
+                if obj.folder_id and obj.folder:
+                    meta = f"{meta} · {obj.folder.name}"
+                if obj.content_type_id and obj.object_id:
+                    meta = f"{meta} · {_human_ref_label(ct=obj.content_type, oid=obj.object_id)}"
+                snippet_html = _snippet_html_from_text(meta, q) if q else ""
+                results.append(
+                    {
+                        "type": "file",
+                        "label": obj.filename or f"File {obj.id}",
+                        "url": reverse("ui:file_detail", kwargs={"attachment_id": obj.id}),
+                        "meta": meta,
+                        "snippet_html": snippet_html,
+                        "obj_id": obj.id,
+                        "ref": _ref_for_obj(obj),
+                        "score": score,
+                    }
+                )
+                ids_by_type.setdefault("file", []).append(int(obj.id))
+
         if _want("password"):
-            pqs = PasswordEntry.objects.filter(organization=org, archived_at__isnull=True)
+            pqs = _filter_archived_qs(request, PasswordEntry.objects.filter(organization=org))
             if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
                 pqs = pqs.filter(_visible_passwords_q(request.user, org)).distinct()
             if _is_postgres():
@@ -3813,7 +3884,7 @@ def search(request: HttpRequest) -> HttpResponse:
                 ids_by_type.setdefault("password", []).append(int(obj.id))
 
         if _want("location"):
-            lqs = Location.objects.filter(organization=org, archived_at__isnull=True)
+            lqs = _filter_archived_qs(request, Location.objects.filter(organization=org))
             if _is_postgres():
                 try:
                     from django.contrib.postgres.search import SearchVector
@@ -3842,7 +3913,7 @@ def search(request: HttpRequest) -> HttpResponse:
                 ids_by_type.setdefault("location", []).append(int(obj.id))
 
         if _want("template"):
-            tqs = DocumentTemplate.objects.filter(organization=org, archived_at__isnull=True)
+            tqs = _filter_archived_qs(request, DocumentTemplate.objects.filter(organization=org))
             if _is_postgres():
                 try:
                     from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank, SearchHeadline
@@ -3877,7 +3948,7 @@ def search(request: HttpRequest) -> HttpResponse:
                 ids_by_type.setdefault("template", []).append(int(obj.id))
 
         if _want("domain"):
-            doqs = Domain.objects.filter(organization=org, archived_at__isnull=True)
+            doqs = _filter_archived_qs(request, Domain.objects.filter(organization=org))
             if _is_postgres():
                 try:
                     from django.contrib.postgres.search import SearchVector
@@ -3911,7 +3982,7 @@ def search(request: HttpRequest) -> HttpResponse:
                 ids_by_type.setdefault("domain", []).append(int(obj.id))
 
         if _want("sslcert"):
-            sqs = SSLCertificate.objects.filter(organization=org, archived_at__isnull=True)
+            sqs = _filter_archived_qs(request, SSLCertificate.objects.filter(organization=org))
             if _is_postgres():
                 try:
                     from django.contrib.postgres.search import SearchVector
@@ -3944,7 +4015,7 @@ def search(request: HttpRequest) -> HttpResponse:
 
         if _want("checklist"):
             for obj in (
-                Checklist.objects.filter(organization=org, archived_at__isnull=True)
+                _filter_archived_qs(request, Checklist.objects.filter(organization=org))
                 .filter(Q(name__icontains=q) | Q(description__icontains=q))
                 .order_by("-updated_at", "name")[:25]
             ):
@@ -3964,7 +4035,7 @@ def search(request: HttpRequest) -> HttpResponse:
                 ids_by_type.setdefault("checklist", []).append(int(obj.id))
 
         if _want("flex"):
-            fqs = FlexibleAsset.objects.filter(organization=org, archived_at__isnull=True).select_related("asset_type")
+            fqs = _filter_archived_qs(request, FlexibleAsset.objects.filter(organization=org)).select_related("asset_type")
             if _is_postgres():
                 try:
                     from django.contrib.postgres.search import SearchVector
@@ -4005,6 +4076,7 @@ def search(request: HttpRequest) -> HttpResponse:
             "contact": _relationship_counts_for_model(org=org, model_cls=Contact, ids=ids_by_type.get("contact", [])),
             "doc": _relationship_counts_for_model(org=org, model_cls=Document, ids=ids_by_type.get("doc", [])),
             "note": _relationship_counts_for_model(org=org, model_cls=Note, ids=ids_by_type.get("note", [])),
+            "file": _relationship_counts_for_model(org=org, model_cls=Attachment, ids=ids_by_type.get("file", [])),
             "password": _relationship_counts_for_model(
                 org=org, model_cls=PasswordEntry, ids=ids_by_type.get("password", [])
             ),
@@ -4043,6 +4115,10 @@ def search(request: HttpRequest) -> HttpResponse:
             "crumbs": _crumbs(("Search", None)),
             "q": q,
             "results": results,
+            "archived_mode": archived_mode,
+            "active_url": active_url,
+            "archived_url": archived_url,
+            "all_url": all_url,
             "type_filters": [
                 {"key": k, "label": TYPE_LABELS[k], "checked": (k in selected_types) or (not selected_types)}
                 for k in TYPE_LABELS.keys()
@@ -4346,7 +4422,22 @@ def notifications_list(request: HttpRequest) -> HttpResponse:
         if n.content_type_id and n.object_id:
             try:
                 ref_label = _human_ref_label(ct=n.content_type, oid=n.object_id)
-                ref_url = _ui_object_url(n.content_type.app_label, n.content_type.model, n.object_id)
+                # Only expose links for objects the current user can view.
+                model_cls = n.content_type.model_class()
+                if model_cls is Document:
+                    obj = Document.objects.filter(organization=org, id=int(n.object_id)).first()
+                    if obj and _can_view_document(user=request.user, org=org, doc=obj):
+                        ref_url = _ui_object_url(n.content_type.app_label, n.content_type.model, n.object_id)
+                elif model_cls is PasswordEntry:
+                    obj = PasswordEntry.objects.filter(organization=org, id=int(n.object_id)).first()
+                    if obj and _can_view_password(user=request.user, org=org, entry=obj):
+                        ref_url = _ui_object_url(n.content_type.app_label, n.content_type.model, n.object_id)
+                elif model_cls is Attachment:
+                    obj = Attachment.objects.filter(organization=org, id=int(n.object_id)).select_related("content_type").first()
+                    if obj and _can_view_attachment(request=request, org=org, a=obj):
+                        ref_url = _ui_object_url(n.content_type.app_label, n.content_type.model, n.object_id)
+                else:
+                    ref_url = _ui_object_url(n.content_type.app_label, n.content_type.model, n.object_id)
             except Exception:
                 ref_label = None
                 ref_url = None
@@ -4431,6 +4522,90 @@ def workflows_list(request: HttpRequest) -> HttpResponse:
             "items": items,
             "new_url": reverse("ui:workflow_rule_new"),
             "endpoints_url": reverse("ui:webhook_endpoints_list"),
+            "runs_url": reverse("ui:workflow_runs_list"),
+            "delivery_url": reverse("ui:workflow_delivery_attempts_list"),
+        },
+    )
+
+
+@login_required
+def workflow_runs_list(request: HttpRequest) -> HttpResponse:
+    ctx = require_current_org(request)
+    org = ctx.organization
+    _require_org_admin(request.user, org)
+
+    ok_raw = (request.GET.get("ok") or "").strip().lower()
+    rule_id = (request.GET.get("rule_id") or "").strip()
+    trigger = (request.GET.get("trigger") or "").strip().lower()
+
+    qs = WorkflowRuleRun.objects.filter(organization=org).select_related("rule", "triggered_by_user").order_by("-started_at", "-id")
+    if ok_raw in {"1", "true", "yes", "ok"}:
+        qs = qs.filter(ok=True)
+    elif ok_raw in {"0", "false", "no", "fail", "failed", "error"}:
+        qs = qs.filter(ok=False)
+    if rule_id.isdigit():
+        qs = qs.filter(rule_id=int(rule_id))
+    if trigger in {"worker", "manual", "ops"}:
+        qs = qs.filter(triggered_by=trigger)
+
+    items = list(qs[:200])
+    rules = list(WorkflowRule.objects.filter(organization=org).order_by("name", "id")[:500])
+
+    return render(
+        request,
+        "ui/workflow_runs_list.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Workflows", reverse("ui:workflows_list")), ("Runs", None)),
+            "items": items,
+            "rules": rules,
+            "ok": ok_raw,
+            "rule_id": rule_id,
+            "trigger": trigger,
+            "delivery_url": reverse("ui:workflow_delivery_attempts_list"),
+        },
+    )
+
+
+@login_required
+def workflow_delivery_attempts_list(request: HttpRequest) -> HttpResponse:
+    ctx = require_current_org(request)
+    org = ctx.organization
+    _require_org_admin(request.user, org)
+
+    ok_raw = (request.GET.get("ok") or "").strip().lower()
+    kind = (request.GET.get("kind") or "").strip().lower()
+    endpoint_id = (request.GET.get("endpoint_id") or "").strip()
+
+    qs = (
+        NotificationDeliveryAttempt.objects.select_related("notification", "endpoint", "notification__user", "notification__rule")
+        .filter(notification__organization=org)
+        .order_by("-attempted_at", "-id")
+    )
+    if ok_raw in {"1", "true", "yes", "ok"}:
+        qs = qs.filter(ok=True)
+    elif ok_raw in {"0", "false", "no", "fail", "failed", "error"}:
+        qs = qs.filter(ok=False)
+    if kind in {"email", "webhook"}:
+        qs = qs.filter(kind=kind)
+    if endpoint_id.isdigit():
+        qs = qs.filter(endpoint_id=int(endpoint_id))
+
+    items = list(qs[:200])
+    endpoints = list(WebhookEndpoint.objects.filter(organization=org).order_by("name", "id")[:200])
+
+    return render(
+        request,
+        "ui/workflow_delivery_attempts_list.html",
+        {
+            "org": org,
+            "crumbs": _crumbs(("Workflows", reverse("ui:workflows_list")), ("Delivery", None)),
+            "items": items,
+            "endpoints": endpoints,
+            "ok": ok_raw,
+            "kind": kind,
+            "endpoint_id": endpoint_id,
+            "runs_url": reverse("ui:workflow_runs_list"),
         },
     )
 
@@ -4472,13 +4647,21 @@ def workflow_rule_detail(request: HttpRequest, rule_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "run_now":
         try:
-            res = run_rule(rule)
+            res = run_rule(rule, triggered_by=WorkflowRuleRun.TRIGGER_MANUAL, triggered_by_user=request.user)
             if res.ok:
                 notice = {"title": "Rule ran", "body": f"Created {int(res.notifications_created or 0)} notification(s)."}
             else:
                 notice = {"title": "Rule did not run", "body": str(res.error or "unknown")}
         except Exception as e:
             notice = {"title": "Run failed", "body": str(e)}
+        _audit_event(
+            request=request,
+            org=org,
+            action=AuditEvent.ACTION_CREATE,
+            model="workflows.WorkflowRuleRun",
+            object_pk=str(rule.id),
+            summary=f"Manual workflow run executed for rule '{rule.name}'.",
+        )
         # Refresh rule status fields.
         rule.refresh_from_db()
 
@@ -4496,6 +4679,13 @@ def workflow_rule_detail(request: HttpRequest, rule_id: int) -> HttpResponse:
     except Exception:
         days = None
 
+    recent_runs = list(
+        WorkflowRuleRun.objects.filter(organization=org, rule=rule).select_related("triggered_by_user").order_by("-started_at", "-id")[:15]
+    )
+    recent_notifications = list(
+        Notification.objects.filter(organization=org, rule=rule).select_related("user").order_by("-created_at", "-id")[:12]
+    )
+
     return render(
         request,
         "ui/workflow_rule_detail.html",
@@ -4506,6 +4696,10 @@ def workflow_rule_detail(request: HttpRequest, rule_id: int) -> HttpResponse:
             "days": days,
             "form": form,
             "notice": notice,
+            "recent_runs": recent_runs,
+            "recent_notifications": recent_notifications,
+            "runs_url": reverse("ui:workflow_runs_list") + "?" + urlencode({"rule_id": str(rule.id)}),
+            "delivery_url": reverse("ui:workflow_delivery_attempts_list"),
         },
     )
 
@@ -4616,6 +4810,12 @@ def webhook_endpoint_detail(request: HttpRequest, endpoint_id: int) -> HttpRespo
 
     sample_payload_json = json.dumps(sample_payload, indent=2, sort_keys=True)
 
+    recent_attempts = list(
+        NotificationDeliveryAttempt.objects.select_related("notification", "notification__user")
+        .filter(notification__organization=org, endpoint=ep)
+        .order_by("-attempted_at", "-id")[:20]
+    )
+
     return render(
         request,
         "ui/webhook_endpoint_detail.html",
@@ -4626,6 +4826,8 @@ def webhook_endpoint_detail(request: HttpRequest, endpoint_id: int) -> HttpRespo
             "form": form,
             "delete_url": reverse("ui:webhook_endpoint_delete", kwargs={"endpoint_id": ep.id}),
             "sample_payload_json": sample_payload_json,
+            "recent_attempts": recent_attempts,
+            "delivery_url": reverse("ui:workflow_delivery_attempts_list") + "?" + urlencode({"endpoint_id": str(ep.id)}),
         },
     )
 

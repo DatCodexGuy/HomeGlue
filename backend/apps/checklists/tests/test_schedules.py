@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.checklists.management.commands.run_checklist_schedules_once import run_due_schedules
 from apps.checklists.models import Checklist, ChecklistItem, ChecklistRun, ChecklistRunItem, ChecklistSchedule
+from apps.checklists.scheduling import next_occurrence_after
 from apps.core.models import Organization, OrganizationMembership
 
 
@@ -29,7 +30,8 @@ class ChecklistScheduleTests(TestCase):
             checklist=chk,
             name="Backups schedule",
             enabled=True,
-            every_days=7,
+            repeat_unit=ChecklistSchedule.REPEAT_DAILY,
+            repeat_interval=7,
             due_days=1,
             assigned_to=self.user,
             next_run_on=today,
@@ -49,3 +51,47 @@ class ChecklistScheduleTests(TestCase):
         sched.refresh_from_db()
         self.assertGreater(sched.next_run_on, today)
 
+    def test_weekly_schedule_advances_by_interval_and_weekday(self):
+        chk = Checklist.objects.create(organization=self.org, name="Weekly review")
+        today = timezone.localdate()
+        # Only run on today's weekday, every 2 weeks.
+        mask = 1 << int(today.weekday())
+        sched = ChecklistSchedule.objects.create(
+            organization=self.org,
+            checklist=chk,
+            name="Biweekly",
+            enabled=True,
+            repeat_unit=ChecklistSchedule.REPEAT_WEEKLY,
+            repeat_interval=2,
+            weekly_days=mask,
+            next_run_on=today,
+            anchor_on=today,
+        )
+
+        expected_next = next_occurrence_after(sched, today)
+        res = run_due_schedules(org_id=self.org.id, limit=50)
+        self.assertEqual(res.created_runs, 1)
+        sched.refresh_from_db()
+        self.assertEqual(sched.next_run_on, expected_next)
+
+    def test_monthly_schedule_advances_to_next_month(self):
+        chk = Checklist.objects.create(organization=self.org, name="Monthly close")
+        today = timezone.localdate()
+        sched = ChecklistSchedule.objects.create(
+            organization=self.org,
+            checklist=chk,
+            name="Monthly",
+            enabled=True,
+            repeat_unit=ChecklistSchedule.REPEAT_MONTHLY,
+            repeat_interval=1,
+            monthly_day=int(today.day),
+            monthly_on_last_day=False,
+            next_run_on=today,
+            anchor_on=today,
+        )
+
+        expected_next = next_occurrence_after(sched, today)
+        res = run_due_schedules(org_id=self.org.id, limit=50)
+        self.assertEqual(res.created_runs, 1)
+        sched.refresh_from_db()
+        self.assertEqual(sched.next_run_on, expected_next)

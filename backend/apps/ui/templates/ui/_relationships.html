@@ -6,7 +6,7 @@
           <span class="pill pill--tiny">{{ r.type_name }}</span>
           <span class="muted">{{ r.created_at|date:"Y-m-d H:i" }}</span>
         </div>
-        <div class="mini__body mono" style="margin-top:6px">
+        <div class="mini__body mono mt-6">
           <a class="link" href="{% url 'ui:relationship_detail' relationship_id=r.id %}">{{ r.label }}</a>
         </div>
         {% if r.notes %}<div class="muted">{{ r.notes }}</div>{% endif %}
@@ -19,7 +19,7 @@
           <span class="pill pill--tiny">{{ r.relationship_type.name }}</span>
           <span class="muted">{{ r.created_at|date:"Y-m-d H:i" }}</span>
         </div>
-        <div class="mini__body mono" style="margin-top:6px">
+        <div class="mini__body mono mt-6">
           <a class="link" href="{% url 'ui:relationship_detail' relationship_id=r.id %}">{{ r.source_label }} -> {{ r.target_label }}</a>
         </div>
         {% if r.notes %}<div class="muted">{{ r.notes }}</div>{% endif %}

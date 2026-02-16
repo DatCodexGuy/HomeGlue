@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <div class="mini" style="margin-bottom:12px">
+    <div class="mini mb-12">
       <div class="mini__row">
         <div class="mini__top">
           <span class="pill pill--tiny">Governance</span>
@@ -24,16 +24,16 @@
         </div>
         <div class="mini__body">
           {% if not is_reauthed %}
-            <div class="muted" style="margin-bottom:8px">Re-authentication required for policy changes and purge.</div>
+            <div class="muted mb-8">Re-authentication required for policy changes and purge.</div>
             <a class="btn btn--ghost btn--sm" href="{{ reauth_url }}">
               <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
               Re-authenticate
             </a>
           {% endif %}
-          <form method="post" class="form" style="margin-top:10px">
+          <form method="post" class="form mt-10">
             {% csrf_token %}
             <input type="hidden" name="_action" value="policy_save" />
-            <div class="grid" style="grid-template-columns:1fr 1fr 1fr; gap:10px">
+            <div class="grid grid--backup-policy">
               <div>
                 <label for="id_enabled">Retention enabled</label>
                 <select id="id_enabled" name="enabled">
@@ -45,7 +45,7 @@
                 <label for="id_retention">Retention days</label>
                 <input id="id_retention" type="number" min="7" max="3650" name="retention_days" value="{{ policy.retention_days }}" />
               </div>
-              <div style="display:flex; align-items:flex-end; gap:8px">
+              <div class="flex items-end gap-8">
                 <button class="btn btn--ghost btn--sm" type="submit" {% if not is_reauthed %}disabled{% endif %}>
                   <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
                   Save policy
@@ -53,7 +53,7 @@
               </div>
             </div>
           </form>
-          <form method="post" style="margin-top:8px">
+          <form method="post" class="mt-8">
             {% csrf_token %}
             <input type="hidden" name="_action" value="purge_now" />
             <button class="btn btn--danger btn--sm" type="submit" {% if not is_reauthed %}disabled{% endif %}>
@@ -65,11 +65,11 @@
       </div>
     </div>
 
-    <div class="table" style="margin-bottom:12px">
-      <div class="row row--head" style="grid-template-columns:repeat(5,1fr)">
+    <div class="table mb-12">
+      <div class="row row--head row--audit-stats">
         <div>Total (24h)</div><div>Create</div><div>Update</div><div>Delete</div><div>System</div>
       </div>
-      <div class="row" style="grid-template-columns:repeat(5,1fr)">
+      <div class="row row--audit-stats">
         <div class="mono">{{ stats_24h.total }}</div>
         <div class="mono">{{ stats_24h.create }}</div>
         <div class="mono">{{ stats_24h.update }}</div>
@@ -79,7 +79,7 @@
     </div>
 
     {% if top_models %}
-      <div class="mini" style="margin-bottom:12px">
+      <div class="mini mb-12">
         <div class="mini__row">
           <div class="mini__top">
             <span class="pill pill--tiny">Top Models (24h)</span>
@@ -93,7 +93,7 @@
       </div>
     {% endif %}
 
-    <form class="search" method="get" style="margin-bottom:10px">
+    <form class="search mb-10" method="get">
       <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Search summary/model/user/ip..." />
       <select class="bulkbar__select" name="action" aria-label="Action">
         <option value="">All actions</option>
@@ -101,7 +101,7 @@
         <option value="update" {% if action == "update" %}selected{% endif %}>Update</option>
         <option value="delete" {% if action == "delete" %}selected{% endif %}>Delete</option>
       </select>
-      <select class="bulkbar__select" name="model" aria-label="Model" style="max-width:300px">
+      <select class="bulkbar__select wmax-300" name="model" aria-label="Model">
         <option value="">All models</option>
         {% for m in model_choices %}
           <option value="{{ m.value }}" {% if model == m.value %}selected{% endif %}>{{ m.label }}</option>
@@ -114,7 +114,7 @@
       </select>
       <input class="bulkbar__select" type="date" name="date_from" value="{{ date_from }}" />
       <input class="bulkbar__select" type="date" name="date_to" value="{{ date_to }}" />
-      <input class="bulkbar__select" type="number" min="1" max="5000" name="limit" value="{{ limit }}" style="max-width:120px" />
+      <input class="bulkbar__select wmax-120" type="number" min="1" max="5000" name="limit" value="{{ limit }}" />
       <button class="btn btn--ghost btn--sm" type="submit">
         <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
         Filter
@@ -123,11 +123,11 @@
     </form>
 
     <div class="table">
-      <div class="row row--head" style="grid-template-columns:0.9fr 0.7fr 1fr 0.7fr 0.7fr 0.7fr 2fr">
+      <div class="row row--head row--audit">
         <div>When</div><div>Action</div><div>Target</div><div>PK</div><div>Actor</div><div>IP</div><div>Summary</div>
       </div>
       {% for e in items %}
-        <div class="row" style="grid-template-columns:0.9fr 0.7fr 1fr 0.7fr 0.7fr 0.7fr 2fr">
+        <div class="row row--audit">
           <div class="mono muted">{{ e.ts|date:"Y-m-d H:i:s" }}</div>
           <div>
             <span class="pill pill--tiny" title="{{ e.action_badge }}">{{ e.action_label }}</span>

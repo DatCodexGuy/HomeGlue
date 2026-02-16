@@ -39,9 +39,9 @@
           </button>
         </form>
 
-        <div style="margin-top:18px">
-          <h3 class="h3">Recent Runs</h3>
-          <div class="mini">
+	        <div class="mt-18">
+	          <h3 class="h3">Recent Runs</h3>
+	          <div class="mini">
             {% for r in recent_runs %}
               <div class="mini__row">
                 <a class="link mono" href="{% url 'ui:checklist_run_detail' run_id=r.id %}">{{ r.name }}</a>
@@ -59,7 +59,7 @@
       <div class="split__side">
         <h3 class="h3">Schedule</h3>
         <div class="kv">
-          <div class="kv__row"><div class="kv__k">Every</div><div class="kv__v">{{ schedule.every_days }} day(s)</div></div>
+          <div class="kv__row"><div class="kv__k">Every</div><div class="kv__v">{{ schedule.repeat_summary }}</div></div>
           <div class="kv__row"><div class="kv__k">Next</div><div class="kv__v">{% if schedule.next_run_on %}{{ schedule.next_run_on|date:"Y-m-d" }}{% else %}-{% endif %}</div></div>
           <div class="kv__row"><div class="kv__k">Due offset</div><div class="kv__v">{% if schedule.due_days is not None %}{{ schedule.due_days }} day(s){% else %}-{% endif %}</div></div>
           <div class="kv__row"><div class="kv__k">Assigned</div><div class="kv__v">{% if schedule.assigned_to %}{{ schedule.assigned_to.username }}{% else %}-{% endif %}</div></div>
@@ -69,4 +69,3 @@
     </div>
   </section>
 {% endblock %}
-

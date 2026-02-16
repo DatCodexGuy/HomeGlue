@@ -17,9 +17,9 @@
       </div>
     </div>
 
-    <div class="grid" style="margin-top:12px">
-      <div class="card">
-        <div class="card__title">Status</div>
+	    <div class="grid mt-12">
+	      <div class="card">
+	        <div class="card__title">Status</div>
         <div class="card__meta">
           <span class="pill pill--tiny {% if node.status == 'online' %}pill--ok{% endif %}">{{ node.status|default:"" }}</span>
           {% if node.uptime is not None %}
@@ -33,13 +33,13 @@
       <div class="card">
         <div class="card__title">Version</div>
         <div class="card__meta mono">{% firstof node.version_raw.version "?" %}</div>
-      </div>
-    </div>
+	      </div>
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Guests On Node</h3>
-      <div class="tablewrap">
-        <table class="table">
+	    <div class="mt-18">
+	      <h3 class="h3">Guests On Node</h3>
+	      <div class="tablewrap">
+	        <table class="table">
           <thead>
             <tr>
               <th>Guest</th>
@@ -70,13 +70,13 @@
             {% endfor %}
           </tbody>
         </table>
-      </div>
-    </div>
+	      </div>
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Networks</h3>
-      <div class="tablewrap">
-        <table class="table">
+	    <div class="mt-18">
+	      <h3 class="h3">Networks</h3>
+	      <div class="tablewrap">
+	        <table class="table">
           <thead>
             <tr>
               <th>Interface</th>
@@ -98,13 +98,13 @@
             {% endfor %}
           </tbody>
         </table>
-      </div>
-    </div>
+	      </div>
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Storages</h3>
-      <div class="tablewrap">
-        <table class="table">
+	    <div class="mt-18">
+	      <h3 class="h3">Storages</h3>
+	      <div class="tablewrap">
+	        <table class="table">
           <thead>
             <tr>
               <th>Storage</th>
@@ -126,30 +126,29 @@
             {% endfor %}
           </tbody>
         </table>
-      </div>
-    </div>
+	      </div>
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Relationships</h3>
-      {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Relationships</h3>
+	      {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Attachments</h3>
-      {% include "ui/_attachments.html" with attachments=attachments %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Attachments</h3>
+	      {% include "ui/_attachments.html" with attachments=attachments %}
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Notes</h3>
-      {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Notes</h3>
+	      {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+	    </div>
 
-    <details style="margin-top:18px">
-      <summary class="muted">Raw Proxmox payload</summary>
-      <pre class="mono" style="white-space:pre-wrap; margin-top:10px">{% firstof node.raw "{}" %}</pre>
-      <pre class="mono" style="white-space:pre-wrap; margin-top:10px">{% firstof node.status_raw "{}" %}</pre>
-      <pre class="mono" style="white-space:pre-wrap; margin-top:10px">{% firstof node.version_raw "{}" %}</pre>
-    </details>
-  </section>
-{% endblock %}
-
+	    <details class="mt-18">
+	      <summary class="muted">Raw Proxmox payload</summary>
+	      <div class="mt-10"><pre class="code mono prewrap">{% firstof node.raw "{}" %}</pre></div>
+	      <div class="mt-10"><pre class="code mono prewrap">{% firstof node.status_raw "{}" %}</pre></div>
+	      <div class="mt-10"><pre class="code mono prewrap">{% firstof node.version_raw "{}" %}</pre></div>
+	    </details>
+	  </section>
+	{% endblock %}

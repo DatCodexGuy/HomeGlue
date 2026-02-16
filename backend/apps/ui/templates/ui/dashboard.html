@@ -10,34 +10,42 @@
   <section class="panel reveal">
     <div class="grid grid--stats">
       <a class="stat" href="{% url 'ui:assets_list' %}">
+        <div class="stat__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-asset"/></svg></div>
         <div class="stat__num">{{ counts.assets }}</div>
         <div class="stat__label">Assets</div>
       </a>
       <a class="stat" href="{% url 'ui:documents_list' %}">
+        <div class="stat__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg></div>
         <div class="stat__num">{{ counts.documents }}</div>
         <div class="stat__label">Docs</div>
       </a>
       <a class="stat" href="{% url 'ui:passwords_list' %}">
+        <div class="stat__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-key"/></svg></div>
         <div class="stat__num">{{ counts.passwords }}</div>
         <div class="stat__label">Passwords</div>
       </a>
       <a class="stat" href="{% url 'ui:checklists_list' %}">
+        <div class="stat__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-clock"/></svg></div>
         <div class="stat__num">{{ counts.checklists }}</div>
         <div class="stat__label">Checklists</div>
       </a>
       <a class="stat" href="{% url 'ui:domains_list' %}">
+        <div class="stat__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg></div>
         <div class="stat__num">{{ counts.domains }}</div>
         <div class="stat__label">Domains</div>
       </a>
       <a class="stat" href="{% url 'ui:sslcerts_list' %}">
+        <div class="stat__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg></div>
         <div class="stat__num">{{ counts.sslcerts }}</div>
         <div class="stat__label">SSL Certs</div>
       </a>
       <a class="stat" href="{% url 'ui:reports' %}">
+        <div class="stat__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-dashboard"/></svg></div>
         <div class="stat__num">{{ completion.overall_pct }}%</div>
         <div class="stat__label">Completion</div>
       </a>
       <a class="stat" href="{% url 'ui:relationships_list' %}">
+        <div class="stat__icon"><svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg></div>
         <div class="stat__num">{{ counts.relationships }}</div>
         <div class="stat__label">Relationships</div>
       </a>

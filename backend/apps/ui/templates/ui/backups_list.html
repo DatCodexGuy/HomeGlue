@@ -24,7 +24,7 @@
       </div>
     </div>
 
-    <div class="grid" style="grid-template-columns:1fr; gap:12px; margin-bottom:14px">
+    <div class="grid grid--1 gap-12 mb-14">
       <div class="mini">
         <div class="mini__row">
           <div class="mini__top">
@@ -32,10 +32,10 @@
             <span class="muted">Schedule snapshots + retention</span>
           </div>
           <div class="mini__body">
-            <form method="post" action="{{ create_url }}" class="form" style="max-width:680px">
+            <form method="post" action="{{ create_url }}" class="form maxw-680">
               {% csrf_token %}
               <input type="hidden" name="_action" value="policy_save" />
-              <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap:10px">
+              <div class="grid grid--backup-policy">
                 <div>
                   <label for="id_enabled">Enabled</label>
                   <select id="id_enabled" name="enabled">
@@ -57,7 +57,7 @@
                   <input id="id_retention" type="number" min="0" name="retention_count" value="{{ policy.retention_count }}" />
                 </div>
               </div>
-              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px">
+              <div class="flex gap-8 items-center flex-wrap mt-10">
                 <button class="btn btn--sm" type="submit">
                   <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
                   Save policy
@@ -66,11 +66,11 @@
                   Next: {% if policy.next_run_at %}{{ policy.next_run_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}
                 </div>
               </div>
-              <div class="sub" style="margin-top:10px">
+              <div class="sub mt-10">
                 Automated snapshots are scheduled by the <span class="mono">worker</span> container and won’t stack up if one is already pending/running.
               </div>
             </form>
-            <form method="post" action="{{ create_url }}" style="margin-top:10px">
+            <form method="post" action="{{ create_url }}" class="mt-10">
               {% csrf_token %}
               <input type="hidden" name="_action" value="schedule_now" />
               <button class="btn btn--ghost btn--sm" type="submit">
@@ -83,14 +83,14 @@
       </div>
     </div>
 
-    <div class="warn" style="margin-bottom:14px">
+    <div class="warn mb-14">
       <div class="warn__title">Note</div>
       <div class="warn__body">
         Snapshots are built by the background worker. If a snapshot stays <span class="mono">pending</span>, confirm the <span class="mono">worker</span> container is running.
       </div>
     </div>
 
-    <div class="mini" style="margin-bottom:14px">
+    <div class="mini mb-14">
       <div class="mini__row">
         <div class="mini__top">
           <span class="pill pill--tiny">Restore</span>
@@ -100,15 +100,15 @@
           <div class="sub">
             Recommended restore target is a fresh HomeGlue stack (empty DB + media). Then:
           </div>
-          <ol class="sub" style="margin:10px 0 0 18px">
+          <ol class="sub mt-10 ml-18">
             <li>Extract the zip.</li>
             <li>Copy <span class="mono">media/</span> into <span class="mono">MEDIA_ROOT</span> (default: <span class="mono">/data/media</span> inside containers).</li>
             <li>Load <span class="mono">fixture.json</span> via <span class="mono">loaddata</span>.</li>
           </ol>
-          <div class="sub" style="margin-top:10px">
+          <div class="sub mt-10">
             Example (run from the host where <span class="mono">docker compose</span> is available):
           </div>
-          <pre class="mono" style="white-space:pre-wrap; margin-top:8px">docker compose exec -T web bash -lc 'python manage.py loaddata /path/to/fixture.json'</pre>
+          <pre class="mono prewrap mt-8">docker compose exec -T web bash -lc 'python manage.py loaddata /path/to/fixture.json'</pre>
           <div class="sub">
             Full “one-click restore” is not implemented yet; this is tracked in parity as Automated backups v2.
           </div>
@@ -117,19 +117,19 @@
     </div>
 
     <div class="table">
-      <div class="row row--head" style="grid-template-columns:1.2fr 1fr 1fr 0.9fr 0.8fr">
+      <div class="row row--head row--backups">
         <div>Filename</div><div>Status</div><div>Created</div><div>Size</div><div></div>
       </div>
       {% for b in items %}
-        <div class="row" style="grid-template-columns:1.2fr 1fr 1fr 0.9fr 0.8fr">
+        <div class="row row--backups">
           <div class="mono">{{ b.filename|default:"(building…)" }}</div>
           <div class="muted mono">
             {{ b.status }}
-            {% if b.status == 'failed' and b.error %}<div class="sub" style="margin-top:6px">{{ b.error }}</div>{% endif %}
+            {% if b.status == 'failed' and b.error %}<div class="sub mt-6">{{ b.error }}</div>{% endif %}
           </div>
           <div class="muted mono">{{ b.created_at|date:"Y-m-d H:i" }}</div>
           <div class="muted mono">{% if b.bytes %}{{ b.bytes }} bytes{% else %}...{% endif %}</div>
-          <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap">
+          <div class="flex justify-end gap-8 flex-wrap">
             {% if b.status == 'success' %}
               <a class="btn btn--ghost btn--sm" href="{% url 'ui:backup_download' backup_id=b.id %}">
                 <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>

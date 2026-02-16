@@ -1,10 +1,10 @@
 {% extends "ui/base.html" %}
 {% block title %}Shared File | HomeGlue{% endblock %}
 {% block content %}
-  <section class="panel reveal" style="max-width:840px; margin:0 auto">
-    <div class="listhead">
-      <div>
-        <h1 class="h2">{% if share.label %}{{ share.label }}{% else %}Shared File{% endif %}</h1>
+	  <section class="panel reveal maxw-860 mx-auto">
+	    <div class="listhead">
+	      <div>
+	        <h1 class="h2">{% if share.label %}{{ share.label }}{% else %}Shared File{% endif %}</h1>
         <div class="sub">
           <span class="mono">{{ filename }}</span>
           <span class="dot"></span>
@@ -36,19 +36,19 @@
         <div class="warn__title">Link consumed</div>
         <div class="warn__body">This link reached its maximum number of downloads.</div>
       </div>
-    {% endif %}
-
-    <h3 class="h3" style="margin-top:16px">Download</h3>
-    <div class="warn">
-      <div class="warn__title">Sensitive</div>
-      <div class="warn__body">Treat downloads and saved local copies as sensitive.</div>
-    </div>
-
-    {% if active %}
-      <form method="post" style="margin-top:10px">
-        {% csrf_token %}
-        <input type="hidden" name="_action" value="download" />
-        {% if passphrase_required %}
+	    {% endif %}
+	
+	    <h3 class="h3 mt-16">Download</h3>
+	    <div class="warn">
+	      <div class="warn__title">Sensitive</div>
+	      <div class="warn__body">Treat downloads and saved local copies as sensitive.</div>
+	    </div>
+	
+	    {% if active %}
+	      <form method="post" class="mt-10">
+	        {% csrf_token %}
+	        <input type="hidden" name="_action" value="download" />
+	        {% if passphrase_required %}
           <p>
             <label for="id_share_passphrase">Passphrase</label>
             <input id="id_share_passphrase" type="password" name="passphrase" autocomplete="off" required />
@@ -57,16 +57,16 @@
         <button class="btn btn--ghost btn--sm" type="submit">
           <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
           Download file
-        </button>
-      </form>
-      {% if passphrase_error %}
-        <div class="warn" style="margin-top:10px">
-          <div class="warn__title">Passphrase required</div>
-          <div class="warn__body">{{ passphrase_error }}</div>
-        </div>
-      {% endif %}
-    {% elif download_attempted %}
-      <div class="muted" style="margin-top:10px">This link is no longer active.</div>
-    {% endif %}
-  </section>
+	        </button>
+	      </form>
+	      {% if passphrase_error %}
+	        <div class="warn mt-10">
+	          <div class="warn__title">Passphrase required</div>
+	          <div class="warn__body">{{ passphrase_error }}</div>
+	        </div>
+	      {% endif %}
+	    {% elif download_attempted %}
+	      <div class="muted mt-10">This link is no longer active.</div>
+	    {% endif %}
+	  </section>
 {% endblock %}

@@ -17,6 +17,8 @@ class WorkflowRule(models.Model):
     KIND_ASSET_MISSING_LOCATION = "asset_missing_location"
     KIND_PASSWORD_MISSING_URL = "password_missing_url"
     KIND_PASSWORD_ROTATION_DUE = "password_rotation_due"
+    KIND_BACKUP_FAILED_RECENT = "backup_failed_recent"
+    KIND_PROXMOX_SYNC_STALE = "proxmox_sync_stale"
 
     KIND_CHOICES = [
         (KIND_DOMAIN_EXPIRY, "Domain expiry"),
@@ -26,6 +28,8 @@ class WorkflowRule(models.Model):
         (KIND_ASSET_MISSING_LOCATION, "Asset missing location"),
         (KIND_PASSWORD_MISSING_URL, "Password missing URL"),
         (KIND_PASSWORD_ROTATION_DUE, "Password rotation due"),
+        (KIND_BACKUP_FAILED_RECENT, "Backup failures"),
+        (KIND_PROXMOX_SYNC_STALE, "Proxmox sync stale"),
     ]
 
     AUDIENCE_ADMINS = "admins"
@@ -147,3 +151,55 @@ class NotificationDeliveryAttempt(models.Model):
 
     def __str__(self) -> str:
         return f"{self.notification}: {self.kind} ok={self.ok}"
+
+
+class WorkflowRuleRun(models.Model):
+    """
+    Historic execution record for workflow rule evaluations.
+
+    This is intentionally "append only" for operational troubleshooting:
+    - When did the rule run?
+    - Did it error?
+    - How many notifications were created?
+    - Was it manual/worker/ops triggered?
+    """
+
+    TRIGGER_WORKER = "worker"
+    TRIGGER_MANUAL = "manual"
+    TRIGGER_OPS = "ops"
+    TRIGGER_CHOICES = [
+        (TRIGGER_WORKER, "Worker"),
+        (TRIGGER_MANUAL, "Manual"),
+        (TRIGGER_OPS, "Ops"),
+    ]
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="workflow_rule_runs")
+    rule = models.ForeignKey(WorkflowRule, on_delete=models.SET_NULL, null=True, blank=True, related_name="runs")
+    triggered_by = models.CharField(max_length=16, choices=TRIGGER_CHOICES, default=TRIGGER_WORKER)
+    triggered_by_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="triggered_workflow_rule_runs",
+    )
+
+    started_at = models.DateTimeField()
+    finished_at = models.DateTimeField()
+    duration_ms = models.IntegerField(default=0)
+    ok = models.BooleanField(default=False)
+    notifications_created = models.IntegerField(default=0)
+    error = models.TextField(blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["organization", "-started_at"], name="idx_wf_rule_run_org_recent"),
+            models.Index(fields=["organization", "rule", "-started_at"], name="idx_wf_rule_run_rule_recent"),
+            models.Index(fields=["organization", "ok", "-started_at"], name="idx_wf_rule_run_ok_recent"),
+        ]
+
+    def __str__(self) -> str:
+        rid = str(self.rule_id) if self.rule_id else "?"
+        return f"{self.organization}: rule={rid} ok={self.ok} at={self.started_at}"

@@ -29,7 +29,7 @@
   <div class="muted">No notes yet.</div>
 {% endif %}
 
-<div style="margin-top:12px">
+<div class="mt-12">
   <form method="post" action="{% url 'ui:notes_add' %}" class="form">
     {% csrf_token %}
     <input type="hidden" name="next" value="{{ request.path }}{% if request.META.QUERY_STRING %}?{{ request.META.QUERY_STRING }}{% endif %}">

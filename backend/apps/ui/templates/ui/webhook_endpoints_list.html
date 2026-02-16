@@ -20,19 +20,19 @@
       </div>
     </div>
 
-    <div class="table">
-      <div class="row row--head" style="grid-template-columns:2fr 2.6fr 1fr 1fr">
-        <div>Name</div><div>URL</div><div>SSL</div><div>Status</div>
-      </div>
-      {% for ep in items %}
-        <div class="row row--click" style="grid-template-columns:2fr 2.6fr 1fr 1fr" data-href="{% url 'ui:webhook_endpoint_detail' endpoint_id=ep.id %}">
-          <div class="titlecell">
-            <a class="row__link" href="{% url 'ui:webhook_endpoint_detail' endpoint_id=ep.id %}">{{ ep.name }}</a>
-          </div>
-          <div class="muted mono" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ ep.url }}</div>
-          <div class="muted">{% if ep.verify_ssl %}verify{% else %}skip{% endif %}</div>
-          <div>{% if ep.enabled %}<span class="pill pill--tiny">On</span>{% else %}<span class="pill pill--tiny pill--ghost">Off</span>{% endif %}</div>
-        </div>
+	    <div class="table">
+	      <div class="row row--head row--webhooks">
+	        <div>Name</div><div>URL</div><div>SSL</div><div>Status</div>
+	      </div>
+	      {% for ep in items %}
+	        <div class="row row--click row--webhooks" data-href="{% url 'ui:webhook_endpoint_detail' endpoint_id=ep.id %}">
+	          <div class="titlecell">
+	            <a class="row__link" href="{% url 'ui:webhook_endpoint_detail' endpoint_id=ep.id %}">{{ ep.name }}</a>
+	          </div>
+	          <div class="muted mono minw-0 truncate">{{ ep.url }}</div>
+	          <div class="muted">{% if ep.verify_ssl %}verify{% else %}skip{% endif %}</div>
+	          <div>{% if ep.enabled %}<span class="pill pill--tiny">On</span>{% else %}<span class="pill pill--tiny pill--ghost">Off</span>{% endif %}</div>
+	        </div>
       {% empty %}
         <div class="empty">
           <div class="empty__title">No webhook endpoints</div>
@@ -42,4 +42,3 @@
     </div>
   </section>
 {% endblock %}
-

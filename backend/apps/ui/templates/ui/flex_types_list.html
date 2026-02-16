@@ -31,9 +31,9 @@
       </a>
     </form>
 
-    <div class="grid" style="margin-top:12px">
-      {% for t in types %}
-        <a class="card" href="{% url 'ui:flex_type_detail' type_id=t.id %}">
+	    <div class="grid mt-12">
+	      {% for t in types %}
+	        <a class="card" href="{% url 'ui:flex_type_detail' type_id=t.id %}">
           <div class="card__title">{{ t.name }}</div>
           <div class="card__meta">{% if t.description %}{{ t.description|truncatechars:110 }}{% else %}<span class="muted">No description.</span>{% endif %}</div>
           <div class="card__meta">
@@ -59,4 +59,3 @@
     </div>
   </section>
 {% endblock %}
-

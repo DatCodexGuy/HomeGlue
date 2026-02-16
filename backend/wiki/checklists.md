@@ -41,11 +41,16 @@ Runs can also be linked to an object (optional).
 
 ## Checklist Schedules (Recurring)
 
-Schedules create runs automatically on a simple cadence:
+Schedules create runs automatically on a recurring cadence:
 
-- “Every N days”
+- Daily: every N days
+- Weekly: every N weeks, on selected weekdays
+- Monthly: every N months, on a specific day-of-month (or last day)
+
+Key fields:
+
 - `next_run_on` controls when the next run will be created
-- Optional due date offset (`due_days`)
+- Optional due date offset (`due_days`) sets the run due date relative to `scheduled_for`
 
 Schedules are processed by the background worker loop.
 

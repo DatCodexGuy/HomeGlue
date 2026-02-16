@@ -16,10 +16,10 @@
       </div>
     </div>
 
-    <div class="mini" style="margin-bottom:12px">
-      <div class="muted">Expected headers:</div>
-      <div class="mono" style="margin-top:6px" data-copy>name,body</div>
-    </div>
+	    <div class="mini mb-12">
+	      <div class="muted">Expected headers:</div>
+	      <div class="mono mt-6" data-copy>name,body</div>
+	    </div>
 
     <form method="post" enctype="multipart/form-data" class="form">
       {% csrf_token %}
@@ -33,25 +33,24 @@
       </button>
     </form>
 
-    {% if created is not None %}
-      <div class="warn" style="margin-top:14px">
-        <div class="warn__title">Import result</div>
-        <div class="warn__body">Created: <strong>{{ created }}</strong>. Updated: <strong>{{ updated }}</strong>.</div>
-      </div>
-    {% endif %}
-
-    {% if errors %}
-      <div class="warn" style="margin-top:12px">
-        <div class="warn__title">Warnings / errors</div>
-        <div class="warn__body">
-          <ul style="margin:8px 0 0; padding-left:18px">
-            {% for e in errors %}
-              <li class="mono">{{ e }}</li>
-            {% endfor %}
-          </ul>
-        </div>
-      </div>
-    {% endif %}
+	    {% if created is not None %}
+	      <div class="warn mt-14">
+	        <div class="warn__title">Import result</div>
+	        <div class="warn__body">Created: <strong>{{ created }}</strong>. Updated: <strong>{{ updated }}</strong>.</div>
+	      </div>
+	    {% endif %}
+	
+	    {% if errors %}
+	      <div class="warn mt-12">
+	        <div class="warn__title">Warnings / errors</div>
+	        <div class="warn__body">
+	          <ul class="u-list">
+	            {% for e in errors %}
+	              <li class="mono">{{ e }}</li>
+	            {% endfor %}
+	          </ul>
+	        </div>
+	      </div>
+	    {% endif %}
   </section>
 {% endblock %}
-

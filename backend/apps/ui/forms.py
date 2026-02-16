@@ -671,10 +671,11 @@ class ChecklistRunForm(OrgBoundModelForm):
 class WorkflowRuleForm(OrgBoundModelForm):
     days = forms.IntegerField(required=False, min_value=1, max_value=3650, help_text="How many days ahead to warn.")
     grace_days = forms.IntegerField(required=False, min_value=0, max_value=3650, help_text="Grace period for overdue items (days).")
+    stale_minutes = forms.IntegerField(required=False, min_value=5, max_value=60 * 24 * 30, help_text="Consider stale if last sync is older than this many minutes.")
 
     class Meta:
         model = WorkflowRule
-        fields = ["name", "enabled", "kind", "audience", "run_interval_minutes", "days", "grace_days"]
+        fields = ["name", "enabled", "kind", "audience", "run_interval_minutes", "days", "grace_days", "stale_minutes"]
 
     def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, org=org, **kwargs)
@@ -692,6 +693,12 @@ class WorkflowRuleForm(OrgBoundModelForm):
                     self.initial["grace_days"] = int(g)
             except Exception:
                 pass
+            try:
+                sm = (self.instance.params or {}).get("stale_minutes")
+                if sm is not None and self.initial.get("stale_minutes") is None:
+                    self.initial["stale_minutes"] = int(sm)
+            except Exception:
+                pass
 
     def clean_name(self):
         return (self.cleaned_data.get("name") or "").strip()
@@ -702,9 +709,13 @@ class WorkflowRuleForm(OrgBoundModelForm):
         kind = getattr(obj, "kind", None) or ""
         days = self.cleaned_data.get("days")
         grace_days = self.cleaned_data.get("grace_days")
+        stale_minutes = self.cleaned_data.get("stale_minutes")
 
         # Only persist params relevant to the selected rule type.
         if kind in [WorkflowRule.KIND_DOMAIN_EXPIRY, WorkflowRule.KIND_SSL_EXPIRY, WorkflowRule.KIND_PASSWORD_ROTATION_DUE]:
+            if days is not None:
+                params["days"] = int(days)
+        elif kind in [WorkflowRule.KIND_BACKUP_FAILED_RECENT]:
             if days is not None:
                 params["days"] = int(days)
         else:
@@ -715,6 +726,12 @@ class WorkflowRuleForm(OrgBoundModelForm):
                 params["grace_days"] = int(grace_days)
         else:
             params.pop("grace_days", None)
+
+        if kind == WorkflowRule.KIND_PROXMOX_SYNC_STALE:
+            if stale_minutes is not None:
+                params["stale_minutes"] = int(stale_minutes)
+        else:
+            params.pop("stale_minutes", None)
 
         obj.params = params
         if commit:
@@ -813,12 +830,47 @@ class SystemEmailSettingsForm(forms.Form):
 
 
 class ChecklistScheduleForm(OrgBoundModelForm):
+    WEEKDAY_CHOICES = [
+        ("0", "Mon"),
+        ("1", "Tue"),
+        ("2", "Wed"),
+        ("3", "Thu"),
+        ("4", "Fri"),
+        ("5", "Sat"),
+        ("6", "Sun"),
+    ]
+
+    repeat_unit = forms.ChoiceField(choices=ChecklistSchedule.REPEAT_CHOICES, required=True, label="Repeat")
+    repeat_interval = forms.IntegerField(required=True, min_value=1, max_value=3650, label="Every")
+    weekly_days = forms.MultipleChoiceField(
+        required=False,
+        choices=WEEKDAY_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        help_text="Pick one or more weekdays.",
+        label="On",
+    )
+    monthly_day = forms.IntegerField(required=False, min_value=1, max_value=31, label="Day of month")
+    monthly_on_last_day = forms.BooleanField(required=False, label="Last day of month")
+
     class Meta:
         model = ChecklistSchedule
-        fields = ["name", "enabled", "checklist", "every_days", "due_days", "assigned_to", "next_run_on"]
+        fields = [
+            "name",
+            "enabled",
+            "checklist",
+            "repeat_unit",
+            "repeat_interval",
+            "weekly_days",
+            "monthly_day",
+            "monthly_on_last_day",
+            "due_days",
+            "assigned_to",
+            "next_run_on",
+        ]
 
     def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, org=org, **kwargs)
+        self._orig_repeat_unit = (getattr(self.instance, "repeat_unit", None) or ChecklistSchedule.REPEAT_DAILY) if self.instance and self.instance.pk else None
         if self.org:
             self.fields["checklist"].queryset = Checklist.objects.filter(organization=self.org, archived_at__isnull=True).order_by("name")
             User = get_user_model()
@@ -826,10 +878,114 @@ class ChecklistScheduleForm(OrgBoundModelForm):
             self.fields["assigned_to"].queryset = User.objects.filter(id__in=member_ids).order_by("username")
             self.fields["assigned_to"].required = False
 
-        self.fields["every_days"].min_value = 1
-        self.fields["every_days"].help_text = "Create a run every N days."
+        # Keep labels/help clear (the unit depends on repeat_unit).
+        self.fields["repeat_unit"].help_text = "Daily, weekly, or monthly."
+        self.fields["repeat_interval"].help_text = "How often to repeat (N days / N weeks / N months)."
         self.fields["due_days"].required = False
         self.fields["due_days"].help_text = "Optional: due date offset in days."
 
+        # Populate checkbox choices from instance bitmask.
+        if self.instance and getattr(self.instance, "pk", None):
+            unit = (getattr(self.instance, "repeat_unit", None) or ChecklistSchedule.REPEAT_DAILY).lower()
+            self.initial["repeat_unit"] = unit
+            self.initial["repeat_interval"] = int(getattr(self.instance, "repeat_interval", None) or getattr(self.instance, "every_days", None) or 7)
+
+            mask = int(getattr(self.instance, "weekly_days", None) or 0)
+            if unit == ChecklistSchedule.REPEAT_WEEKLY and mask <= 0 and self.instance.next_run_on:
+                mask = 1 << int(self.instance.next_run_on.weekday())
+            self.initial["weekly_days"] = [str(i) for i in range(0, 7) if mask & (1 << i)]
+
+            self.initial["monthly_day"] = getattr(self.instance, "monthly_day", None)
+            self.initial["monthly_on_last_day"] = bool(getattr(self.instance, "monthly_on_last_day", False))
+        else:
+            # Reasonable defaults for new schedules.
+            if self.initial.get("repeat_unit") is None:
+                self.initial["repeat_unit"] = ChecklistSchedule.REPEAT_DAILY
+            if self.initial.get("repeat_interval") is None:
+                self.initial["repeat_interval"] = 7
+
     def clean_name(self):
         return (self.cleaned_data.get("name") or "").strip()
+
+    @staticmethod
+    def _mask_from_weekdays(vals: list[str]) -> int:
+        mask = 0
+        for v in vals or []:
+            if str(v).isdigit():
+                i = int(v)
+                if 0 <= i <= 6:
+                    mask |= 1 << i
+        return int(mask)
+
+    def clean(self):
+        cleaned = super().clean()
+        unit = (cleaned.get("repeat_unit") or ChecklistSchedule.REPEAT_DAILY).lower()
+        interval = int(cleaned.get("repeat_interval") or 1)
+        interval = max(1, min(3650, interval))
+        cleaned["repeat_interval"] = interval
+
+        next_run_on = cleaned.get("next_run_on")
+
+        if unit == ChecklistSchedule.REPEAT_WEEKLY:
+            days = cleaned.get("weekly_days") or []
+            if not days:
+                raise forms.ValidationError("Weekly schedules require at least one weekday.")
+            if next_run_on:
+                mask = self._mask_from_weekdays(days)
+                if not (mask & (1 << int(next_run_on.weekday()))):
+                    raise forms.ValidationError("Next run date must match one of the selected weekdays.")
+
+        if unit == ChecklistSchedule.REPEAT_MONTHLY:
+            last_day = bool(cleaned.get("monthly_on_last_day"))
+            day = cleaned.get("monthly_day")
+            if not last_day and not day:
+                raise forms.ValidationError("Monthly schedules require a day-of-month (or choose 'Last day of month').")
+
+            if next_run_on:
+                import calendar
+
+                last = int(calendar.monthrange(int(next_run_on.year), int(next_run_on.month))[1])
+                if last_day:
+                    if int(next_run_on.day) != int(last):
+                        raise forms.ValidationError("Next run date must be the last day of that month.")
+                else:
+                    want = max(1, min(31, int(day or 1)))
+                    want = min(want, last)
+                    if int(next_run_on.day) != int(want):
+                        raise forms.ValidationError("Next run date must match the configured day-of-month for that month.")
+
+        return cleaned
+
+    def save(self, commit=True):
+        obj: ChecklistSchedule = super().save(commit=False)
+
+        unit = (self.cleaned_data.get("repeat_unit") or ChecklistSchedule.REPEAT_DAILY).lower()
+        obj.repeat_unit = unit
+        obj.repeat_interval = int(self.cleaned_data.get("repeat_interval") or 1)
+
+        if unit == ChecklistSchedule.REPEAT_WEEKLY:
+            obj.weekly_days = self._mask_from_weekdays(self.cleaned_data.get("weekly_days") or [])
+        else:
+            obj.weekly_days = int(obj.weekly_days or 0)
+
+        if unit == ChecklistSchedule.REPEAT_MONTHLY:
+            obj.monthly_on_last_day = bool(self.cleaned_data.get("monthly_on_last_day"))
+            obj.monthly_day = int(self.cleaned_data.get("monthly_day") or 1) if not obj.monthly_on_last_day else None
+        else:
+            obj.monthly_on_last_day = False
+            obj.monthly_day = None
+
+        # Reset the anchor when changing recurrence type, so intervals align to the chosen next date.
+        if obj.next_run_on and (self._orig_repeat_unit is not None) and (str(self._orig_repeat_unit).lower() != unit):
+            obj.anchor_on = obj.next_run_on
+        if obj.anchor_on is None and obj.next_run_on:
+            obj.anchor_on = obj.next_run_on
+
+        # Keep legacy daily field aligned.
+        if unit == ChecklistSchedule.REPEAT_DAILY:
+            obj.every_days = int(obj.repeat_interval or 1)
+
+        if commit:
+            obj.save()
+            self.save_m2m()
+        return obj

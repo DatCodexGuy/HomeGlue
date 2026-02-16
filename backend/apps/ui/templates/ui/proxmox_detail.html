@@ -37,16 +37,16 @@
       <div class="warn">
         <div class="warn__title">Last sync</div>
         <div class="warn__body">
-          <span class="mono">{{ conn.last_sync_at|date:"Y-m-d H:i" }}</span>
-          {% if conn.last_sync_ok %}
-            <span class="pill pill--tiny pill--ok">OK</span>
-          {% else %}
-            <span class="pill pill--tiny pill--danger">FAILED</span>
-            {% if conn.last_sync_error %}<div class="muted" style="margin-top:6px">{{ conn.last_sync_error }}</div>{% endif %}
-          {% endif %}
-        </div>
-      </div>
-    {% endif %}
+	          <span class="mono">{{ conn.last_sync_at|date:"Y-m-d H:i" }}</span>
+	          {% if conn.last_sync_ok %}
+	            <span class="pill pill--tiny pill--ok">OK</span>
+	          {% else %}
+	            <span class="pill pill--tiny pill--danger">FAILED</span>
+	            {% if conn.last_sync_error %}<div class="muted mt-6">{{ conn.last_sync_error }}</div>{% endif %}
+	          {% endif %}
+	        </div>
+	      </div>
+	    {% endif %}
 
     <div class="split">
       <div class="split__main">
@@ -98,9 +98,9 @@
           {% endif %}
         </div>
 
-        <h3 class="h3" style="margin-top:16px">Guests (VMs/CTs)</h3>
-        <div class="mini">
-          {% for g in guests|slice:":30" %}
+	        <h3 class="h3 mt-16">Guests (VMs/CTs)</h3>
+	        <div class="mini">
+	          {% for g in guests|slice:":30" %}
             <div class="mini__row">
               <div class="mini__top">
                 <span class="mono">{{ g.guest_type }} {{ g.vmid }}</span>
@@ -129,11 +129,11 @@
           {% if guests|length %}
             <div class="mini__row"><a class="link" href="{{ guests_url }}">Open guests list</a></div>
           {% endif %}
-        </div>
+	        </div>
 
-        <h3 class="h3" style="margin-top:16px">Networks</h3>
-        <div class="mini">
-          {% for n in networks|slice:":25" %}
+	        <h3 class="h3 mt-16">Networks</h3>
+	        <div class="mini">
+	          {% for n in networks|slice:":25" %}
             <div class="mini__row">
               <div class="mini__top">
                 <span class="mono">{{ n.node }} {{ n.iface }}</span>
@@ -144,11 +144,11 @@
           {% empty %}
             <div class="mini__row"><span class="muted">No networks yet. Run a sync.</span></div>
           {% endfor %}
-        </div>
+	        </div>
 
-        <h3 class="h3" style="margin-top:16px">Storages</h3>
-        <div class="mini">
-          {% for s in storages|slice:":25" %}
+	        <h3 class="h3 mt-16">Storages</h3>
+	        <div class="mini">
+	          {% for s in storages|slice:":25" %}
             <div class="mini__row">
               <div class="mini__top">
                 <span class="mono">{{ s.node }} {{ s.storage }}</span>
@@ -159,11 +159,11 @@
           {% empty %}
             <div class="mini__row"><span class="muted">No storages yet. Run a sync.</span></div>
           {% endfor %}
-        </div>
+	        </div>
 
-        <h3 class="h3" style="margin-top:16px">Pools</h3>
-        <div class="mini">
-          {% for p in pools %}
+	        <h3 class="h3 mt-16">Pools</h3>
+	        <div class="mini">
+	          {% for p in pools %}
             <div class="mini__row">
               <div class="mini__top">
                 <span class="mono">{{ p.poolid }}</span>
@@ -173,11 +173,11 @@
           {% empty %}
             <div class="mini__row"><span class="muted">No pools found (or API not available).</span></div>
           {% endfor %}
-        </div>
+	        </div>
 
-        <h3 class="h3" style="margin-top:16px">SDN VNets</h3>
-        <div class="mini">
-          {% for v in vnets %}
+	        <h3 class="h3 mt-16">SDN VNets</h3>
+	        <div class="mini">
+	          {% for v in vnets %}
             <div class="mini__row">
               <div class="mini__top">
                 <span class="mono">{{ v.vnet }}</span>

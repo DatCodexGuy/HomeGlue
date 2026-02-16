@@ -17,21 +17,21 @@
       </div>
     </div>
 
-    <div class="grid" style="margin-top:12px">
-      <div class="card">
-        <div class="card__title">Totals</div>
+	    <div class="grid mt-12">
+	      <div class="card">
+	        <div class="card__title">Totals</div>
         <div class="card__meta">
           <span class="pill pill--tiny">Guests: {{ counts.guests }}</span>
           <span class="pill pill--tiny pill--ok">Running: {{ counts.running }}</span>
           <span class="pill pill--tiny pill--warn">Stopped: {{ counts.stopped }}</span>
         </div>
-      </div>
-    </div>
-
-    <form method="get" class="form form--grid" style="margin-top:14px">
-      <p>
-        <label>Search</label>
-        <input name="q" value="{{ q }}" placeholder="name, node, vmid" />
+	      </div>
+	    </div>
+	
+	    <form method="get" class="form form--grid mt-14">
+	      <p>
+	        <label>Search</label>
+	        <input name="q" value="{{ q }}" placeholder="name, node, vmid" />
       </p>
       <p>
         <label>Status</label>
@@ -72,20 +72,20 @@
         <select name="has_ip">
           <option value="">Any</option>
           <option value="1" {% if has_ip %}selected{% endif %}>Yes</option>
-        </select>
-      </p>
-      <p style="display:flex; gap:10px; align-items:end">
-        <button class="btn btn--sm" type="submit">
-          <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
-          Filter
-        </button>
-        <a class="btn btn--ghost btn--sm" href="{% url 'ui:proxmox_guests' conn_id=conn.id %}">Clear</a>
-      </p>
-    </form>
-
-    <div class="tablewrap" style="margin-top:14px">
-      <table class="table">
-        <thead>
+	        </select>
+	      </p>
+	      <p class="flex gap-10 items-end">
+	        <button class="btn btn--sm" type="submit">
+	          <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+	          Filter
+	        </button>
+	        <a class="btn btn--ghost btn--sm" href="{% url 'ui:proxmox_guests' conn_id=conn.id %}">Clear</a>
+	      </p>
+	    </form>
+	
+	    <div class="tablewrap mt-14">
+	      <table class="table">
+	        <thead>
           <tr>
             <th>Guest</th>
             <th>Node</th>
@@ -124,13 +124,13 @@
             <tr><td colspan="7" class="muted">No guests match your filters.</td></tr>
           {% endfor %}
         </tbody>
-      </table>
-    </div>
-
-    <div class="muted" style="margin-top:10px">
-      Showing page {{ page.page }}. Total {{ page.total }}.
-      {% if page.has_prev %}
-        <a class="link" href="?q={{ q|urlencode }}&status={{ status|urlencode }}&type={{ type|urlencode }}&node={{ node|urlencode }}&pool={{ pool|urlencode }}&has_ip={{ has_ip|urlencode }}&page={{ page.page|add:"-1" }}">Prev</a>
+	      </table>
+	    </div>
+	
+	    <div class="muted mt-10">
+	      Showing page {{ page.page }}. Total {{ page.total }}.
+	      {% if page.has_prev %}
+	        <a class="link" href="?q={{ q|urlencode }}&status={{ status|urlencode }}&type={{ type|urlencode }}&node={{ node|urlencode }}&pool={{ pool|urlencode }}&has_ip={{ has_ip|urlencode }}&page={{ page.page|add:"-1" }}">Prev</a>
       {% endif %}
       {% if page.has_next %}
         <a class="link" href="?q={{ q|urlencode }}&status={{ status|urlencode }}&type={{ type|urlencode }}&node={{ node|urlencode }}&pool={{ pool|urlencode }}&has_ip={{ has_ip|urlencode }}&page={{ page.page|add:"1" }}">Next</a>

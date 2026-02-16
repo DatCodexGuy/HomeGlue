@@ -48,9 +48,9 @@
           </button>
         </form>
 
-        <div style="margin-top:18px">
-          <h3 class="h3">Docs</h3>
-          <div class="mini">
+	        <div class="mt-18">
+	          <h3 class="h3">Docs</h3>
+	          <div class="mini">
             {% for d in documents %}
               <div class="mini__row">
                 <a class="link mono" href="{% url 'ui:document_detail' document_id=d.id %}">{{ d.title }}</a>
@@ -58,15 +58,15 @@
               </div>
             {% empty %}
               <div class="muted">No visible docs in this folder.</div>
-            {% endfor %}
-          </div>
-          <div style="margin-top:10px">
-            <a class="btn btn--sm" href="{% url 'ui:documents_new' %}?folder={{ folder.id }}">
-              <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
-              New doc in folder
-            </a>
-          </div>
-        </div>
+	            {% endfor %}
+	          </div>
+	          <div class="mt-10">
+	            <a class="btn btn--sm" href="{% url 'ui:documents_new' %}?folder={{ folder.id }}">
+	              <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+	              New doc in folder
+	            </a>
+	          </div>
+	        </div>
       </div>
 
       <div class="split__side">

@@ -62,4 +62,16 @@ class Command(BaseCommand):
                 name="Password rotations due (7d)",
                 defaults={"params": {"days": 7}, "audience": WorkflowRule.AUDIENCE_ADMINS, "run_interval_minutes": 240, "enabled": False},
             )
+            WorkflowRule.objects.get_or_create(
+                organization=org,
+                kind=WorkflowRule.KIND_BACKUP_FAILED_RECENT,
+                name="Backup failures (7d)",
+                defaults={"params": {"days": 7}, "audience": WorkflowRule.AUDIENCE_ADMINS, "run_interval_minutes": 60, "enabled": False},
+            )
+            WorkflowRule.objects.get_or_create(
+                organization=org,
+                kind=WorkflowRule.KIND_PROXMOX_SYNC_STALE,
+                name="Proxmox sync stale (120m)",
+                defaults={"params": {"stale_minutes": 120}, "audience": WorkflowRule.AUDIENCE_ADMINS, "run_interval_minutes": 60, "enabled": False},
+            )
             self.stdout.write(self.style.SUCCESS(f"Seeded rules for org={org.id} {org.name}"))

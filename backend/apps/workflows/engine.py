@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from time import monotonic
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -14,8 +15,10 @@ from apps.assets.models import Asset
 from apps.checklists.models import ChecklistRun
 from apps.netapp.models import Domain, SSLCertificate
 from apps.secretsapp.models import PasswordEntry
+from apps.backups.models import BackupSnapshot
+from apps.integrations.models import ProxmoxConnection
 
-from .models import Notification, WorkflowRule
+from .models import Notification, WorkflowRule, WorkflowRuleRun
 
 
 def _days_param(rule: WorkflowRule, default_days: int) -> int:
@@ -45,6 +48,59 @@ def _audience_user_ids(rule: WorkflowRule) -> list[int]:
     if rule.audience == WorkflowRule.AUDIENCE_ADMINS:
         qs = qs.filter(role__in=[OrganizationMembership.ROLE_OWNER, OrganizationMembership.ROLE_ADMIN])
     return list(qs.values_list("user_id", flat=True))
+
+
+def _admin_user_ids_for_org(org) -> set[int]:
+    qs = OrganizationMembership.objects.filter(
+        organization=org,
+        role__in=[OrganizationMembership.ROLE_OWNER, OrganizationMembership.ROLE_ADMIN],
+    )
+    return {int(x) for x in qs.values_list("user_id", flat=True)}
+
+
+def _visible_users_for_password(
+    *,
+    p: PasswordEntry,
+    audience_user_ids: list[int],
+    admin_user_ids: set[int],
+) -> list[int]:
+    """
+    Limit password-related notifications to users who can actually view the PasswordEntry.
+    This prevents workflow notifications from leaking password existence/metadata.
+    """
+
+    base = {int(x) for x in (audience_user_ids or [])}
+    if not base:
+        return []
+
+    vis = (p.visibility or PasswordEntry.VIS_ADMINS).strip().lower()
+    creator_id = int(p.created_by_id) if getattr(p, "created_by_id", None) else None
+
+    allowed: set[int]
+    if vis == PasswordEntry.VIS_ORG:
+        allowed = set(base)
+    elif vis == PasswordEntry.VIS_ADMINS:
+        allowed = set(admin_user_ids)
+        if creator_id:
+            allowed.add(int(creator_id))
+    elif vis == PasswordEntry.VIS_PRIVATE:
+        allowed = set(admin_user_ids)
+        if creator_id:
+            allowed.add(int(creator_id))
+    elif vis == PasswordEntry.VIS_SHARED:
+        allowed = set(admin_user_ids)
+        if creator_id:
+            allowed.add(int(creator_id))
+        try:
+            allowed |= {int(x) for x in p.allowed_users.values_list("id", flat=True)}
+        except Exception:
+            pass
+    else:
+        allowed = set(admin_user_ids)
+        if creator_id:
+            allowed.add(int(creator_id))
+
+    return sorted(set(base) & allowed)
 
 
 def _create_notification_for_users(
@@ -86,18 +142,16 @@ class RuleRunResult:
 
 
 @transaction.atomic
-def run_rule(rule: WorkflowRule) -> RuleRunResult:
+def _run_rule_eval(rule: WorkflowRule) -> int:
     """
-    Evaluate a single rule and create notifications (deduped per user).
+    Evaluate a single enabled rule and create notifications (deduped per user).
+    Returns number of notifications created.
     """
-
-    if not rule.enabled:
-        return RuleRunResult(ok=False, error="disabled")
 
     today = date.today()
     users = _audience_user_ids(rule)
     if not users:
-        return RuleRunResult(ok=True, notifications_created=0)
+        return 0
 
     created = 0
 
@@ -238,8 +292,15 @@ def run_rule(rule: WorkflowRule) -> RuleRunResult:
             )
 
     elif rule.kind == WorkflowRule.KIND_PASSWORD_MISSING_URL:
-        qs = PasswordEntry.objects.filter(organization=rule.organization, archived_at__isnull=True).filter(Q(url__isnull=True) | Q(url="")).order_by("name")[:500]
+        qs = (
+            PasswordEntry.objects.filter(organization=rule.organization, archived_at__isnull=True)
+            .filter(Q(url__isnull=True) | Q(url=""))
+            .select_related("created_by")
+            .prefetch_related("allowed_users")
+            .order_by("name")[:500]
+        )
         ct = ContentType.objects.get_for_model(PasswordEntry)
+        admin_ids = _admin_user_ids_for_org(rule.organization)
         for p in qs:
             upd = None
             try:
@@ -249,9 +310,12 @@ def run_rule(rule: WorkflowRule) -> RuleRunResult:
             dedupe = f"rule:{rule.id}:password:{p.id}:missing_url:created:{upd}"
             title = f"Missing URL: {p.name}"
             body = "Password entry has no URL set."
+            target_users = _visible_users_for_password(p=p, audience_user_ids=users, admin_user_ids=admin_ids)
+            if not target_users:
+                continue
             created += _create_notification_for_users(
                 rule=rule,
-                user_ids=users,
+                user_ids=target_users,
                 dedupe_key=dedupe,
                 level=Notification.LEVEL_WARN,
                 title=title,
@@ -265,9 +329,12 @@ def run_rule(rule: WorkflowRule) -> RuleRunResult:
         cutoff = today + timedelta(days=days)
         qs = (
             PasswordEntry.objects.filter(organization=rule.organization, archived_at__isnull=True, rotation_interval_days__gt=0)
+            .select_related("created_by")
+            .prefetch_related("allowed_users")
             .order_by("id")[:2000]
         )
         ct = ContentType.objects.get_for_model(PasswordEntry)
+        admin_ids = _admin_user_ids_for_org(rule.organization)
         for p in qs:
             due = None
             try:
@@ -282,9 +349,12 @@ def run_rule(rule: WorkflowRule) -> RuleRunResult:
             title = f"Password rotation due: {p.name}"
             body = f"Rotation due on {due.isoformat()} (<= {days} days)."
             level = Notification.LEVEL_WARN if due > today else Notification.LEVEL_DANGER
+            target_users = _visible_users_for_password(p=p, audience_user_ids=users, admin_user_ids=admin_ids)
+            if not target_users:
+                continue
             created += _create_notification_for_users(
                 rule=rule,
-                user_ids=users,
+                user_ids=target_users,
                 dedupe_key=dedupe,
                 level=level,
                 title=title,
@@ -293,14 +363,125 @@ def run_rule(rule: WorkflowRule) -> RuleRunResult:
                 object_id=str(p.id),
             )
 
-    else:
-        return RuleRunResult(ok=False, error=f"unknown kind: {rule.kind}")
+    elif rule.kind == WorkflowRule.KIND_BACKUP_FAILED_RECENT:
+        days = _days_param(rule, 7)
+        since = timezone.now() - timezone.timedelta(days=int(days))
+        qs = BackupSnapshot.objects.filter(
+            organization=rule.organization,
+            status=BackupSnapshot.STATUS_FAILED,
+            created_at__gte=since,
+        ).order_by("-created_at")[:200]
+        ct = ContentType.objects.get_for_model(BackupSnapshot)
+        for b in qs:
+            when = b.created_at.date().isoformat() if b.created_at else "na"
+            dedupe = f"rule:{rule.id}:backup:{b.id}:failed:{when}"
+            title = "Backup failed"
+            body = f"Snapshot {b.id} failed on {when}."
+            if b.error:
+                body = body + f"\n\nError: {str(b.error)[:800]}"
+            created += _create_notification_for_users(
+                rule=rule,
+                user_ids=users,
+                dedupe_key=dedupe,
+                level=Notification.LEVEL_DANGER,
+                title=title,
+                body=body,
+                ct=ct,
+                object_id=str(b.id),
+            )
 
-    rule.last_run_at = timezone.now()
-    rule.last_run_ok = True
-    rule.last_run_error = ""
-    rule.save(update_fields=["last_run_at", "last_run_ok", "last_run_error", "updated_at"])
-    return RuleRunResult(ok=True, notifications_created=created)
+    elif rule.kind == WorkflowRule.KIND_PROXMOX_SYNC_STALE:
+        stale_minutes = _int_param(rule, "stale_minutes", 120, min_value=5, max_value=60 * 24 * 30)
+        cutoff = timezone.now() - timezone.timedelta(minutes=int(stale_minutes))
+        qs = (
+            ProxmoxConnection.objects.filter(organization=rule.organization, enabled=True, sync_interval_minutes__gt=0)
+            .order_by("name", "id")[:50]
+        )
+        ct = ContentType.objects.get_for_model(ProxmoxConnection)
+        for c in qs:
+            last = getattr(c, "last_sync_at", None)
+            stale = (last is None) or (last <= cutoff)
+            if not stale:
+                continue
+            label = c.name or "Proxmox"
+            last_s = last.isoformat() if last else "never"
+            ok = bool(getattr(c, "last_sync_ok", False))
+            err = (getattr(c, "last_sync_error", "") or "").strip()
+            # Dedupe by the last sync timestamp; a new sync attempt updates last_sync_at.
+            dedupe = f"rule:{rule.id}:proxmox:{c.id}:last:{last_s}:ok:{int(ok)}"
+            title = f"Proxmox sync stale: {label}"
+            body = f"Last sync: {last_s} (stale > {int(stale_minutes)} minutes)."
+            if err:
+                body = body + f"\n\nLast error: {err[:800]}"
+            created += _create_notification_for_users(
+                rule=rule,
+                user_ids=users,
+                dedupe_key=dedupe,
+                level=Notification.LEVEL_WARN if last else Notification.LEVEL_DANGER,
+                title=title,
+                body=body,
+                ct=ct,
+                object_id=str(c.id),
+            )
+
+    else:
+        raise ValueError(f"unknown kind: {rule.kind}")
+
+    return int(created)
+
+
+def run_rule(rule: WorkflowRule, *, triggered_by: str = WorkflowRuleRun.TRIGGER_WORKER, triggered_by_user=None) -> RuleRunResult:
+    """
+    Evaluate a single rule and record an execution record (WorkflowRuleRun).
+
+    This is best-effort: rule runs should never crash the worker loop.
+    """
+
+    started_at = timezone.now()
+    t0 = monotonic()
+    ok = False
+    created = 0
+    err = ""
+
+    try:
+        if not rule.enabled:
+            err = "disabled"
+            return RuleRunResult(ok=False, error=err)
+        created = _run_rule_eval(rule)
+        ok = True
+        return RuleRunResult(ok=True, notifications_created=int(created or 0))
+    except Exception as e:
+        ok = False
+        err = str(e)[:2000]
+        return RuleRunResult(ok=False, notifications_created=int(created or 0), error=err)
+    finally:
+        finished_at = timezone.now()
+        dur_ms = int(max(0.0, (monotonic() - t0) * 1000.0))
+
+        try:
+            WorkflowRuleRun.objects.create(
+                organization=rule.organization,
+                rule=rule,
+                triggered_by=str(triggered_by or WorkflowRuleRun.TRIGGER_WORKER)[:16],
+                triggered_by_user=triggered_by_user if (triggered_by_user and getattr(triggered_by_user, "is_authenticated", False)) else None,
+                started_at=started_at,
+                finished_at=finished_at,
+                duration_ms=dur_ms,
+                ok=bool(ok),
+                notifications_created=int(created or 0),
+                error=(err or "")[:4000],
+            )
+        except Exception:
+            pass
+
+        # Update last-run status (best-effort). This is separate from the run record.
+        try:
+            rule.last_run_at = finished_at
+            rule.last_run_ok = bool(ok)
+            rule.last_run_error = "" if ok else (err or "")[:4000]
+            rule.save(update_fields=["last_run_at", "last_run_ok", "last_run_error", "updated_at"])
+        except Exception:
+            pass
 
 
 def run_due_rules(*, org_id: int | None = None) -> int:
@@ -326,12 +507,6 @@ def run_due_rules(*, org_id: int | None = None) -> int:
 
     created = 0
     for r in due:
-        try:
-            res = run_rule(r)
-            created += int(res.notifications_created or 0)
-        except Exception as e:
-            r.last_run_at = timezone.now()
-            r.last_run_ok = False
-            r.last_run_error = str(e)
-            r.save(update_fields=["last_run_at", "last_run_ok", "last_run_error", "updated_at"])
+        res = run_rule(r, triggered_by=WorkflowRuleRun.TRIGGER_WORKER)
+        created += int(res.notifications_created or 0)
     return created

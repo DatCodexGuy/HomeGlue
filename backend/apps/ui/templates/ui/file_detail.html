@@ -46,12 +46,12 @@
       </div>
     </div>
 
-    <div style="margin-top:18px">
+    <div class="mt-18">
       <h3 class="h3">Filing</h3>
-      <form method="post" class="form" style="max-width:860px">
+      <form method="post" class="form maxw-860">
         {% csrf_token %}
         <input type="hidden" name="_action" value="save_meta" />
-        <div class="grid" style="grid-template-columns: 1fr 1.2fr; gap:12px">
+        <div class="grid grid--file-meta">
           <div>
             <label for="id_folder">Folder</label>
             <select id="id_folder" name="folder_id">
@@ -74,7 +74,7 @@
             </select>
           </div>
         </div>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px">
+        <div class="flex gap-8 items-center flex-wrap mt-10">
           <button class="btn btn--sm" type="submit">
             <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
             Save
@@ -85,7 +85,7 @@
     </div>
 
     {% if can_admin %}
-      <div style="margin-top:18px">
+      <div class="mt-18">
         <h3 class="h3">SafeShare</h3>
         <div class="warn">
           <div class="warn__title">Public link</div>
@@ -93,31 +93,31 @@
         </div>
 
         {% if share_new_url %}
-          <div class="secretbox" style="margin-top:10px">
+          <div class="secretbox mt-10">
             <div class="secretbox__label">New share link (copy now)</div>
-            <div class="secretbox__value mono" data-copy style="word-break:break-all">{{ share_new_url }}</div>
+            <div class="secretbox__value mono breakall" data-copy>{{ share_new_url }}</div>
             <div class="muted">This is only shown once.</div>
           </div>
         {% endif %}
 
         {% if not is_reauthed %}
-          <div class="mini" style="margin-top:10px">
+          <div class="mini mt-10">
             <div class="muted">Re-authentication required before creating or revoking share links.</div>
-            <a class="btn btn--ghost btn--sm" href="{{ reauth_url }}" style="margin-top:8px">
+            <a class="btn btn--ghost btn--sm mt-8" href="{{ reauth_url }}">
               <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
               Re-authenticate
             </a>
           </div>
         {% endif %}
 
-        <form method="post" class="form" style="margin-top:10px; max-width:860px">
+        <form method="post" class="form maxw-860 mt-10">
           {% csrf_token %}
           <input type="hidden" name="_action" value="share_create" />
           <p>
             <label for="id_share_label">Label (optional)</label>
             <input id="id_share_label" type="text" name="label" placeholder="e.g. Vendor transfer" />
           </p>
-          <div class="grid" style="grid-template-columns: 1fr 1fr; gap:10px">
+          <div class="grid grid--file-share-2">
             <div>
               <label for="id_share_expires">Expires</label>
               <select id="id_share_expires" name="expires_in_hours">
@@ -135,7 +135,7 @@
               </select>
             </div>
           </div>
-          <div class="grid" style="grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px">
+          <div class="grid grid--file-share-2mt">
             <div>
               <label for="id_share_passphrase">Passphrase (optional)</label>
               <input id="id_share_passphrase" type="password" name="passphrase" autocomplete="new-password" placeholder="Require passphrase to download" />
@@ -145,14 +145,14 @@
               <input id="id_share_max_downloads" type="number" min="1" step="1" name="max_downloads" placeholder="Unlimited if empty" />
             </div>
           </div>
-          <button class="btn btn--ghost btn--sm" type="submit" style="margin-top:10px">
+          <button class="btn btn--ghost btn--sm mt-10" type="submit">
             <svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>
             Create share link
           </button>
         </form>
 
         {% if share_links %}
-          <div style="display:flex; justify-content:flex-end; margin-top:10px">
+          <div class="flex justify-end mt-10">
             <form method="post">
               {% csrf_token %}
               <input type="hidden" name="_action" value="share_revoke_all" />
@@ -162,12 +162,12 @@
               </button>
             </form>
           </div>
-          <div class="table" style="margin-top:12px">
-            <div class="row row--head" style="grid-template-columns: 1.1fr 0.7fr 0.7fr 0.8fr 0.7fr">
+          <div class="table mt-12">
+            <div class="row row--head row--file-shares">
               <div>Link</div><div>Expires</div><div>Status</div><div>Last used</div><div></div>
             </div>
             {% for s in share_links %}
-              <div class="row" style="grid-template-columns: 1.1fr 0.7fr 0.7fr 0.8fr 0.7fr">
+              <div class="row row--file-shares">
                 <div class="mono">
                   {{ s.label|default:"(no label)" }}
                   <div class="sub">
@@ -185,7 +185,7 @@
                 <div class="muted mono">
                   {% if s.last_viewed_at %}{{ s.last_viewed_at|date:"Y-m-d H:i" }}{% else %}...{% endif %}
                 </div>
-                <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap">
+                <div class="flex justify-end gap-8 flex-wrap">
                   {% if s.is_active %}
                     <form method="post">
                       {% csrf_token %}
@@ -212,16 +212,16 @@
             {% endfor %}
           </div>
         {% else %}
-          <div class="muted" style="margin-top:10px">No share links yet.</div>
+          <div class="muted mt-10">No share links yet.</div>
         {% endif %}
       </div>
     {% endif %}
 
-    <div style="margin-top:18px">
+    <div class="mt-18">
       <h3 class="h3">Versions</h3>
 
       {% if can_admin %}
-        <div class="mini" style="margin-bottom:12px">
+        <div class="mini mb-12">
           <div class="mini__row">
             <div class="mini__top">
               <span class="pill pill--tiny">Upload</span>
@@ -229,19 +229,19 @@
             </div>
             <div class="mini__body">
               {% if is_reauthed %}
-                <form method="post" enctype="multipart/form-data" class="form" style="max-width:860px">
+                <form method="post" enctype="multipart/form-data" class="form maxw-860">
                   {% csrf_token %}
                   <input type="hidden" name="_action" value="upload_version" />
-                  <div class="grid" style="grid-template-columns:1.4fr 1fr; gap:12px">
+                  <div class="grid grid--file-version-upload">
                     <div>
                       <label for="id_new_version">New file</label>
                       <input id="id_new_version" type="file" name="file" required />
                     </div>
-                    <div class="sub" style="align-self:end">
+                    <div class="sub self-end">
                       This will keep the current file as a historic version.
                     </div>
                   </div>
-                  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px">
+                  <div class="flex gap-8 items-center flex-wrap mt-10">
                     <button class="btn btn--sm" type="submit">
                       <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
                       Upload new version
@@ -260,18 +260,18 @@
       {% endif %}
 
       <div class="table">
-        <div class="row row--head" style="grid-template-columns:1.6fr 1fr 1fr 0.9fr">
+        <div class="row row--head row--file-versions">
           <div>Filename</div><div>Created</div><div>By</div><div></div>
         </div>
         {% for v in versions %}
-          <div class="row" style="grid-template-columns:1.6fr 1fr 1fr 0.9fr">
+          <div class="row row--file-versions">
             <div class="mono">
               {{ v.filename|default:"(file)" }}
-              {% if v.bytes %}<div class="muted mono" style="margin-top:6px">{{ v.bytes }} bytes</div>{% endif %}
+              {% if v.bytes %}<div class="muted mono mt-6">{{ v.bytes }} bytes</div>{% endif %}
             </div>
             <div class="muted mono">{{ v.created_at|date:"Y-m-d H:i" }}</div>
             <div class="muted mono">{% if v.uploaded_by %}{{ v.uploaded_by.username }}{% else %}...{% endif %}</div>
-            <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap">
+            <div class="flex justify-end gap-8 flex-wrap">
               <a class="btn btn--ghost btn--sm" href="{% url 'ui:file_version_download' attachment_id=a.id version_id=v.id %}">
                 <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
                 Download
@@ -300,30 +300,30 @@
       </div>
 
       {% if can_admin and not is_reauthed and versions %}
-        <div class="sub" style="margin-top:10px">
+        <div class="sub mt-10">
           Restore is disabled until you <a class="link" href="{{ reauth_url }}">re-auth</a>.
         </div>
       {% endif %}
     </div>
 
-    <div style="margin-top:18px">
+    <div class="mt-18">
       <h3 class="h3">Preview</h3>
       {% if preview_kind == "image" %}
         <div class="mini">
           <div class="mini__row">
-            <img src="{{ inline_url }}" alt="{{ filename }}" style="max-width:100%; height:auto; border-radius:16px; border:1px solid var(--line)" />
+            <img class="preview-img" src="{{ inline_url }}" alt="{{ filename }}" />
           </div>
         </div>
       {% elif preview_kind == "pdf" %}
         <div class="mini">
           <div class="mini__row">
-            <iframe src="{{ inline_url }}" title="{{ filename }}" style="width:100%; height:70vh; border:1px solid var(--line); border-radius:16px; background: var(--paper)"></iframe>
+            <iframe class="preview-frame" src="{{ inline_url }}" title="{{ filename }}"></iframe>
           </div>
         </div>
       {% elif preview_kind == "text" %}
         <div class="mini">
           <div class="mini__row">
-            <pre class="mono" style="white-space:pre-wrap; margin:0">{% if preview_text %}{{ preview_text }}{% else %}(preview unavailable){% endif %}</pre>
+            <pre class="mono prewrap m0">{% if preview_text %}{{ preview_text }}{% else %}(preview unavailable){% endif %}</pre>
           </div>
         </div>
       {% else %}
@@ -331,7 +331,7 @@
       {% endif %}
     </div>
 
-    <div style="margin-top:18px">
+    <div class="mt-18">
       <h3 class="h3">Activity</h3>
       {% include "ui/_activity.html" with activity=activity %}
     </div>

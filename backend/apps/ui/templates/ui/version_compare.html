@@ -38,22 +38,22 @@
           {% if v_old.summary %}<div class="muted">{{ v_old.summary }}</div>{% endif %}
         </div>
       </div>
-    </div>
-
-    {% if hidden_fields %}
-      <div class="mini" style="margin-top:14px">
-        <div class="mini__row">
-          <div class="muted">Hidden fields</div>
-          <div class="muted mono">{{ hidden_fields|join:", " }}</div>
+	    </div>
+	
+	    {% if hidden_fields %}
+	      <div class="mini mt-14">
+	        <div class="mini__row">
+	          <div class="muted">Hidden fields</div>
+	          <div class="muted mono">{{ hidden_fields|join:", " }}</div>
         </div>
       </div>
-    {% endif %}
-
-    {% if diff.scalars %}
-      <h3 class="h3" style="margin-top:18px">Field Changes</h3>
-      <div class="mini">
-        {% for r in diff.scalars %}
-          <div class="mini__row">
+	    {% endif %}
+	
+	    {% if diff.scalars %}
+	      <h3 class="h3 mt-18">Field Changes</h3>
+	      <div class="mini">
+	        {% for r in diff.scalars %}
+	          <div class="mini__row">
             <div class="mini__top">
               <span class="pill pill--tiny">{{ r.field }}</span>
             </div>
@@ -64,13 +64,13 @@
           </div>
         {% endfor %}
       </div>
-    {% endif %}
-
-    {% if diff.m2m %}
-      <h3 class="h3" style="margin-top:18px">List Changes</h3>
-      <div class="mini">
-        {% for r in diff.m2m %}
-          <div class="mini__row">
+	    {% endif %}
+	
+	    {% if diff.m2m %}
+	      <h3 class="h3 mt-18">List Changes</h3>
+	      <div class="mini">
+	        {% for r in diff.m2m %}
+	          <div class="mini__row">
             <div class="mini__top">
               <span class="pill pill--tiny">{{ r.field }}</span>
             </div>
@@ -82,24 +82,24 @@
           </div>
         {% endfor %}
       </div>
-    {% endif %}
-
-    {% if diff.texts %}
-      <h3 class="h3" style="margin-top:18px">Text Diffs</h3>
-      <div class="mini">
-        {% for r in diff.texts %}
-          <div class="mini__row">
-            <div class="mini__top">
-              <span class="pill pill--tiny">{{ r.field }}</span>
-            </div>
-            <pre class="code" style="white-space:pre; overflow:auto">{{ r.diff }}</pre>
-          </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    {% if not diff.scalars and not diff.m2m and not diff.texts %}
-      <div class="muted" style="margin-top:12px">No differences detected (for supported fields).</div>
-    {% endif %}
-  </section>
-{% endblock %}
+	    {% endif %}
+	
+	    {% if diff.texts %}
+	      <h3 class="h3 mt-18">Text Diffs</h3>
+	      <div class="mini">
+	        {% for r in diff.texts %}
+	          <div class="mini__row">
+	            <div class="mini__top">
+	              <span class="pill pill--tiny">{{ r.field }}</span>
+	            </div>
+	            <pre class="code">{{ r.diff }}</pre>
+	          </div>
+	        {% endfor %}
+	      </div>
+	    {% endif %}
+	
+	    {% if not diff.scalars and not diff.m2m and not diff.texts %}
+	      <div class="muted mt-12">No differences detected (for supported fields).</div>
+	    {% endif %}
+	  </section>
+	{% endblock %}

@@ -19,11 +19,11 @@
     <div class="warn">
       <div class="warn__title">CSV format</div>
       <div class="warn__body">
-        Headers:
-        <span class="mono" data-copy>common_name,subject_alt_names,issuer,serial_number,fingerprint_sha256,not_before,not_after,domains,notes</span>
-        <div class="muted" style="margin-top:6px">Dates must be ISO (<span class="mono">YYYY-MM-DD</span>). domains is a comma-separated list; missing domains will be created.</div>
-      </div>
-    </div>
+	        Headers:
+	        <span class="mono" data-copy>common_name,subject_alt_names,issuer,serial_number,fingerprint_sha256,not_before,not_after,domains,notes</span>
+	        <div class="muted mt-6">Dates must be ISO (<span class="mono">YYYY-MM-DD</span>). domains is a comma-separated list; missing domains will be created.</div>
+	      </div>
+	    </div>
 
     <form method="post" class="form" enctype="multipart/form-data">
       {% csrf_token %}
@@ -37,20 +37,19 @@
       </button>
     </form>
 
-    {% if created is not None %}
-      <div class="mini" style="margin-top:16px">
-        <div class="mini__row"><span class="mono">Created</span> <span class="pill pill--tiny">{{ created }}</span></div>
-        <div class="mini__row"><span class="mono">Updated</span> <span class="pill pill--tiny">{{ updated }}</span></div>
-      </div>
-    {% endif %}
-
-    {% if errors %}
-      <div class="mini" style="margin-top:16px">
-        {% for e in errors %}
-          <div class="mini__row">{{ e }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
+	    {% if created is not None %}
+	      <div class="mini mt-16">
+	        <div class="mini__row"><span class="mono">Created</span> <span class="pill pill--tiny">{{ created }}</span></div>
+	        <div class="mini__row"><span class="mono">Updated</span> <span class="pill pill--tiny">{{ updated }}</span></div>
+	      </div>
+	    {% endif %}
+	
+	    {% if errors %}
+	      <div class="mini mt-16">
+	        {% for e in errors %}
+	          <div class="mini__row">{{ e }}</div>
+	        {% endfor %}
+	      </div>
+	    {% endif %}
   </section>
 {% endblock %}
-

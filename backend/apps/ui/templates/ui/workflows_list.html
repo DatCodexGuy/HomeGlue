@@ -9,6 +9,14 @@
         <div class="sub">Rules that generate notifications (expiry, hygiene checks, etc.).</div>
       </div>
       <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{{ runs_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-clock"/></svg>
+          Runs
+        </a>
+        <a class="btn btn--ghost btn--sm" href="{{ delivery_url }}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+          Delivery
+        </a>
         <a class="btn btn--ghost btn--sm" href="{{ endpoints_url }}">
           <svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>
           Webhooks
@@ -20,15 +28,15 @@
       </div>
     </div>
 
-    <div class="table">
-      <div class="row row--head" style="grid-template-columns:2.2fr 1.1fr 1fr 1fr 1.1fr">
-        <div>Name</div><div>Kind</div><div>Audience</div><div>Schedule</div><div>Last run</div>
-      </div>
-      {% for r in items %}
-        <a class="row row--click" style="grid-template-columns:2.2fr 1.1fr 1fr 1fr 1.1fr" href="{{ r.detail_url }}">
-          <div class="cell-split">
-            <span class="mono">{{ r.name }}</span>
-            {% if not r.enabled %}<span class="pill pill--tiny pill--ghost">disabled</span>{% endif %}
+	    <div class="table">
+	      <div class="row row--head row--workflows">
+	        <div>Name</div><div>Kind</div><div>Audience</div><div>Schedule</div><div>Last run</div>
+	      </div>
+	      {% for r in items %}
+	        <a class="row row--click row--workflows" href="{{ r.detail_url }}">
+	          <div class="cell-split">
+	            <span class="mono">{{ r.name }}</span>
+	            {% if not r.enabled %}<span class="pill pill--tiny pill--ghost">disabled</span>{% endif %}
             {% if r.last_run_ok == False and r.last_run_at %}<span class="pill pill--tiny pill--danger">error</span>{% endif %}
           </div>
           <div class="muted">{{ r.kind }}</div>

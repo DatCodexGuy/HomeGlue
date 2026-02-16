@@ -10,6 +10,17 @@
       </div>
     </div>
 
+	    <div class="viewbar mt-10">
+      <div class="viewbar__left">
+        <div class="viewbar__label">Items</div>
+        <div class="viewbar__pills">
+          <a class="pill pill--tiny {% if archived_mode == 'active' %}pill--active{% endif %}" href="{{ active_url }}">Active</a>
+          <a class="pill pill--tiny {% if archived_mode == 'include' %}pill--active{% endif %}" href="{{ all_url }}">All</a>
+          <a class="pill pill--tiny {% if archived_mode == 'only' %}pill--active{% endif %}" href="{{ archived_url }}">Archived</a>
+        </div>
+      </div>
+    </div>
+
     <form class="searchwrap" method="get">
       <div class="search">
         <input class="search__input" type="text" name="q" value="{{ q }}" placeholder="Type to search..." autofocus />

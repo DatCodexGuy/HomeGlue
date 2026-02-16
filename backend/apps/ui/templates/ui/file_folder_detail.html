@@ -52,10 +52,10 @@
           </button>
         </form>
 
-        <div style="margin-top:18px">
-          <h3 class="h3">Recent files in folder</h3>
-          <div class="mini">
-            {% for a in items %}
+	        <div class="mt-18">
+	          <h3 class="h3">Recent files in folder</h3>
+	          <div class="mini">
+	            {% for a in items %}
               <div class="mini__row">
                 <a class="link mono" href="{% url 'ui:file_detail' attachment_id=a.id %}">{{ a.filename|default:"(file)" }}</a>
                 <span class="muted mono">{{ a.created_at|date:"Y-m-d H:i" }}</span>
@@ -76,4 +76,3 @@
     </div>
   </section>
 {% endblock %}
-

@@ -19,7 +19,7 @@
     <div class="split">
       <div class="split__main">
         {% if flash %}
-          <div class="warn" style="margin-top:12px">
+          <div class="warn mt-12">
             <div class="warn__title">{{ flash.title }}</div>
             <div class="warn__body">{{ flash.body }}</div>
           </div>
@@ -47,11 +47,11 @@
               </div>
             </div>
           {% else %}
-            <div class="muted" style="margin-top:8px">Org name/description are managed by a superuser.</div>
+            <div class="muted mt-8">Org name/description are managed by a superuser.</div>
           {% endif %}
         </div>
 
-        <h3 class="h3" style="margin-top:16px">Members</h3>
+        <h3 class="h3">Members</h3>
         <div class="mini">
           {% if can_admin %}
             <form method="post">
@@ -71,33 +71,33 @@
                   </select>
                 </label>
               </div>
-              <div style="margin-top:10px">
+              <div class="mt-10">
                 <button class="btn btn--ghost btn--sm" type="submit">
                   <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
                   Add member
                 </button>
               </div>
             </form>
-            <div class="muted" style="margin-top:10px">Tip: if the user doesn't exist yet, a superuser can create them from the Admin dashboard.</div>
+            <div class="muted mt-10">Tip: if the user doesn't exist yet, a superuser can create them from the Admin dashboard.</div>
           {% else %}
             <div class="muted">Only org admins can manage membership.</div>
           {% endif %}
         </div>
 
-        <div class="table" style="margin-top:12px">
-          <div class="row row--head" style="grid-template-columns:2fr 1.2fr 1fr">
+        <div class="table mt-12">
+          <div class="row row--head row--members">
             <div>User</div><div>Role</div><div></div>
           </div>
           {% for m in memberships %}
-            <div class="row row--static" style="grid-template-columns:2fr 1.2fr 1fr">
+            <div class="row row--static row--members">
               <div class="mono">{{ m.user.username }}</div>
               <div>
                 {% if can_admin %}
-                  <form method="post" style="display:flex; gap:8px; align-items:center">
+                  <form method="post" class="flex gap-8 items-center">
                     {% csrf_token %}
                     <input type="hidden" name="_action" value="member_set_role" />
                     <input type="hidden" name="membership_id" value="{{ m.id }}" />
-                    <select class="input" name="role" style="max-width:160px">
+                    <select class="input wmax-160" name="role">
                       <option value="member" {% if m.role == 'member' %}selected{% endif %}>member</option>
                       <option value="admin" {% if m.role == 'admin' %}selected{% endif %}>admin</option>
                       <option value="owner" {% if m.role == 'owner' %}selected{% endif %}>owner</option>
@@ -132,14 +132,14 @@
         <h3 class="h3">Admin Shortcuts</h3>
         <div class="mini">
           <a class="btn btn--ghost btn--sm" href="{% url 'ui:custom_fields_list' %}">Custom fields</a>
-          <a class="btn btn--ghost btn--sm" href="{% url 'ui:relationship_types_list' %}" style="margin-left:6px">Relationship types</a>
-          <div style="margin-top:10px">
+          <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:relationship_types_list' %}">Relationship types</a>
+          <div class="mt-10">
             <a class="btn btn--ghost btn--sm" href="{% url 'ui:workflows_list' %}">Workflows</a>
-            <a class="btn btn--ghost btn--sm" href="{% url 'ui:integrations_list' %}" style="margin-left:6px">Integrations</a>
+            <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:integrations_list' %}">Integrations</a>
           </div>
-          <div style="margin-top:10px">
+          <div class="mt-10">
             <a class="btn btn--ghost btn--sm" href="{% url 'ui:backups_list' %}">Backups</a>
-            <a class="btn btn--ghost btn--sm" href="{% url 'ui:audit_log' %}" style="margin-left:6px">Audit log</a>
+            <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:audit_log' %}">Audit log</a>
           </div>
         </div>
       </div>

@@ -22,7 +22,7 @@
     </div>
 
     {% if request.GET.extracted %}
-      <div class="warn" style="margin-bottom:12px">
+      <div class="warn mb-12">
         <div class="warn__title">Media extracted</div>
         <div class="warn__body">
           Extracted {{ request.GET.extracted }} file(s) into <span class="mono">MEDIA_ROOT</span>.
@@ -31,13 +31,13 @@
     {% endif %}
 
     {% if bundle.status == "invalid" %}
-      <div class="warn" style="margin-bottom:12px">
+      <div class="warn mb-12">
         <div class="warn__title">Bundle invalid</div>
         <div class="warn__body">{{ bundle.error|default:"Validation failed." }}</div>
       </div>
     {% endif %}
 
-    <div class="grid" style="grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px">
+    <div class="grid grid--2 gap-12 mb-14">
       <div class="mini">
         <div class="mini__row">
           <div class="mini__top">
@@ -46,11 +46,11 @@
           </div>
           <div class="mini__body">
             <div class="sub"><span class="muted">Filename:</span> <span class="mono">{{ bundle.filename|default:"(unknown)" }}</span></div>
-            <div class="sub" style="margin-top:6px"><span class="muted">SHA256:</span> <span class="mono">{{ bundle.sha256|default:"-" }}</span></div>
-            <div class="sub" style="margin-top:6px"><span class="muted">Bytes:</span> <span class="mono">{% if bundle.bytes %}{{ bundle.bytes }}{% else %}-{% endif %}</span></div>
-            <div class="sub" style="margin-top:6px"><span class="muted">Status:</span> <span class="mono">{{ bundle.status }}</span></div>
-            <div class="sub" style="margin-top:6px"><span class="muted">Validated:</span> <span class="mono">{% if bundle.validated_at %}{{ bundle.validated_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</span></div>
-            <div class="sub" style="margin-top:6px"><span class="muted">Media extracted:</span> <span class="mono">{% if bundle.media_extracted_at %}{{ bundle.media_extracted_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</span></div>
+            <div class="sub mt-6"><span class="muted">SHA256:</span> <span class="mono">{{ bundle.sha256|default:"-" }}</span></div>
+            <div class="sub mt-6"><span class="muted">Bytes:</span> <span class="mono">{% if bundle.bytes %}{{ bundle.bytes }}{% else %}-{% endif %}</span></div>
+            <div class="sub mt-6"><span class="muted">Status:</span> <span class="mono">{{ bundle.status }}</span></div>
+            <div class="sub mt-6"><span class="muted">Validated:</span> <span class="mono">{% if bundle.validated_at %}{{ bundle.validated_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</span></div>
+            <div class="sub mt-6"><span class="muted">Media extracted:</span> <span class="mono">{% if bundle.media_extracted_at %}{{ bundle.media_extracted_at|date:"Y-m-d H:i" }}{% else %}-{% endif %}</span></div>
           </div>
         </div>
       </div>
@@ -63,11 +63,11 @@
           </div>
           <div class="mini__body">
             <div class="sub"><span class="muted">Org in manifest:</span> <span class="mono">{{ manifest.organization_name|default:"-" }}</span> (id {{ manifest.organization_id|default:"-" }})</div>
-            <div class="sub" style="margin-top:6px"><span class="muted">Backup version:</span> <span class="mono">{{ manifest.homeglue_backup_version|default:"-" }}</span></div>
-            <div class="sub" style="margin-top:6px"><span class="muted">Fixture size:</span> <span class="mono">{{ derived.fixture_bytes|default:"-" }} bytes</span></div>
-            <div class="sub" style="margin-top:6px"><span class="muted">Media files:</span> <span class="mono">{{ derived.media_files|default:"-" }}</span></div>
-            <div class="sub" style="margin-top:6px"><span class="muted">Media bytes:</span> <span class="mono">{{ derived.media_bytes|default:"-" }} bytes</span></div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
+            <div class="sub mt-6"><span class="muted">Backup version:</span> <span class="mono">{{ manifest.homeglue_backup_version|default:"-" }}</span></div>
+            <div class="sub mt-6"><span class="muted">Fixture size:</span> <span class="mono">{{ derived.fixture_bytes|default:"-" }} bytes</span></div>
+            <div class="sub mt-6"><span class="muted">Media files:</span> <span class="mono">{{ derived.media_files|default:"-" }}</span></div>
+            <div class="sub mt-6"><span class="muted">Media bytes:</span> <span class="mono">{{ derived.media_bytes|default:"-" }} bytes</span></div>
+            <div class="flex gap-8 flex-wrap mt-10">
               <a class="btn btn--ghost btn--sm" href="{{ manifest_url }}">
                 <svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>
                 manifest.json
@@ -82,7 +82,7 @@
       </div>
     </div>
 
-    <div class="mini" style="margin-bottom:14px">
+    <div class="mini mb-14">
       <div class="mini__row">
         <div class="mini__top">
           <span class="pill pill--tiny">Step 2</span>
@@ -93,7 +93,7 @@
             This copies files from <span class="mono">media/</span> inside the zip into this instance’s <span class="mono">MEDIA_ROOT</span>.
             It does not change the database.
           </div>
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px">
+          <div class="flex gap-10 items-center flex-wrap mt-10">
             {% if is_reauthed %}
               <form method="post" action="{{ extract_url }}">
                 {% csrf_token %}
@@ -114,7 +114,7 @@
       </div>
     </div>
 
-    <div class="warn" style="margin-bottom:14px">
+    <div class="warn mb-14">
       <div class="warn__title">Database restore</div>
       <div class="warn__body">
         Loading <span class="mono">fixture.json</span> into a non-empty database can cause conflicts or duplicate data.
@@ -130,8 +130,8 @@
         </div>
         <div class="mini__body">
           <div class="sub">Run this from the host where <span class="mono">docker compose</span> is available:</div>
-          <pre class="mono" style="white-space:pre-wrap; margin-top:8px">{{ cmd }}</pre>
-          <div class="sub" style="margin-top:10px">
+          <pre class="mono prewrap mt-8">{{ cmd }}</pre>
+          <div class="sub mt-10">
             This command will extract media and run <span class="mono">loaddata</span>.
           </div>
         </div>
@@ -140,4 +140,3 @@
 
   </section>
 {% endblock %}
-

@@ -16,13 +16,13 @@
               <input type="date" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
             {% elif f.field_type == "url" %}
               <input type="url" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
-            {% elif f.field_type == "boolean" %}
-              <div style="padding-top:10px">
-                <label style="text-transform:none; letter-spacing:0; font-family:var(--ui); display:flex; gap:10px; align-items:center">
-                  <input type="checkbox" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="1" {% if val %}checked{% endif %} />
-                  <span class="muted">{% if f.help_text %}{{ f.help_text }}{% else %}Enabled{% endif %}</span>
-                </label>
-              </div>
+	            {% elif f.field_type == "boolean" %}
+	              <div class="mt-10">
+	                <label class="label--plain flex gap-10 items-center">
+	                  <input type="checkbox" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="1" {% if val %}checked{% endif %} />
+	                  <span class="muted">{% if f.help_text %}{{ f.help_text }}{% else %}Enabled{% endif %}</span>
+	                </label>
+	              </div>
             {% else %}
               <input type="text" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
             {% endif %}
@@ -36,12 +36,12 @@
       </button>
     </form>
   </div>
-{% else %}
-  <div class="muted">No custom fields defined for this object type yet.</div>
-  <div style="margin-top:10px">
-    <a class="btn btn--ghost btn--sm" href="{% url 'ui:custom_fields_list' %}">
-      <svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>
-      Manage custom fields
-    </a>
-  </div>
-{% endif %}
+	{% else %}
+	  <div class="muted">No custom fields defined for this object type yet.</div>
+	  <div class="mt-10">
+	    <a class="btn btn--ghost btn--sm" href="{% url 'ui:custom_fields_list' %}">
+	      <svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>
+	      Manage custom fields
+	    </a>
+	  </div>
+	{% endif %}

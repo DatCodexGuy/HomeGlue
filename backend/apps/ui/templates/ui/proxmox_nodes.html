@@ -17,23 +17,23 @@
       </div>
     </div>
 
-    <form method="get" class="form form--grid" style="margin-top:14px">
-      <p>
-        <label>Search</label>
-        <input name="q" value="{{ q }}" placeholder="node name" />
-      </p>
-      <p style="display:flex; gap:10px; align-items:end">
-        <button class="btn btn--sm" type="submit">
-          <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
-          Filter
-        </button>
-        <a class="btn btn--ghost btn--sm" href="{% url 'ui:proxmox_nodes' conn_id=conn.id %}">Clear</a>
-      </p>
-    </form>
-
-    <div class="tablewrap" style="margin-top:14px">
-      <table class="table">
-        <thead>
+	    <form method="get" class="form form--grid mt-14">
+	      <p>
+	        <label>Search</label>
+	        <input name="q" value="{{ q }}" placeholder="node name" />
+	      </p>
+	      <p class="flex gap-10 items-end">
+	        <button class="btn btn--sm" type="submit">
+	          <svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>
+	          Filter
+	        </button>
+	        <a class="btn btn--ghost btn--sm" href="{% url 'ui:proxmox_nodes' conn_id=conn.id %}">Clear</a>
+	      </p>
+	    </form>
+	
+	    <div class="tablewrap mt-14">
+	      <table class="table">
+	        <thead>
           <tr>
             <th>Node</th>
             <th>Status</th>
@@ -55,13 +55,13 @@
             <tr><td colspan="4" class="muted">No nodes found.</td></tr>
           {% endfor %}
         </tbody>
-      </table>
-    </div>
-
-    <div class="muted" style="margin-top:10px">
-      Showing page {{ page.page }}. Total {{ page.total }}.
-      {% if page.has_prev %}
-        <a class="link" href="?q={{ q|urlencode }}&page={{ page.page|add:"-1" }}">Prev</a>
+	      </table>
+	    </div>
+	
+	    <div class="muted mt-10">
+	      Showing page {{ page.page }}. Total {{ page.total }}.
+	      {% if page.has_prev %}
+	        <a class="link" href="?q={{ q|urlencode }}&page={{ page.page|add:"-1" }}">Prev</a>
       {% endif %}
       {% if page.has_next %}
         <a class="link" href="?q={{ q|urlencode }}&page={{ page.page|add:"1" }}">Next</a>
@@ -69,4 +69,3 @@
     </div>
   </section>
 {% endblock %}
-

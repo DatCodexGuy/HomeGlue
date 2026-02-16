@@ -23,9 +23,9 @@
       </div>
     </div>
 
-    <div class="grid" style="margin-top:12px">
-      <div class="card">
-        <div class="card__title">Status</div>
+	    <div class="grid mt-12">
+	      <div class="card">
+	        <div class="card__title">Status</div>
         <div class="card__meta">
           <span class="pill pill--tiny {% if guest.status == 'running' %}pill--ok{% elif guest.status == 'stopped' %}pill--warn{% endif %}">{{ guest.status|default:"" }}</span>
           {% if guest.uptime is not None %}
@@ -63,13 +63,13 @@
             <span class="muted">No IPs discovered yet.</span>
           {% endif %}
         </div>
-      </div>
-    </div>
+	      </div>
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">IP History</h3>
-      <div class="tablewrap">
-        <table class="table">
+	    <div class="mt-18">
+	      <h3 class="h3">IP History</h3>
+	      <div class="tablewrap">
+	        <table class="table">
           <thead>
             <tr>
               <th>IP</th>
@@ -91,28 +91,28 @@
             {% endfor %}
           </tbody>
         </table>
-      </div>
-    </div>
+	      </div>
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Relationships</h3>
-      {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Relationships</h3>
+	      {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Attachments</h3>
-      {% include "ui/_attachments.html" with attachments=attachments %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Attachments</h3>
+	      {% include "ui/_attachments.html" with attachments=attachments %}
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Notes</h3>
-      {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Notes</h3>
+	      {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+	    </div>
 
-    <details style="margin-top:18px">
-      <summary class="muted">Raw Proxmox payload</summary>
-      <pre class="mono" style="white-space:pre-wrap; margin-top:10px">{% firstof guest.raw "{}" %}</pre>
-      <pre class="mono" style="white-space:pre-wrap; margin-top:10px">{% firstof guest.config_raw "{}" %}</pre>
-    </details>
-  </section>
-{% endblock %}
+	    <details class="mt-18">
+	      <summary class="muted">Raw Proxmox payload</summary>
+	      <div class="mt-10"><pre class="code mono prewrap">{% firstof guest.raw "{}" %}</pre></div>
+	      <div class="mt-10"><pre class="code mono prewrap">{% firstof guest.config_raw "{}" %}</pre></div>
+	    </details>
+	  </section>
+	{% endblock %}

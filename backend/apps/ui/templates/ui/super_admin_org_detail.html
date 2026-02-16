@@ -16,49 +16,49 @@
       </div>
     </div>
 
-    {% if flash %}
-      <div class="warn" style="margin-top:12px">
-        <div class="warn__title">{{ flash.title }}</div>
-        <div class="warn__body">{{ flash.body }}</div>
-        {% if flash.secret %}
-          <div class="secretbox" style="margin-top:10px">
-            <div class="secretbox__label">{{ flash.secret_label|default:"Secret" }}</div>
-            <div class="secretbox__value mono" data-copy>{{ flash.secret }}</div>
-            <div class="muted">Click to copy</div>
-          </div>
-        {% endif %}
-      </div>
-    {% endif %}
+	    {% if flash %}
+	      <div class="warn mt-12">
+	        <div class="warn__title">{{ flash.title }}</div>
+	        <div class="warn__body">{{ flash.body }}</div>
+	        {% if flash.secret %}
+	          <div class="secretbox mt-10">
+	            <div class="secretbox__label">{{ flash.secret_label|default:"Secret" }}</div>
+	            <div class="secretbox__value mono" data-copy>{{ flash.secret }}</div>
+	            <div class="muted">Click to copy</div>
+	          </div>
+	        {% endif %}
+	      </div>
+	    {% endif %}
 
-    <div class="split" style="margin-top:14px">
-      <div class="split__main">
-        <h3 class="h3">Organization</h3>
-        <div class="mini">
-          <form method="post">
+	    <div class="split mt-14">
+	      <div class="split__main">
+	        <h3 class="h3">Organization</h3>
+	        <div class="mini">
+	          <form method="post">
             {% csrf_token %}
             <input type="hidden" name="_action" value="org_update" />
-            <label class="field">
-              <div class="field__label">Name</div>
-              <input class="input" type="text" name="org_name" value="{{ org_obj.name }}" required />
-            </label>
-            <label class="field" style="margin-top:10px">
-              <div class="field__label">Description</div>
-              <input class="input" type="text" name="org_description" value="{{ org_obj.description }}" />
-            </label>
-            <div style="margin-top:10px">
-              <button class="btn" type="submit">
-                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
-                Save
-              </button>
+	            <label class="field">
+	              <div class="field__label">Name</div>
+	              <input class="input" type="text" name="org_name" value="{{ org_obj.name }}" required />
+	            </label>
+	            <label class="field mt-10">
+	              <div class="field__label">Description</div>
+	              <input class="input" type="text" name="org_description" value="{{ org_obj.description }}" />
+	            </label>
+	            <div class="mt-10">
+	              <button class="btn" type="submit">
+	                <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+	                Save
+	              </button>
             </div>
-          </form>
-        </div>
+	          </form>
+	        </div>
 
-        <h3 class="h3" style="margin-top:16px">Members</h3>
-        <div class="mini">
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="_action" value="member_add" />
+	        <h3 class="h3 mt-16">Members</h3>
+	        <div class="mini">
+	          <form method="post">
+	            {% csrf_token %}
+	            <input type="hidden" name="_action" value="member_add" />
             <div class="grid2">
               <label class="field">
                 <div class="field__label">Username</div>
@@ -71,37 +71,37 @@
                   <option value="admin">admin</option>
                   <option value="owner">owner</option>
                 </select>
-              </label>
-            </div>
-            <div style="margin-top:10px">
-              <button class="btn btn--ghost btn--sm" type="submit">
-                <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
-                Add member
-              </button>
-            </div>
-          </form>
-        </div>
+	              </label>
+	            </div>
+	            <div class="mt-10">
+	              <button class="btn btn--ghost btn--sm" type="submit">
+	                <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+	                Add member
+	              </button>
+	            </div>
+	          </form>
+	        </div>
 
-        <div class="table" style="margin-top:12px">
-          <div class="row row--head" style="grid-template-columns:2fr 1fr 1fr">
-            <div>User</div><div>Role</div><div></div>
-          </div>
-          {% for m in memberships %}
-            <div class="row row--static" style="grid-template-columns:2fr 1fr 1fr">
-              <div class="mono">{{ m.user.username }}</div>
-              <div>
-                <form method="post" style="display:flex; gap:8px; align-items:center">
-                  {% csrf_token %}
-                  <input type="hidden" name="_action" value="member_set_role" />
-                  <input type="hidden" name="membership_id" value="{{ m.id }}" />
-                  <select class="input" name="role" style="max-width:160px">
-                    <option value="member" {% if m.role == 'member' %}selected{% endif %}>member</option>
-                    <option value="admin" {% if m.role == 'admin' %}selected{% endif %}>admin</option>
-                    <option value="owner" {% if m.role == 'owner' %}selected{% endif %}>owner</option>
-                  </select>
-                  <button class="btn btn--ghost btn--sm" type="submit">Save</button>
-                </form>
-              </div>
+	        <div class="table mt-12">
+	          <div class="row row--head row--members">
+	            <div>User</div><div>Role</div><div></div>
+	          </div>
+	          {% for m in memberships %}
+	            <div class="row row--static row--members">
+	              <div class="mono">{{ m.user.username }}</div>
+	              <div>
+	                <form method="post" class="flex gap-8 items-center">
+	                  {% csrf_token %}
+	                  <input type="hidden" name="_action" value="member_set_role" />
+	                  <input type="hidden" name="membership_id" value="{{ m.id }}" />
+	                  <select class="input wmax-160" name="role">
+	                    <option value="member" {% if m.role == 'member' %}selected{% endif %}>member</option>
+	                    <option value="admin" {% if m.role == 'admin' %}selected{% endif %}>admin</option>
+	                    <option value="owner" {% if m.role == 'owner' %}selected{% endif %}>owner</option>
+	                  </select>
+	                  <button class="btn btn--ghost btn--sm" type="submit">Save</button>
+	                </form>
+	              </div>
               <div>
                 <form method="post">
                   {% csrf_token %}
@@ -121,44 +121,44 @@
       </div>
 
       <div class="split__side">
-        <h3 class="h3">Quick Links</h3>
-        <div class="mini">
-          <a class="btn btn--ghost btn--sm" href="{% url 'ui:enter_org' org_id=org_obj.id %}">Enter org</a>
-          <a class="btn btn--ghost btn--sm" href="{% url 'ui:audit_log' %}" style="margin-left:6px">Audit log</a>
-          <a class="btn btn--ghost btn--sm" href="{% url 'ui:backups_list' %}" style="margin-left:6px">Backups</a>
-        </div>
+	        <h3 class="h3">Quick Links</h3>
+	        <div class="mini">
+	          <a class="btn btn--ghost btn--sm" href="{% url 'ui:enter_org' org_id=org_obj.id %}">Enter org</a>
+	          <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:audit_log' %}">Audit log</a>
+	          <a class="btn btn--ghost btn--sm ml-6" href="{% url 'ui:backups_list' %}">Backups</a>
+	        </div>
 
-        <h3 class="h3" style="margin-top:16px">Create User</h3>
-        <div class="mini">
-          <div class="muted">Create a new user and add them to this org.</div>
-          <form method="post" style="margin-top:10px">
-            {% csrf_token %}
-            <input type="hidden" name="_action" value="user_create_and_add" />
-            <label class="field">
-              <div class="field__label">Username</div>
-              <input class="input" type="text" name="username" required />
-            </label>
-            <label class="field" style="margin-top:10px">
-              <div class="field__label">Email (optional)</div>
-              <input class="input" type="email" name="email" />
-            </label>
-            <label class="field" style="margin-top:10px">
-              <div class="field__label">Password (optional)</div>
-              <input class="input" type="text" name="password" placeholder="Leave blank to generate" />
-            </label>
-            <label class="field" style="margin-top:10px">
-              <div class="field__label">Role</div>
-              <select class="input" name="role">
-                <option value="member">member</option>
-                <option value="admin">admin</option>
-                <option value="owner">owner</option>
-              </select>
-            </label>
-            <div style="margin-top:10px">
-              <button class="btn" type="submit">
-                <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
-                Create and add
-              </button>
+	        <h3 class="h3 mt-16">Create User</h3>
+	        <div class="mini">
+	          <div class="muted">Create a new user and add them to this org.</div>
+	          <form method="post" class="mt-10">
+	            {% csrf_token %}
+	            <input type="hidden" name="_action" value="user_create_and_add" />
+	            <label class="field">
+	              <div class="field__label">Username</div>
+	              <input class="input" type="text" name="username" required />
+	            </label>
+	            <label class="field mt-10">
+	              <div class="field__label">Email (optional)</div>
+	              <input class="input" type="email" name="email" />
+	            </label>
+	            <label class="field mt-10">
+	              <div class="field__label">Password (optional)</div>
+	              <input class="input" type="text" name="password" placeholder="Leave blank to generate" />
+	            </label>
+	            <label class="field mt-10">
+	              <div class="field__label">Role</div>
+	              <select class="input" name="role">
+	                <option value="member">member</option>
+	                <option value="admin">admin</option>
+	                <option value="owner">owner</option>
+	              </select>
+	            </label>
+	            <div class="mt-10">
+	              <button class="btn" type="submit">
+	                <svg class="ico" viewBox="0 0 24 24"><use href="#i-plus"/></svg>
+	                Create and add
+	              </button>
             </div>
           </form>
         </div>
@@ -166,4 +166,3 @@
     </div>
   </section>
 {% endblock %}
-

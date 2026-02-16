@@ -10,6 +10,8 @@ Rule examples:
 - SSL expiry
 - Checklist runs overdue
 - Config items missing primary IP
+- Backup failures (recent)
+- Proxmox sync stale
 
 Rules are org-scoped and can be enabled/disabled.
 
@@ -80,4 +82,11 @@ If you want to force a run (for example right after enabling a rule):
 Then check:
 
 - `/app/notifications/`
-- `/app/audit/` for the run event
+- `/app/audit/` for operational events (manual runs, ops actions)
+
+## Troubleshooting
+
+For org admins, HomeGlue keeps an execution history and delivery history:
+
+- Workflow runs: `/app/workflows/runs/`
+- Delivery attempts (email/webhooks): `/app/workflows/delivery/`

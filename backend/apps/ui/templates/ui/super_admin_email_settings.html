@@ -16,53 +16,53 @@
       </div>
     </div>
 
-    {% if flash %}
-      <div class="warn" style="margin-top:12px">
-        <div class="warn__title">{{ flash.title }}</div>
-        <div class="warn__body">{{ flash.body }}</div>
-      </div>
-    {% endif %}
-
-    {% if error %}
-      <div class="warn" style="margin-top:12px">
-        <div class="warn__title">Error</div>
-        <div class="warn__body">{{ error }}</div>
-      </div>
-    {% endif %}
-
-    <div class="split" style="margin-top:14px">
-      <div class="split__main">
-        <h3 class="h3">Configuration</h3>
-        <div class="mini">
-          <div class="muted">If you select DB-backed settings, the SMTP password is stored encrypted using `HOMEGLUE_FERNET_KEY`.</div>
-          {% if form %}
-            <form method="post" class="form form--grid" style="margin-top:10px">
-              {% csrf_token %}
-              {{ form.as_p }}
-
-              <div class="mini" style="margin-top:10px">
-                <div class="mini__row">
-                  <div class="muted">Stored SMTP password</div>
-                  <div>{% if pw_set %}<span class="pill pill--tiny pill--ok">set</span>{% else %}<span class="pill pill--tiny pill--ghost">not set</span>{% endif %}</div>
-                </div>
-              </div>
-
-              <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px">
-                <button class="btn" type="submit" name="_action" value="save">
-                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
-                  Save
-                </button>
-                <button class="btn btn--ghost" type="submit" name="_action" value="send_test_email">
-                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
-                  Save and Send Test Email
-                </button>
-              </div>
-
-              <label class="field" style="margin-top:10px">
-                <div class="field__label">Test email recipient (optional)</div>
-                <input class="input" type="email" name="to" placeholder="you@example.com" />
-                <div class="muted">If empty, uses your user email if set.</div>
-              </label>
+	    {% if flash %}
+	      <div class="warn mt-12">
+	        <div class="warn__title">{{ flash.title }}</div>
+	        <div class="warn__body">{{ flash.body }}</div>
+	      </div>
+	    {% endif %}
+	
+	    {% if error %}
+	      <div class="warn mt-12">
+	        <div class="warn__title">Error</div>
+	        <div class="warn__body">{{ error }}</div>
+	      </div>
+	    {% endif %}
+	
+	    <div class="split mt-14">
+	      <div class="split__main">
+	        <h3 class="h3">Configuration</h3>
+	        <div class="mini">
+	          <div class="muted">If you select DB-backed settings, the SMTP password is stored encrypted using `HOMEGLUE_FERNET_KEY`.</div>
+	          {% if form %}
+	            <form method="post" class="form form--grid mt-10">
+	              {% csrf_token %}
+	              {{ form.as_p }}
+	
+	              <div class="mini mt-10">
+	                <div class="mini__row">
+	                  <div class="muted">Stored SMTP password</div>
+	                  <div>{% if pw_set %}<span class="pill pill--tiny pill--ok">set</span>{% else %}<span class="pill pill--tiny pill--ghost">not set</span>{% endif %}</div>
+	                </div>
+	              </div>
+	
+	              <div class="flex gap-10 flex-wrap mt-10">
+	                <button class="btn" type="submit" name="_action" value="save">
+	                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+	                  Save
+	                </button>
+	                <button class="btn btn--ghost" type="submit" name="_action" value="send_test_email">
+	                  <svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>
+	                  Save and Send Test Email
+	                </button>
+	              </div>
+	
+	              <label class="field mt-10">
+	                <div class="field__label">Test email recipient (optional)</div>
+	                <input class="input" type="email" name="to" placeholder="you@example.com" />
+	                <div class="muted">If empty, uses your user email if set.</div>
+	              </label>
             </form>
           {% else %}
             <div class="muted">Form not available.</div>
@@ -73,15 +73,15 @@
       <div class="split__side">
         <h3 class="h3">Notes</h3>
         <div class="mini">
-          <div class="muted">
-            Some settings still require `.env` + container restart (example: OIDC/SSO configuration).
-            Email delivery can be configured here for convenience.
-          </div>
-          <div class="muted" style="margin-top:10px">
-            Docs: <a class="link" href="{% url 'ui:wiki_page' slug='security' %}">Security</a> · <a class="link" href="{% url 'ui:wiki_page' slug='troubleshooting' %}">Troubleshooting</a>
-          </div>
-        </div>
-      </div>
+	          <div class="muted">
+	            Some settings still require `.env` + container restart (example: OIDC/SSO configuration).
+	            Email delivery can be configured here for convenience.
+	          </div>
+	          <div class="muted mt-10">
+	            Docs: <a class="link" href="{% url 'ui:wiki_page' slug='security' %}">Security</a> · <a class="link" href="{% url 'ui:wiki_page' slug='troubleshooting' %}">Troubleshooting</a>
+	          </div>
+	        </div>
+	      </div>
     </div>
   </section>
 {% endblock %}

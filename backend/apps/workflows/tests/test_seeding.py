@@ -17,3 +17,5 @@ class WorkflowSeedingTests(TestCase):
         self.assertIn(WorkflowRule.KIND_ASSET_MISSING_LOCATION, kinds)
         self.assertIn(WorkflowRule.KIND_PASSWORD_MISSING_URL, kinds)
         self.assertIn(WorkflowRule.KIND_PASSWORD_ROTATION_DUE, kinds)
+        self.assertIn(WorkflowRule.KIND_BACKUP_FAILED_RECENT, kinds)
+        self.assertIn(WorkflowRule.KIND_PROXMOX_SYNC_STALE, kinds)

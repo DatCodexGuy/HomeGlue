@@ -5,7 +5,7 @@
     {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
     {% include "ui/_list_header.html" with title="Checklist Schedules" subtitle="Recurring checklist runs." new_url=new_url %}
 
-    <div class="viewbar" style="margin-top:10px">
+    <div class="viewbar mt-10">
       <div class="viewbar__left">
         <div class="viewbar__label">Views</div>
         <div class="viewbar__pills">
@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <div class="viewbar" style="margin-top:10px">
+    <div class="viewbar mt-10">
       <div class="viewbar__left">
         <div class="viewbar__label">Items</div>
         <div class="viewbar__pills">
@@ -35,18 +35,28 @@
     </form>
 
     <div class="table">
-      <div class="row row--head" style="grid-template-columns:2.2fr 1.8fr 1fr 1.2fr 1.4fr 0.8fr">
+      <div class="row row--head row--checklist-schedules">
         <div>Name</div><div>Checklist</div><div>Every</div><div>Next</div><div>Assigned</div><div>On</div>
       </div>
       {% for s in items %}
-        <div class="row row--click" style="grid-template-columns:2.2fr 1.8fr 1fr 1.2fr 1.4fr 0.8fr" data-href="{% url 'ui:checklist_schedule_detail' schedule_id=s.id %}">
+        <div class="row row--click row--checklist-schedules" data-href="{% url 'ui:checklist_schedule_detail' schedule_id=s.id %}">
           <div class="titlecell">
             <a class="row__link" href="{% url 'ui:checklist_schedule_detail' schedule_id=s.id %}">{{ s.name }}</a>
             {% if s.archived_at %}<span class="pill pill--tiny pill--ghost">Archived</span>{% endif %}
             {% if not s.enabled %}<span class="pill pill--tiny pill--ghost">Off</span>{% endif %}
           </div>
           <div class="muted">{% if s.checklist %}{{ s.checklist.name }}{% else %}-{% endif %}</div>
-          <div class="muted">{{ s.every_days }}d</div>
+          <div class="muted" title="{{ s.repeat_summary }}">
+            {% if s.repeat_unit == "daily" %}
+              {{ s.repeat_interval }}d
+            {% elif s.repeat_unit == "weekly" %}
+              {{ s.repeat_interval }}w{% if s.weekly_days_labels %} ({{ s.weekly_days_labels }}){% endif %}
+            {% elif s.repeat_unit == "monthly" %}
+              {{ s.repeat_interval }}mo
+            {% else %}
+              {{ s.repeat_interval }}d
+            {% endif %}
+          </div>
           <div class="muted">{% if s.next_run_on %}{{ s.next_run_on|date:"Y-m-d" }}{% else %}-{% endif %}</div>
           <div class="muted">{% if s.assigned_to %}{{ s.assigned_to.username }}{% else %}-{% endif %}</div>
           <div>{% if s.enabled and not s.archived_at %}<span class="pill pill--tiny">On</span>{% else %}<span class="pill pill--tiny pill--ghost">Off</span>{% endif %}</div>
@@ -60,4 +70,3 @@
     </div>
   </section>
 {% endblock %}
-

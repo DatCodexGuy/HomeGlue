@@ -61,3 +61,15 @@ def _seed_default_workflow_rules(sender, instance: Organization, created: bool, 
         name="Password rotations due (7d)",
         defaults={"params": {"days": 7}, "audience": WorkflowRule.AUDIENCE_ADMINS, "run_interval_minutes": 240, "enabled": False},
     )
+    WorkflowRule.objects.get_or_create(
+        organization=instance,
+        kind=WorkflowRule.KIND_BACKUP_FAILED_RECENT,
+        name="Backup failures (7d)",
+        defaults={"params": {"days": 7}, "audience": WorkflowRule.AUDIENCE_ADMINS, "run_interval_minutes": 60, "enabled": False},
+    )
+    WorkflowRule.objects.get_or_create(
+        organization=instance,
+        kind=WorkflowRule.KIND_PROXMOX_SYNC_STALE,
+        name="Proxmox sync stale (120m)",
+        defaults={"params": {"stale_minutes": 120}, "audience": WorkflowRule.AUDIENCE_ADMINS, "run_interval_minutes": 60, "enabled": False},
+    )

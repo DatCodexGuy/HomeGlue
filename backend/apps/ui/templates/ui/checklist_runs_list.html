@@ -6,7 +6,7 @@
     {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
     {% include "ui/_list_header.html" with title="Checklist Runs" subtitle="Execution instances (track completion and due dates)." new_url=new_url %}
 
-    <div class="viewbar" style="margin-top:10px">
+    <div class="viewbar mt-10">
       <div class="viewbar__left">
         <div class="viewbar__label">Status</div>
         <div class="viewbar__pills">
@@ -37,12 +37,12 @@
     </form>
 
     <div class="table">
-      <div class="row row--head" style="grid-template-columns:2.3fr 1.1fr 1fr 1fr 1fr">
+      <div class="row row--head row--checklist-runs">
         <div>Name</div><div>Checklist</div><div>Due</div><div>Progress</div><div>Status</div>
       </div>
       {% for r in runs %}
         {% with c=counts|get_item:r.id %}
-          <a class="row row--click" style="grid-template-columns:2.3fr 1.1fr 1fr 1fr 1fr" href="{% url 'ui:checklist_run_detail' run_id=r.id %}">
+          <a class="row row--click row--checklist-runs" href="{% url 'ui:checklist_run_detail' run_id=r.id %}">
             <div class="cell-split">
               <span class="mono">{{ r.name }}</span>
               {% if r.assigned_to %}<span class="pill pill--tiny">{{ r.assigned_to.username }}</span>{% endif %}

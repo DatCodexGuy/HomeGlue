@@ -10,31 +10,31 @@
       </div>
     </div>
 
-    <div class="grid">
-      <div class="mini" style="grid-column:1/-1">
-        <div class="mini__row">
-          <div class="mini__top">
-            <span class="mono">Completion profile</span>
-            <span class="pill pill--tiny {% if completion.overall_pct >= 85 %}pill--ok{% elif completion.overall_pct >= 65 %}pill--warn{% else %}pill--danger{% endif %}">{{ completion.overall_pct }}%</span>
-          </div>
-          <div class="mini__body">
-            <div class="muted">A quick completeness score based on key fields across core objects.</div>
-            <div class="meter" role="img" aria-label="Completion {{ completion.overall_pct }} percent">
-              <div class="meter__fill" style="width: {{ completion.overall_pct }}%"></div>
-            </div>
-          </div>
-        </div>
-        <div class="mini__row" style="padding-top:0">
-          <div class="table" style="margin-top:8px">
-            <div class="row row--head" style="grid-template-columns:1.2fr .9fr .9fr 1.2fr">
-              <div>Area</div><div>Score</div><div>Items</div><div>Top missing</div>
-            </div>
-            {% for t in completion.types %}
-              <a class="row" style="grid-template-columns:1.2fr .9fr .9fr 1.2fr" href="{{ t.url }}">
-                <div class="mono">{{ t.label }}</div>
-                <div>
-                  <span class="pill pill--tiny {% if t.pct >= 85 %}pill--ok{% elif t.pct >= 65 %}pill--warn{% else %}pill--danger{% endif %}">{{ t.pct }}%</span>
-                </div>
+	    <div class="grid">
+	      <div class="mini col-span-all">
+	        <div class="mini__row">
+	          <div class="mini__top">
+	            <span class="mono">Completion profile</span>
+	            <span class="pill pill--tiny {% if completion.overall_pct >= 85 %}pill--ok{% elif completion.overall_pct >= 65 %}pill--warn{% else %}pill--danger{% endif %}">{{ completion.overall_pct }}%</span>
+	          </div>
+	          <div class="mini__body">
+	            <div class="muted">A quick completeness score based on key fields across core objects.</div>
+	            <div class="meter" role="img" aria-label="Completion {{ completion.overall_pct }} percent">
+	              <div class="meter__fill" style="--pct: {{ completion.overall_pct }}%"></div>
+	            </div>
+	          </div>
+	        </div>
+	        <div class="mini__row pt-0">
+	          <div class="table mt-8">
+	            <div class="row row--head row--report-completion">
+	              <div>Area</div><div>Score</div><div>Items</div><div>Top missing</div>
+	            </div>
+	            {% for t in completion.types %}
+	              <a class="row row--report-completion" href="{{ t.url }}">
+	                <div class="mono">{{ t.label }}</div>
+	                <div>
+	                  <span class="pill pill--tiny {% if t.pct >= 85 %}pill--ok{% elif t.pct >= 65 %}pill--warn{% else %}pill--danger{% endif %}">{{ t.pct }}%</span>
+	                </div>
                 <div class="muted mono">{{ t.items }}</div>
                 <div class="muted">
                   {% for m in t.missing|slice:":2" %}
@@ -129,21 +129,21 @@
         {% endfor %}
       </div>
 
-      <div class="mini">
-        <div class="mini__row">
-          <div class="mini__top"><span class="mono">Checklist runs due in 7 days</span><span class="pill pill--tiny">{{ runs_due7|length }}</span></div>
-        </div>
+	      <div class="mini">
+	        <div class="mini__row">
+	          <div class="mini__top"><span class="mono">Checklist runs due in 7 days</span><span class="pill pill--tiny">{{ runs_due7|length }}</span></div>
+	        </div>
         {% for r in runs_due7|slice:":10" %}
           <div class="mini__row"><a class="link mono" href="{% url 'ui:checklist_run_detail' run_id=r.id %}">{{ r.name }}</a> <span class="muted">{{ r.due_on|date:"Y-m-d" }}</span></div>
         {% empty %}
           <div class="mini__row"><span class="muted">None.</span></div>
         {% endfor %}
-      </div>
-    </div>
-
-    <div class="warn" style="margin-top:16px">
-      <div class="warn__title">MVP</div>
-      <div class="warn__body">This page is intentionally simple for now. Next up would be: filters, export, and more report types (warranty, EOL, missing relationships, etc.).</div>
-    </div>
-  </section>
-{% endblock %}
+	      </div>
+	    </div>
+	
+	    <div class="warn mt-16">
+	      <div class="warn__title">MVP</div>
+	      <div class="warn__body">This page is intentionally simple for now. Next up would be: filters, export, and more report types (warranty, EOL, missing relationships, etc.).</div>
+	    </div>
+	  </section>
+	{% endblock %}

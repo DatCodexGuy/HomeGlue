@@ -68,16 +68,16 @@
       </div>
     {% endif %}
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Custom Fields</h3>
-      {% include "ui/_custom_fields.html" with custom_fields=custom_fields custom_values=custom_values %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Custom Fields</h3>
+	      {% include "ui/_custom_fields.html" with custom_fields=custom_fields custom_values=custom_values %}
+	    </div>
 
-    {% if proxmox_guest %}
-      <div style="margin-top:18px">
-        <h3 class="h3">Proxmox</h3>
-        <div class="mini">
-          <div class="mini__row">
+	    {% if proxmox_guest %}
+	      <div class="mt-18">
+	        <h3 class="h3">Proxmox</h3>
+	        <div class="mini">
+	          <div class="mini__row">
             <div class="mini__top">
               <span class="mono">{{ proxmox_guest.guest_type }} {{ proxmox_guest.vmid }}</span>
               <span class="pill pill--tiny">{% if proxmox_guest.status %}{{ proxmox_guest.status }}{% else %}...{% endif %}</span>
@@ -92,33 +92,33 @@
               <a class="link mono" href="{% url 'ui:proxmox_detail' conn_id=proxmox_guest.connection_id %}">Connection</a>
             </div>
           </div>
-        </div>
-      </div>
-    {% endif %}
+	        </div>
+	      </div>
+	    {% endif %}
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Relationships</h3>
-      {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Relationships</h3>
+	      {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Attachments</h3>
-      {% include "ui/_attachments.html" with attachments=attachments %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Attachments</h3>
+	      {% include "ui/_attachments.html" with attachments=attachments %}
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Notes</h3>
-      {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Notes</h3>
+	      {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Activity</h3>
-      {% include "ui/_activity.html" with activity=activity %}
-    </div>
+	    <div class="mt-18">
+	      <h3 class="h3">Activity</h3>
+	      {% include "ui/_activity.html" with activity=activity %}
+	    </div>
 
-    <div style="margin-top:18px">
-      <h3 class="h3">Versions</h3>
-      {% include "ui/_versions.html" with versions=versions can_restore=can_restore %}
-    </div>
-  </section>
-{% endblock %}
+	    <div class="mt-18">
+	      <h3 class="h3">Versions</h3>
+	      {% include "ui/_versions.html" with versions=versions can_restore=can_restore %}
+	    </div>
+	  </section>
+	{% endblock %}

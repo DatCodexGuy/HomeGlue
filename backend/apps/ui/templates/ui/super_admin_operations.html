@@ -17,13 +17,13 @@
     </div>
 
     {% if flash %}
-      <div class="warn" style="margin-top:12px">
+      <div class="warn mt-12">
         <div class="warn__title">{{ flash.title }}</div>
         <div class="warn__body">{{ flash.body }}</div>
       </div>
     {% endif %}
 
-    <div class="split" style="margin-top:14px">
+    <div class="split mt-14">
       <div class="split__main">
         <h3 class="h3">Worker Health</h3>
         <div class="mini">
@@ -51,7 +51,7 @@
           {% endif %}
         </div>
 
-        <h3 class="h3" style="margin-top:16px">Organization Scope</h3>
+        <h3 class="h3 mt-16">Organization Scope</h3>
         <div class="mini">
           <form method="get">
             <label class="field">
@@ -64,18 +64,18 @@
               </select>
             </label>
           </form>
-          <div class="muted" style="margin-top:8px">
+          <div class="muted mt-8">
             Operations default to per-org to avoid combined org behavior.
           </div>
         </div>
 
         {% if selected_org %}
-          <h3 class="h3" style="margin-top:16px">Run Actions ({{ selected_org.name }})</h3>
+          <h3 class="h3 mt-16">Run Actions ({{ selected_org.name }})</h3>
           <div class="mini">
             <form method="post">
               {% csrf_token %}
               <input type="hidden" name="org_id" value="{{ selected_org.id }}" />
-              <div style="display:flex; flex-wrap:wrap; gap:8px">
+              <div class="flex flex-wrap gap-8">
                 <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="run_checklist_schedules">Checklist schedules</button>
                 <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="run_workflows">Run workflows</button>
                 <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="deliver_notifications">Deliver notifications</button>
@@ -83,7 +83,7 @@
               </div>
             </form>
 
-            <form method="post" style="margin-top:10px">
+            <form method="post" class="mt-10">
               {% csrf_token %}
               <input type="hidden" name="org_id" value="{{ selected_org.id }}" />
               <div class="grid2">
@@ -101,23 +101,23 @@
                   <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="sync_proxmox">Sync Proxmox now</button>
                 </div>
               </div>
-              <div class="muted" style="margin-top:8px">
+              <div class="muted mt-8">
                 Note: Proxmox sync can take a while depending on your cluster size and API responsiveness.
               </div>
             </form>
           </div>
 
-          <h3 class="h3" style="margin-top:16px">Governance (Audit Retention)</h3>
+          <h3 class="h3 mt-16">Governance (Audit Retention)</h3>
           <div class="mini">
             {% if not is_reauthed %}
-              <div class="muted" style="margin-bottom:8px">Re-authentication required for retention changes and purge.</div>
+              <div class="muted mb-8">Re-authentication required for retention changes and purge.</div>
               <a class="btn btn--ghost btn--sm" href="{{ reauth_url }}">
                 <svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>
                 Re-authenticate
               </a>
             {% endif %}
 
-            <form method="post" style="margin-top:10px">
+            <form method="post" class="mt-10">
               {% csrf_token %}
               <input type="hidden" name="org_id" value="{{ selected_org.id }}" />
               <input type="hidden" name="_action" value="audit_policy_save" />
@@ -134,7 +134,7 @@
                   <input class="input" type="number" min="7" max="3650" name="retention_days" value="{{ org_status.audit_policy.retention_days }}" />
                 </label>
               </div>
-              <div style="margin-top:10px">
+              <div class="mt-10">
                 <button class="btn btn--ghost btn--sm" type="submit" {% if not org_status.can_govern %}disabled{% endif %}>
                   <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
                   Save policy
@@ -142,7 +142,7 @@
               </div>
             </form>
 
-            <form method="post" style="margin-top:8px">
+            <form method="post" class="mt-8">
               {% csrf_token %}
               <input type="hidden" name="org_id" value="{{ selected_org.id }}" />
               <input type="hidden" name="_action" value="audit_purge_now" />
@@ -152,12 +152,12 @@
               </button>
             </form>
 
-            <div class="muted" style="margin-top:10px">
+            <div class="muted mt-10">
               Full audit explorer: <a class="link" href="{% url 'ui:audit_log' %}">Audit log</a>
             </div>
           </div>
 
-          <h3 class="h3" style="margin-top:16px">Org Status ({{ selected_org.name }})</h3>
+          <h3 class="h3 mt-16">Org Status ({{ selected_org.name }})</h3>
           <div class="mini">
             <div class="mini__row">
               <div class="muted">Unread notifications</div>
@@ -173,36 +173,36 @@
             </div>
           </div>
 
-          <h3 class="h3" style="margin-top:16px">Recent Backups</h3>
+          <h3 class="h3 mt-16">Recent Backups</h3>
           <div class="table">
-            <div class="row row--head" style="grid-template-columns:1.2fr 0.9fr 1fr 2fr">
+            <div class="row row--head row--ops-backups">
               <div>When</div><div>Status</div><div>Bytes</div><div>Error</div>
             </div>
             {% for b in org_status.recent_backups %}
-              <div class="row row--static" style="grid-template-columns:1.2fr 0.9fr 1fr 2fr">
+              <div class="row row--static row--ops-backups">
                 <div class="mono muted">{{ b.created_at|date:"Y-m-d H:i" }}</div>
                 <div class="mono">{{ b.status }}</div>
                 <div class="mono muted">{{ b.bytes|default:"-" }}</div>
                 <div class="mono">{% if b.error %}{{ b.error|truncatechars:120 }}{% else %}-{% endif %}</div>
               </div>
             {% empty %}
-              <div class="muted" style="margin-top:10px">No backups found.</div>
+              <div class="muted mt-10">No backups found.</div>
             {% endfor %}
           </div>
 
-          <h3 class="h3" style="margin-top:16px">Proxmox Connections</h3>
+          <h3 class="h3 mt-16">Proxmox Connections</h3>
           <div class="table">
-            <div class="row row--head" style="grid-template-columns:2fr 1.2fr 0.8fr">
+            <div class="row row--head row--ops-proxmox">
               <div>Name</div><div>Last sync</div><div>OK</div>
             </div>
             {% for c in org_status.proxmox_connections %}
-              <div class="row row--static" style="grid-template-columns:2fr 1.2fr 0.8fr">
+              <div class="row row--static row--ops-proxmox">
                 <div class="mono">{{ c.name }}</div>
                 <div class="muted mono">{{ c.last_sync_at|default:"(never)" }}</div>
                 <div class="mono">{% if c.last_sync_ok %}true{% else %}false{% endif %}</div>
               </div>
               {% if c.last_sync_error %}
-                <div class="muted" style="margin:6px 0 10px 0">Last error: <span class="mono">{{ c.last_sync_error }}</span></div>
+                <div class="muted mt-6 mb-10">Last error: <span class="mono">{{ c.last_sync_error }}</span></div>
               {% endif %}
             {% empty %}
               <div class="empty">
@@ -212,19 +212,19 @@
             {% endfor %}
           </div>
 
-          <h3 class="h3" style="margin-top:16px">Workflow Rule Errors</h3>
+          <h3 class="h3 mt-16">Workflow Rule Errors</h3>
           <div class="table">
-            <div class="row row--head" style="grid-template-columns:2fr 1.2fr 2fr">
+            <div class="row row--head row--ops-workflow-errors">
               <div>Rule</div><div>Last run</div><div>Error</div>
             </div>
             {% for r in org_status.workflow_rule_errors %}
-              <div class="row row--static" style="grid-template-columns:2fr 1.2fr 2fr">
+              <div class="row row--static row--ops-workflow-errors">
                 <div class="mono">{{ r.name }}</div>
                 <div class="muted mono">{{ r.last_run_at|default:"(never)" }}</div>
                 <div class="mono">{{ r.last_run_error|default:"" }}</div>
               </div>
             {% empty %}
-              <div class="muted" style="margin-top:10px">No recent workflow rule errors.</div>
+              <div class="muted mt-10">No recent workflow rule errors.</div>
             {% endfor %}
           </div>
         {% endif %}
@@ -235,15 +235,15 @@
         <div class="mini">
           <form method="post">
             {% csrf_token %}
-            <label class="field" style="display:flex; gap:10px; align-items:center">
+            <label class="field flex gap-10 items-center">
               <input type="checkbox" name="allow_all_orgs" value="1" />
               <div class="muted">I understand this affects ALL orgs</div>
             </label>
-            <div style="margin-top:10px">
+            <div class="mt-10">
               <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="seed_workflow_rules">Seed workflow rules (all orgs)</button>
             </div>
           </form>
-          <div class="muted" style="margin-top:10px">
+          <div class="muted mt-10">
             For per-org seeding, pick an org and use the same action from there.
           </div>
         </div>

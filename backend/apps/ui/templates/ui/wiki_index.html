@@ -10,18 +10,18 @@
       </div>
     </div>
 
-    <div class="table">
-      <div class="row row--head" style="grid-template-columns:2.6fr 1fr">
-        <div>Page</div><div>Matches</div>
-      </div>
-      {% for r in results %}
-        <div class="row row--click" style="grid-template-columns:2.6fr 1fr" data-href="{{ r.url }}">
-          <div class="titlecell">
-            <a class="row__link" href="{{ r.url }}">{{ r.title }}</a>
-            {% if r.snippet %}<div class="sub" style="margin-top:6px">{{ r.snippet }}</div>{% endif %}
-          </div>
-          <div class="muted mono">{{ r.count }}</div>
-        </div>
+	    <div class="table">
+	      <div class="row row--head row--wiki-search">
+	        <div>Page</div><div>Matches</div>
+	      </div>
+	      {% for r in results %}
+	        <div class="row row--click row--wiki-search" data-href="{{ r.url }}">
+	          <div class="titlecell">
+	            <a class="row__link" href="{{ r.url }}">{{ r.title }}</a>
+	            {% if r.snippet %}<div class="sub mt-6">{{ r.snippet }}</div>{% endif %}
+	          </div>
+	          <div class="muted mono">{{ r.count }}</div>
+	        </div>
       {% empty %}
         <div class="empty">
           <div class="empty__title">No results</div>

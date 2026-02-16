@@ -21,11 +21,11 @@
       </div>
     </div>
 
-    {% if attached_label %}
-      <div class="mini" style="margin-bottom:12px">
-        <div class="mini__row">
-          <div class="mini__top">
-            <span class="pill pill--tiny">Attached</span>
+	    {% if attached_label %}
+	      <div class="mini mb-12">
+	        <div class="mini__row">
+	          <div class="mini__top">
+	            <span class="pill pill--tiny">Attached</span>
             <span class="muted">{{ attached_ref_label }}</span>
           </div>
           <div class="mini__body">
@@ -41,14 +41,14 @@
 
     {% if note.body %}
       <div class="md">{{ note.body|markdown }}</div>
-    {% else %}
-      <div class="muted">No body.</div>
-    {% endif %}
-
-    <div style="margin-top:14px">
-      <form method="post" action="{% url 'ui:note_delete' note_id=note.id %}">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{% url 'ui:notes_list' %}">
+	    {% else %}
+	      <div class="muted">No body.</div>
+	    {% endif %}
+	
+	    <div class="mt-14">
+	      <form method="post" action="{% url 'ui:note_delete' note_id=note.id %}">
+	        {% csrf_token %}
+	        <input type="hidden" name="next" value="{% url 'ui:notes_list' %}">
         <button class="btn btn--ghost btn--sm" type="submit">
           <svg class="ico" viewBox="0 0 24 24"><use href="#i-trash"/></svg>
           Delete

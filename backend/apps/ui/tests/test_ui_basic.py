@@ -125,6 +125,75 @@ class UiBasicTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "SearchMe", status_code=200)
 
+    def test_workflow_runs_page_renders_for_org_admin(self):
+        from apps.workflows.models import WorkflowRule, WorkflowRuleRun
+        from django.utils import timezone
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        # Ensure admin role.
+        OrganizationMembership.objects.filter(user=self.user, organization=self.org).update(role=OrganizationMembership.ROLE_ADMIN)
+
+        rule = WorkflowRule.objects.create(
+            organization=self.org,
+            name="Test rule",
+            enabled=True,
+            kind=WorkflowRule.KIND_CONFIG_MISSING_PRIMARY_IP,
+            audience=WorkflowRule.AUDIENCE_ADMINS,
+            params={},
+            run_interval_minutes=60,
+        )
+        WorkflowRuleRun.objects.create(
+            organization=self.org,
+            rule=rule,
+            triggered_by=WorkflowRuleRun.TRIGGER_MANUAL,
+            started_at=timezone.now(),
+            finished_at=timezone.now(),
+            ok=True,
+            notifications_created=0,
+            duration_ms=5,
+        )
+
+        r = self.client.get("/app/workflows/runs/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Workflow Runs", status_code=200)
+        self.assertContains(r, "Test rule", status_code=200)
+
+    def test_doc_mention_notification_respects_visibility(self):
+        from django.utils import timezone
+        from apps.docsapp.models import Document, DocumentComment
+        from apps.workflows.models import Notification
+        from apps.ui import views as ui_views
+
+        # Create a second user and membership in the org.
+        User = get_user_model()
+        u2 = User.objects.create_user(username="u2", password="pw")
+        OrganizationMembership.objects.create(user=u2, organization=self.org, role=OrganizationMembership.ROLE_MEMBER)
+
+        # Doc is private to the creator (self.user).
+        doc = Document.objects.create(organization=self.org, title="Private doc", body="x", created_by=self.user, visibility=Document.VIS_PRIVATE)
+        c = DocumentComment.objects.create(organization=self.org, document=doc, created_by=self.user, body="hi @u2", created_at=timezone.now())
+
+        created = ui_views._create_doc_mention_notifications(org=self.org, doc=doc, comment=c, actor=self.user)
+        self.assertEqual(created, 0)
+        self.assertFalse(Notification.objects.filter(organization=self.org, user=u2, title__icontains="Mention in document").exists())
+
+    def test_search_archived_toggle(self):
+        from django.utils import timezone
+        from apps.assets.models import Asset
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        a = Asset.objects.create(organization=self.org, name="ArchivedSearchMe")
+        a.archived_at = timezone.now()
+        a.save(update_fields=["archived_at"])
+
+        r = self.client.get("/app/search/?q=ArchivedSearchMe")
+        self.assertEqual(r.status_code, 200)
+        self.assertNotContains(r, f"/app/assets/{a.id}/")
+
+        r = self.client.get("/app/search/?q=ArchivedSearchMe&archived=include")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, f"/app/assets/{a.id}/", status_code=200)
+
     def test_search_type_filter_limits_results(self):
         from apps.assets.models import Asset
         from apps.netapp.models import Domain
@@ -138,6 +207,21 @@ class UiBasicTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "domainthing.com", status_code=200)
         self.assertNotContains(r, "AssetThing")
+
+    def test_search_finds_file_attachment(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.core.models import Attachment
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        Attachment.objects.create(
+            organization=self.org,
+            filename="hello-search.txt",
+            file=SimpleUploadedFile("hello-search.txt", b"hi", content_type="text/plain"),
+        )
+
+        r = self.client.get("/app/search/?q=hello-search&t=file")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "hello-search.txt", status_code=200)
 
     def test_asset_delete_flow(self):
         from apps.assets.models import Asset

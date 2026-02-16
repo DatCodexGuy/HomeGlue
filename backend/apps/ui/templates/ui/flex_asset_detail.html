@@ -69,30 +69,30 @@
           </div>
         {% endif %}
 
-        <div style="margin-top:18px">
-          <h3 class="h3">Custom Fields</h3>
-          {% include "ui/_custom_fields.html" with custom_fields=custom_fields custom_values=custom_values %}
-        </div>
-
-        <div style="margin-top:18px">
-          <h3 class="h3">Relationships</h3>
-          {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
-        </div>
-      </div>
+	        <div class="mt-18">
+	          <h3 class="h3">Custom Fields</h3>
+	          {% include "ui/_custom_fields.html" with custom_fields=custom_fields custom_values=custom_values %}
+	        </div>
+	
+	        <div class="mt-18">
+	          <h3 class="h3">Relationships</h3>
+	          {% include "ui/_relationships.html" with relationships=relationships add_relationship_url=add_relationship_url %}
+	        </div>
+	      </div>
 
       <div class="split__side">
-        <h3 class="h3">Attachments</h3>
-        {% include "ui/_attachments.html" with attachments=attachments %}
-
-        <h3 class="h3" style="margin-top:16px">Notes</h3>
-        {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
-
-        <h3 class="h3" style="margin-top:16px">Activity</h3>
-        {% include "ui/_activity.html" with activity=activity %}
-
-        <h3 class="h3" style="margin-top:16px">Versions</h3>
-        {% include "ui/_versions.html" with versions=versions can_restore=can_restore %}
-      </div>
-    </div>
+	        <h3 class="h3">Attachments</h3>
+	        {% include "ui/_attachments.html" with attachments=attachments %}
+	
+	        <h3 class="h3 mt-16">Notes</h3>
+	        {% include "ui/_notes.html" with notes=notes note_ref=note_ref %}
+	
+	        <h3 class="h3 mt-16">Activity</h3>
+	        {% include "ui/_activity.html" with activity=activity %}
+	
+	        <h3 class="h3 mt-16">Versions</h3>
+	        {% include "ui/_versions.html" with versions=versions can_restore=can_restore %}
+	      </div>
+	    </div>
   </section>
 {% endblock %}

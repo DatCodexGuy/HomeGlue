@@ -8,6 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.checklists.models import ChecklistRun, ChecklistSchedule
+from apps.checklists.scheduling import advance_next_run_on
 from apps.checklists.services import copy_checklist_items_to_run
 
 
@@ -15,26 +16,6 @@ from apps.checklists.services import copy_checklist_items_to_run
 class ScheduleRunResult:
     created_runs: int = 0
     advanced_schedules: int = 0
-
-
-def _advance_next_run_on(*, schedule: ChecklistSchedule, today) -> bool:
-    """
-    Advance schedule.next_run_on at least once, and catch up if it's far in the past.
-    Returns True if updated.
-    """
-
-    every = int(schedule.every_days or 1)
-    every = max(1, min(3650, every))
-
-    changed = False
-    # Catch up in bounded steps to avoid pathological loops.
-    for _ in range(0, 366):  # up to ~1 year catch-up
-        if schedule.next_run_on and schedule.next_run_on <= today:
-            schedule.next_run_on = schedule.next_run_on + timedelta(days=every)
-            changed = True
-            continue
-        break
-    return changed
 
 
 def run_due_schedules(*, org_id: int | None = None, limit: int = 200) -> ScheduleRunResult:
@@ -61,7 +42,7 @@ def run_due_schedules(*, org_id: int | None = None, limit: int = 200) -> Schedul
 
             # If the underlying checklist is archived, just advance the schedule.
             if sched.checklist.archived_at is not None:
-                if _advance_next_run_on(schedule=sched, today=today):
+                if advance_next_run_on(schedule=sched, today=today).changed:
                     sched.save(update_fields=["next_run_on", "updated_at"])
                     advanced += 1
                 continue
@@ -91,7 +72,8 @@ def run_due_schedules(*, org_id: int | None = None, limit: int = 200) -> Schedul
                 created_runs += 1
                 sched.last_created_at = now
 
-            if _advance_next_run_on(schedule=sched, today=today):
+            res = advance_next_run_on(schedule=sched, today=today)
+            if res.changed:
                 advanced += 1
 
             sched.save(update_fields=["next_run_on", "last_created_at", "updated_at"])
@@ -111,4 +93,3 @@ class Command(BaseCommand):
         limit = int(opts.get("limit") or 200)
         res = run_due_schedules(org_id=int(org_id) if org_id else None, limit=limit)
         self.stdout.write(f"checklist schedules: created_runs={res.created_runs} advanced_schedules={res.advanced_schedules}")
-
