@@ -104,7 +104,7 @@
       <select class="bulkbar__select" name="model" aria-label="Model" style="max-width:300px">
         <option value="">All models</option>
         {% for m in model_choices %}
-          <option value="{{ m }}" {% if model == m %}selected{% endif %}>{{ m }}</option>
+          <option value="{{ m.value }}" {% if model == m.value %}selected{% endif %}>{{ m.label }}</option>
         {% endfor %}
       </select>
       <select class="bulkbar__select" name="user" aria-label="Actor">

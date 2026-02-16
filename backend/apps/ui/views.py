@@ -1255,15 +1255,6 @@ def _save_custom_fields_from_post(*, request: HttpRequest, org, obj) -> None:
             )
 
 
-def _activity_for_object(*, org, model_cls, obj_id: int, limit: int = 20) -> list[AuditEvent]:
-    model = f"{model_cls._meta.app_label}.{model_cls.__name__}"
-    return list(
-        AuditEvent.objects.filter(organization_id=org.id, model=model, object_pk=str(obj_id))
-        .select_related("user")
-        .order_by("-ts")[:limit]
-    )
-
-
 def _human_model_label(model: str) -> str:
     raw = (model or "").strip()
     if "." in raw:
@@ -1302,6 +1293,44 @@ def _human_action_label(action: str) -> str:
         AuditEvent.ACTION_UPDATE: "Updated",
         AuditEvent.ACTION_DELETE: "Deleted",
     }.get(val, (action or "Event").title())
+
+
+def _human_ct_label(ct) -> str:
+    if not ct:
+        return "Item"
+    return _human_model_label(f"{ct.app_label}.{ct.model}")
+
+
+def _human_ref_label(*, ct, oid: str | int | None = None, obj=None, restricted: bool = False) -> str:
+    base = _human_ct_label(ct)
+    if restricted:
+        return f"{base}: Restricted"
+    if obj is not None:
+        return f"{base}: {obj}"
+    if oid is not None and str(oid).strip():
+        return f"{base} #{oid}"
+    return base
+
+
+def _activity_for_object(*, org, model_cls, obj_id: int, limit: int = 20) -> list[dict]:
+    model = f"{model_cls._meta.app_label}.{model_cls.__name__}"
+    events = list(
+        AuditEvent.objects.filter(organization_id=org.id, model=model, object_pk=str(obj_id))
+        .select_related("user")
+        .order_by("-ts")[:limit]
+    )
+    rows = []
+    for e in events:
+        rows.append(
+            {
+                "ts": e.ts,
+                "action_badge": e.action,
+                "action_label": _human_action_label(e.action),
+                "actor_label": (e.user.username if e.user else "System"),
+                "summary": e.summary,
+            }
+        )
+    return rows
 
 
 def _versions_for_object(*, org, obj, limit: int = 20) -> list[ObjectVersion]:
@@ -1731,7 +1760,10 @@ def audit_log(request: HttpRequest) -> HttpResponse:
                 "summary": e.summary,
             }
         )
-    model_choices = list(AuditEvent.objects.filter(organization=org).values_list("model", flat=True).distinct().order_by("model")[:200])
+    model_choices_raw = list(
+        AuditEvent.objects.filter(organization=org).values_list("model", flat=True).distinct().order_by("model")[:200]
+    )
+    model_choices = [{"value": m, "label": _human_model_label(m)} for m in model_choices_raw]
     return render(
         request,
         "ui/audit_log.html",
@@ -5161,9 +5193,9 @@ def files_list(request: HttpRequest) -> HttpResponse:
             try:
                 obj = ct.model_class().objects.filter(organization=org, id=int(oid)).first()
                 if obj:
-                    filter_label = f"{ct.app_label}.{ct.model}: {obj}"
+                    filter_label = _human_ref_label(ct=ct, obj=obj)
                 else:
-                    filter_label = f"{ct.app_label}.{ct.model}:{oid}"
+                    filter_label = _human_ref_label(ct=ct, oid=oid)
             except Exception:
                 filter_label = ref
 
@@ -5199,7 +5231,7 @@ def files_list(request: HttpRequest) -> HttpResponse:
         ct = getattr(a, "content_type", None)
         oid = getattr(a, "object_id", None)
         if ct and oid:
-            attached_label = f"{ct.app_label}.{ct.model}:{oid}"
+            attached_label = _human_ref_label(ct=ct, oid=oid)
             try:
                 model_cls = ct.model_class()
                 if model_cls is not None and hasattr(model_cls, "organization_id"):
@@ -5207,7 +5239,7 @@ def files_list(request: HttpRequest) -> HttpResponse:
                 else:
                     obj = model_cls.objects.filter(id=int(oid)).first() if model_cls is not None else None
                 if obj:
-                    attached_label = f"{ct.app_label}.{ct.model}: {obj}"
+                    attached_label = _human_ref_label(ct=ct, obj=obj)
                     attached_url = _url_for_object_detail(obj)
             except Exception:
                 pass
@@ -5976,18 +6008,18 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
     ct = getattr(a, "content_type", None)
     oid = getattr(a, "object_id", None)
     if ct and oid:
-        attached_label = f"{ct.app_label}.{ct.model}:{oid}"
+        attached_label = _human_ref_label(ct=ct, oid=oid)
         try:
             model_cls = ct.model_class()
             if model_cls is Document:
                 obj = Document.objects.filter(organization=org, id=int(oid)).first()
                 if obj and _can_view_document(user=request.user, org=org, doc=obj):
-                    attached_label = f"{ct.app_label}.{ct.model}: {obj}"
+                    attached_label = _human_ref_label(ct=ct, obj=obj)
                     attached_url = _url_for_object_detail(obj)
             elif model_cls is PasswordEntry:
                 obj = PasswordEntry.objects.filter(organization=org, id=int(oid)).first()
                 if obj and _can_view_password(user=request.user, org=org, entry=obj):
-                    attached_label = f"{ct.app_label}.{ct.model}: {obj}"
+                    attached_label = _human_ref_label(ct=ct, obj=obj)
                     attached_url = _url_for_object_detail(obj)
             else:
                 if model_cls is not None and hasattr(model_cls, "organization_id"):
@@ -5995,7 +6027,7 @@ def file_detail(request: HttpRequest, attachment_id: int) -> HttpResponse:
                 else:
                     obj = model_cls.objects.filter(id=int(oid)).first() if model_cls is not None else None
                 if obj:
-                    attached_label = f"{ct.app_label}.{ct.model}: {obj}"
+                    attached_label = _human_ref_label(ct=ct, obj=obj)
                     attached_url = _url_for_object_detail(obj)
         except Exception:
             pass
@@ -8800,13 +8832,13 @@ def relationships_list(request: HttpRequest) -> HttpResponse:
                     else:
                         obj = model_cls.objects.filter(id=int(oid)).first()
                 if obj and model_cls is Document and not can_admin and not _can_view_document(user=request.user, org=org, doc=obj):
-                    filter_label = f"{ct.app_label}.{ct.model}: (restricted)"
+                    filter_label = _human_ref_label(ct=ct, restricted=True)
                 elif obj and model_cls is PasswordEntry and not can_admin and not _can_view_password(user=request.user, org=org, entry=obj):
-                    filter_label = f"{ct.app_label}.{ct.model}: (restricted)"
+                    filter_label = _human_ref_label(ct=ct, restricted=True)
                 elif obj:
-                    filter_label = f"{ct.app_label}.{ct.model}: {obj}"
+                    filter_label = _human_ref_label(ct=ct, obj=obj)
                 else:
-                    filter_label = filter_ref
+                    filter_label = _human_ref_label(ct=ct, oid=oid)
             except Exception:
                 filter_label = filter_ref
 
@@ -8885,11 +8917,11 @@ def notes_list(request: HttpRequest) -> HttpResponse:
                     else:
                         obj = model_cls.objects.filter(id=int(oid)).first()
                 if obj and model_cls is Document and not can_admin and not _can_view_document(user=request.user, org=org, doc=obj):
-                    filter_label = f"{ct.app_label}.{ct.model}: (restricted)"
+                    filter_label = _human_ref_label(ct=ct, restricted=True)
                 elif obj and model_cls is PasswordEntry and not can_admin and not _can_view_password(user=request.user, org=org, entry=obj):
-                    filter_label = f"{ct.app_label}.{ct.model}: (restricted)"
+                    filter_label = _human_ref_label(ct=ct, restricted=True)
                 else:
-                    filter_label = f"{ct.app_label}.{ct.model}: {obj}" if obj else filter_ref
+                    filter_label = _human_ref_label(ct=ct, obj=obj) if obj else _human_ref_label(ct=ct, oid=oid)
             except Exception:
                 filter_label = filter_ref
 

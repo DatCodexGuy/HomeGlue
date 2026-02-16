@@ -644,6 +644,28 @@ class UiBasicTests(TestCase):
         self.assertContains(r, "orgfile.txt", status_code=200)
         self.assertNotContains(r, "attached.txt")
 
+    def test_files_list_attached_label_is_humanized(self):
+        from django.contrib.contenttypes.models import ContentType
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from apps.assets.models import Asset
+        from apps.core.models import Attachment
+
+        self.client.get(f"/app/orgs/{self.org.id}/enter/")
+        asset = Asset.objects.create(organization=self.org, name="ReadableAsset")
+        ct = ContentType.objects.get_for_model(Asset)
+        Attachment.objects.create(
+            organization=self.org,
+            uploaded_by=self.user,
+            file=SimpleUploadedFile("h.txt", b"h", content_type="text/plain"),
+            filename="h.txt",
+            content_type=ct,
+            object_id=str(asset.id),
+        )
+        r = self.client.get("/app/files/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Assets / Asset", status_code=200)
+        self.assertNotContains(r, "assets.asset:")
+
     def test_file_safeshare_passphrase_required(self):
         from urllib.parse import urlsplit
         from django.core.files.uploadedfile import SimpleUploadedFile

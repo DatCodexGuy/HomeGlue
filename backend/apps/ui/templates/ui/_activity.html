@@ -3,11 +3,17 @@
     {% for e in activity %}
       <div class="mini__row">
         <div class="mini__top">
-          <span class="pill pill--tiny">{{ e.action }}</span>
+          <span class="pill pill--tiny" title="{{ e.action_badge }}">{{ e.action_label|default:e.action }}</span>
           <span class="muted">{{ e.ts|date:"Y-m-d H:i" }}</span>
         </div>
         <div class="mini__body">
-          {% if e.user %}<span class="muted">by {{ e.user.username }}</span>{% else %}<span class="muted">by system</span>{% endif %}
+          {% if e.actor_label %}
+            <span class="muted">by {{ e.actor_label }}</span>
+          {% elif e.user %}
+            <span class="muted">by {{ e.user.username }}</span>
+          {% else %}
+            <span class="muted">by System</span>
+          {% endif %}
         </div>
         {% if e.summary %}<div class="muted">{{ e.summary }}</div>{% endif %}
       </div>
@@ -16,4 +22,3 @@
     <div class="muted">No activity recorded yet.</div>
   {% endif %}
 </div>
-

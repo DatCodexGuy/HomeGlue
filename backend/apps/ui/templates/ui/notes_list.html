@@ -18,11 +18,10 @@
     {% if filter_invalid %}
       <div class="warn">
         <div class="warn__title">Invalid filter</div>
-        <div class="warn__body">Expected a ref like <span class="mono">assets.asset:1</span>.</div>
+        <div class="warn__body">The selected object filter could not be parsed.</div>
       </div>
     {% endif %}
 
     {% include "ui/_notes.html" with notes=notes note_ref=filter_ref %}
   </section>
 {% endblock %}
-
