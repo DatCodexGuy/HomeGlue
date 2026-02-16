@@ -199,6 +199,76 @@
     ta.dispatchEvent(new Event("input", { bubbles: true }));
   };
 
+  const withSelectedLines = (ta, fn) => {
+    if (!(ta instanceof HTMLTextAreaElement)) return;
+    const val = ta.value || "";
+    const selStart = ta.selectionStart || 0;
+    const selEnd = ta.selectionEnd || 0;
+    const lineStart = val.lastIndexOf("\n", Math.max(0, selStart - 1)) + 1;
+    let lineEnd = val.indexOf("\n", selEnd);
+    if (lineEnd === -1) lineEnd = val.length;
+    const block = val.slice(lineStart, lineEnd);
+    const lines = block.split("\n");
+    const res = fn(lines, { relStart: selStart - lineStart, relEnd: selEnd - lineStart });
+    const newLines = Array.isArray(res && res.lines) ? res.lines : lines;
+    ta.value = val.slice(0, lineStart) + newLines.join("\n") + val.slice(lineEnd);
+    const nextStart = lineStart + (res && typeof res.relStart === "number" ? res.relStart : 0);
+    const nextEnd = lineStart + (res && typeof res.relEnd === "number" ? res.relEnd : nextStart);
+    ta.focus();
+    ta.setSelectionRange(nextStart, nextEnd);
+    ta.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  const prefixSelectionLines = (ta, prefix) => {
+    withSelectedLines(ta, (lines, sel) => {
+      const out = lines.map((ln) => (ln.trim() ? (prefix + ln) : ln));
+      return { lines: out, relStart: sel.relStart + prefix.length, relEnd: sel.relEnd + prefix.length };
+    });
+  };
+
+  const bulletSelection = (ta) => {
+    withSelectedLines(ta, (lines, sel) => {
+      const out = lines.map((ln) => {
+        if (!ln.trim()) return ln;
+        if (/^\s*([-*+]\s+|\d+\.\s+)/.test(ln)) return ln;
+        return "- " + ln;
+      });
+      return { lines: out, relStart: sel.relStart, relEnd: sel.relEnd };
+    });
+  };
+
+  const numberSelection = (ta) => {
+    withSelectedLines(ta, (lines, sel) => {
+      let n = 1;
+      const out = lines.map((ln) => {
+        if (!ln.trim()) return ln;
+        const rest = ln.replace(/^\s*\d+\.\s+/, "");
+        const pref = `${n}. `;
+        n += 1;
+        return pref + rest;
+      });
+      return { lines: out, relStart: sel.relStart, relEnd: sel.relEnd };
+    });
+  };
+
+  const indentSelection = (ta, spaces) => {
+    const pad = " ".repeat(Math.max(0, spaces || 4));
+    withSelectedLines(ta, (lines, sel) => {
+      const out = lines.map((ln) => (ln.trim() ? (pad + ln) : ln));
+      return { lines: out, relStart: sel.relStart + pad.length, relEnd: sel.relEnd + pad.length };
+    });
+  };
+
+  const outdentSelection = (ta, spaces) => {
+    const n = Math.max(1, spaces || 4);
+    withSelectedLines(ta, (lines, sel) => {
+      const out = lines.map((ln) => ln.replace(new RegExp(`^ {1,${n}}`), ""));
+      const m = (lines[0] || "").match(/^ +/);
+      const shrink = Math.min(n, m ? (m[0].length) : 0);
+      return { lines: out, relStart: Math.max(0, sel.relStart - shrink), relEnd: Math.max(0, sel.relEnd - shrink) };
+    });
+  };
+
   const makeMdToolbar = (ta) => {
     const bar = document.createElement("div");
     bar.className = "mdedit__bar";
@@ -216,34 +286,34 @@
       return b;
     };
 
-    const style = document.createElement("select");
-    style.className = "mdedit__select";
-    style.innerHTML = `
-      <option value="">Style</option>
-      <option value="h2">Heading 2</option>
-      <option value="h3">Heading 3</option>
-      <option value="quote">Quote</option>
-      <option value="ul">Bulleted list</option>
-      <option value="ol">Numbered list</option>
-      <option value="codeblock">Code block</option>
-    `;
-    style.addEventListener("change", () => {
-      const v = style.value;
-      style.value = "";
-      if (v === "h2") prefixLine(ta, "## ");
-      else if (v === "h3") prefixLine(ta, "### ");
-      else if (v === "quote") prefixLine(ta, "> ");
-      else if (v === "ul") prefixLine(ta, "- ");
-      else if (v === "ol") prefixLine(ta, "1. ");
-      else if (v === "codeblock") surround(ta, "```\n", "\n```\n");
-    });
-
     const previewBtn = btn("Preview", "Render Markdown preview", () => {});
-    bar.appendChild(style);
+
+    const sep = () => {
+      const s = document.createElement("span");
+      s.className = "mdedit__sep";
+      s.setAttribute("aria-hidden", "true");
+      s.textContent = "|";
+      return s;
+    };
+
     bar.appendChild(btn("B", "Bold", () => surround(ta, "**", "**")));
     bar.appendChild(btn("I", "Italic", () => surround(ta, "*", "*")));
     bar.appendChild(btn("`", "Inline code", () => surround(ta, "`", "`")));
     bar.appendChild(btn("Link", "Insert link", () => surround(ta, "[", "](https://example.com)")));
+    bar.appendChild(sep());
+    bar.appendChild(btn("H2", "Heading 2", () => prefixSelectionLines(ta, "## ")));
+    bar.appendChild(btn("H3", "Heading 3", () => prefixSelectionLines(ta, "### ")));
+    bar.appendChild(btn("Quote", "Quote", () => prefixSelectionLines(ta, "> ")));
+    bar.appendChild(sep());
+    bar.appendChild(btn("UL", "Bulleted list", () => bulletSelection(ta)));
+    bar.appendChild(btn("OL", "Numbered list", () => numberSelection(ta)));
+    bar.appendChild(btn("Indent", "Indent (nest list)", () => indentSelection(ta, 4)));
+    bar.appendChild(btn("Outdent", "Outdent", () => outdentSelection(ta, 4)));
+    bar.appendChild(sep());
+    bar.appendChild(btn("Task", "Task list item", () => prefixSelectionLines(ta, "- [ ] ")));
+    bar.appendChild(btn("Code", "Code block", () => surround(ta, "```\n", "\n```\n")));
+    bar.appendChild(btn("HR", "Horizontal rule", () => surround(ta, "\n---\n", "")));
+    bar.appendChild(sep());
     bar.appendChild(previewBtn);
 
     const preview = document.createElement("div");

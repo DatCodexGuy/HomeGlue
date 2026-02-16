@@ -511,6 +511,13 @@ html[data-theme="dark"] .md th{background: rgba(231,240,236,.06)}
   line-height: 1;
 }
 .mdedit__btn:hover{background: var(--ghost-bg-hover); border-color: rgba(31,42,36,.24)}
+.mdedit__sep{
+  color: rgba(31,42,36,.38);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 0 2px;
+  user-select: none;
+}
 .mdedit__select{
   border: 1px solid rgba(31,42,36,.14);
   background: var(--input-bg);
@@ -531,6 +538,7 @@ html[data-theme="dark"] .md th{background: rgba(231,240,236,.06)}
 }
 html[data-theme="dark"] .mdedit__btn{border-color: rgba(231,240,236,.18); color: rgba(231,240,236,.90)}
 html[data-theme="dark"] .mdedit__btn:hover{border-color: rgba(231,240,236,.28)}
+html[data-theme="dark"] .mdedit__sep{color: rgba(231,240,236,.38)}
 html[data-theme="dark"] .mdedit__select{border-color: rgba(231,240,236,.18)}
 
 .panel{

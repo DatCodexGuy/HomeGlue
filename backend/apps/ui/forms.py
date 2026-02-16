@@ -406,7 +406,7 @@ class RelationshipForm(OrgBoundModelForm):
     class Meta:
         model = Relationship
         fields = ["relationship_type", "source_ref", "target_ref", "notes"]
-        widgets = {"notes": forms.Textarea(attrs={"rows": 5})}
+        widgets = {"notes": forms.Textarea(attrs={"rows": 5, "class": "js-md"})}
 
     def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, org=org, **kwargs)
@@ -487,7 +487,7 @@ class ContactForm(OrgBoundModelForm):
     class Meta:
         model = Contact
         fields = ["first_name", "last_name", "email", "phone", "title", "tags", "notes"]
-        widgets = {"notes": forms.Textarea(attrs={"rows": 6})}
+        widgets = {"notes": forms.Textarea(attrs={"rows": 6, "class": "js-md"})}
 
     def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, org=org, **kwargs)
@@ -571,7 +571,7 @@ class FlexibleAssetForm(OrgBoundModelForm):
     class Meta:
         model = FlexibleAsset
         fields = ["name", "tags", "notes"]
-        widgets = {"notes": forms.Textarea(attrs={"rows": 6})}
+        widgets = {"notes": forms.Textarea(attrs={"rows": 6, "class": "js-md"})}
 
     def __init__(self, *args, org=None, asset_type=None, **kwargs):
         self.asset_type = asset_type
@@ -599,7 +599,7 @@ class DomainForm(OrgBoundModelForm):
     class Meta:
         model = Domain
         fields = ["name", "status", "registrar", "dns_provider", "expires_on", "auto_renew", "tags", "notes"]
-        widgets = {"notes": forms.Textarea(attrs={"rows": 6})}
+        widgets = {"notes": forms.Textarea(attrs={"rows": 6, "class": "js-md"})}
 
     def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, org=org, **kwargs)
@@ -624,7 +624,7 @@ class SSLCertificateForm(OrgBoundModelForm):
         ]
         widgets = {
             "subject_alt_names": forms.Textarea(attrs={"rows": 3}),
-            "notes": forms.Textarea(attrs={"rows": 6}),
+            "notes": forms.Textarea(attrs={"rows": 6, "class": "js-md"}),
         }
 
     def __init__(self, *args, org=None, **kwargs):
@@ -638,7 +638,7 @@ class ChecklistForm(OrgBoundModelForm):
     class Meta:
         model = Checklist
         fields = ["name", "tags", "description"]
-        widgets = {"description": forms.Textarea(attrs={"rows": 6})}
+        widgets = {"description": forms.Textarea(attrs={"rows": 6, "class": "js-md"})}
 
     def __init__(self, *args, org=None, **kwargs):
         super().__init__(*args, org=org, **kwargs)
