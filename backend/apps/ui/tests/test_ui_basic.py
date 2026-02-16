@@ -75,6 +75,8 @@ class UiBasicTests(TestCase):
         self.assertEqual(r.status_code, 403)
         r = c.get("/app/admin/config/")
         self.assertEqual(r.status_code, 403)
+        r = c.get("/app/admin/ops/")
+        self.assertEqual(r.status_code, 403)
         r = c.get("/app/admin/system/")
         self.assertEqual(r.status_code, 403)
         r = c.get("/app/admin/users/")

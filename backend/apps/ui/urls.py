@@ -11,6 +11,7 @@ urlpatterns = [
     path("account/", views.account_view, name="account"),
     path("admin/", views.super_admin_home, name="super_admin_home"),
     path("admin/config/", views.super_admin_config_status, name="super_admin_config_status"),
+    path("admin/ops/", views.super_admin_operations, name="super_admin_operations"),
     path("admin/system/", views.super_admin_system_settings, name="super_admin_system_settings"),
     path("admin/users/", views.super_admin_users_list, name="super_admin_users_list"),
     path("admin/users/<int:user_id>/", views.super_admin_user_detail, name="super_admin_user_detail"),

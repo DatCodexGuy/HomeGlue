@@ -5,6 +5,8 @@ import time
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
+from apps.core.worker_heartbeat import heartbeat_mark
+
 
 class Command(BaseCommand):
     help = "Background worker loop: integrations sync + workflows evaluation + recurring checklists."
@@ -19,6 +21,7 @@ class Command(BaseCommand):
         self.stdout.write(f"Starting worker loop (sleep={sleep_s}s, org_id={org_id or 'ALL'})")
 
         while True:
+            heartbeat_mark(started=True, ok=True, error="")
             try:
                 if org_id:
                     call_command("sync_integrations_once", org_id=int(org_id))
@@ -36,4 +39,7 @@ class Command(BaseCommand):
                     call_command("run_backups_once")
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"worker loop error: {e}"))
+                heartbeat_mark(finished=True, ok=False, error=str(e))
+            else:
+                heartbeat_mark(finished=True, ok=True, error="")
             time.sleep(sleep_s)

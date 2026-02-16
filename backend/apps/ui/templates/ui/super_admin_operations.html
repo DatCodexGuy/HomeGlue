@@ -1,0 +1,186 @@
+{% extends "ui/base.html" %}
+{% block title %}Admin | Operations{% endblock %}
+{% block content %}
+  <section class="panel reveal">
+    {% include "ui/_crumbs_simple.html" with crumbs=crumbs %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Operations</h1>
+        <div class="sub">Operational tools and health (superuser-only).</div>
+      </div>
+      <div class="listhead__actions">
+        <a class="btn btn--ghost btn--sm" href="{% url 'ui:super_admin_home' %}">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-back"/></svg>
+          Back
+        </a>
+      </div>
+    </div>
+
+    {% if flash %}
+      <div class="warn" style="margin-top:12px">
+        <div class="warn__title">{{ flash.title }}</div>
+        <div class="warn__body">{{ flash.body }}</div>
+      </div>
+    {% endif %}
+
+    <div class="split" style="margin-top:14px">
+      <div class="split__main">
+        <h3 class="h3">Worker Health</h3>
+        <div class="mini">
+          {% if hb %}
+            <div class="mini__row">
+              <div class="muted">Last started</div>
+              <div class="mono">{{ hb.last_started_at|default:"(never)" }}</div>
+            </div>
+            <div class="mini__row">
+              <div class="muted">Last finished</div>
+              <div class="mono">{{ hb.last_finished_at|default:"(never)" }}</div>
+            </div>
+            <div class="mini__row">
+              <div class="muted">Last OK</div>
+              <div class="mono">{% if hb.last_ok %}true{% else %}false{% endif %}</div>
+            </div>
+            {% if hb.last_error %}
+              <div class="mini__row">
+                <div class="muted">Last error</div>
+                <div class="mono">{{ hb.last_error }}</div>
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="muted">No heartbeat found yet. Ensure the <span class="mono">worker</span> container is running and migrations are applied.</div>
+          {% endif %}
+        </div>
+
+        <h3 class="h3" style="margin-top:16px">Organization Scope</h3>
+        <div class="mini">
+          <form method="get">
+            <label class="field">
+              <div class="field__label">Pick an organization</div>
+              <select class="input" name="org_id" onchange="this.form.submit()">
+                <option value="">Select...</option>
+                {% for o in orgs %}
+                  <option value="{{ o.id }}" {% if selected_org and o.id == selected_org.id %}selected{% endif %}>{{ o.name }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </form>
+          <div class="muted" style="margin-top:8px">
+            Operations default to per-org to avoid combined org behavior.
+          </div>
+        </div>
+
+        {% if selected_org %}
+          <h3 class="h3" style="margin-top:16px">Run Actions ({{ selected_org.name }})</h3>
+          <div class="mini">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="org_id" value="{{ selected_org.id }}" />
+              <div style="display:flex; flex-wrap:wrap; gap:8px">
+                <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="run_checklist_schedules">Checklist schedules</button>
+                <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="run_workflows">Run workflows</button>
+                <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="deliver_notifications">Deliver notifications</button>
+                <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="schedule_backups">Schedule backups (force)</button>
+              </div>
+            </form>
+
+            <form method="post" style="margin-top:10px">
+              {% csrf_token %}
+              <input type="hidden" name="org_id" value="{{ selected_org.id }}" />
+              <div class="grid2">
+                <label class="field">
+                  <div class="field__label">Proxmox connection (optional)</div>
+                  <select class="input" name="connection_id">
+                    <option value="">All enabled connections</option>
+                    {% for c in org_status.proxmox_connections %}
+                      <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <div class="field">
+                  <div class="field__label">&nbsp;</div>
+                  <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="sync_proxmox">Sync Proxmox now</button>
+                </div>
+              </div>
+              <div class="muted" style="margin-top:8px">
+                Note: Proxmox sync can take a while depending on your cluster size and API responsiveness.
+              </div>
+            </form>
+          </div>
+
+          <h3 class="h3" style="margin-top:16px">Org Status ({{ selected_org.name }})</h3>
+          <div class="mini">
+            <div class="mini__row">
+              <div class="muted">Unread notifications</div>
+              <div class="mono">{{ org_status.unread_notifications }}</div>
+            </div>
+            <div class="mini__row">
+              <div class="muted">Failed deliveries (24h)</div>
+              <div class="mono">{{ org_status.failed_deliveries_24h }}</div>
+            </div>
+            <div class="mini__row">
+              <div class="muted">Pending backups</div>
+              <div class="mono">{{ org_status.pending_backups }}</div>
+            </div>
+          </div>
+
+          <h3 class="h3" style="margin-top:16px">Proxmox Connections</h3>
+          <div class="table">
+            <div class="row row--head" style="grid-template-columns:2fr 1.2fr 0.8fr">
+              <div>Name</div><div>Last sync</div><div>OK</div>
+            </div>
+            {% for c in org_status.proxmox_connections %}
+              <div class="row row--static" style="grid-template-columns:2fr 1.2fr 0.8fr">
+                <div class="mono">{{ c.name }}</div>
+                <div class="muted mono">{{ c.last_sync_at|default:"(never)" }}</div>
+                <div class="mono">{% if c.last_sync_ok %}true{% else %}false{% endif %}</div>
+              </div>
+              {% if c.last_sync_error %}
+                <div class="muted" style="margin:6px 0 10px 0">Last error: <span class="mono">{{ c.last_sync_error }}</span></div>
+              {% endif %}
+            {% empty %}
+              <div class="empty">
+                <div class="empty__title">No Proxmox connections</div>
+                <div class="empty__body">Add one in the org Integrations page.</div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <h3 class="h3" style="margin-top:16px">Workflow Rule Errors</h3>
+          <div class="table">
+            <div class="row row--head" style="grid-template-columns:2fr 1.2fr 2fr">
+              <div>Rule</div><div>Last run</div><div>Error</div>
+            </div>
+            {% for r in org_status.workflow_rule_errors %}
+              <div class="row row--static" style="grid-template-columns:2fr 1.2fr 2fr">
+                <div class="mono">{{ r.name }}</div>
+                <div class="muted mono">{{ r.last_run_at|default:"(never)" }}</div>
+                <div class="mono">{{ r.last_run_error|default:"" }}</div>
+              </div>
+            {% empty %}
+              <div class="muted" style="margin-top:10px">No recent workflow rule errors.</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="split__side">
+        <h3 class="h3">Global Actions</h3>
+        <div class="mini">
+          <form method="post">
+            {% csrf_token %}
+            <label class="field" style="display:flex; gap:10px; align-items:center">
+              <input type="checkbox" name="allow_all_orgs" value="1" />
+              <div class="muted">I understand this affects ALL orgs</div>
+            </label>
+            <div style="margin-top:10px">
+              <button class="btn btn--ghost btn--sm" type="submit" name="_action" value="seed_workflow_rules">Seed workflow rules (all orgs)</button>
+            </div>
+          </form>
+          <div class="muted" style="margin-top:10px">
+            For per-org seeding, pick an org and use the same action from there.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}

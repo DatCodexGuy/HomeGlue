@@ -2155,6 +2155,151 @@ def super_admin_config_status(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+def super_admin_operations(request: HttpRequest) -> HttpResponse:
+    """
+    Superuser-only operational tools and health for the instance.
+
+    This is intentionally scoped:
+    - Defaults to per-org operations (user must pick an org to avoid "combined org" views).
+    - Includes a few safe global ops (like seeding rules) behind an explicit toggle.
+    """
+
+    if not getattr(request.user, "is_superuser", False):
+        raise PermissionDenied("Superuser required.")
+
+    ctx = get_current_org_context(request)
+    org_ctx = ctx.organization if ctx else None
+
+    flash = request.session.pop("homeglue_flash", None)
+
+    def _set_flash(*, title: str, body: str):
+        request.session["homeglue_flash"] = {"title": title, "body": body}
+
+    # Org selector (explicit, to preserve "org-first" mental model even for ops).
+    orgs = list(Organization.objects.all().order_by("name")[:500])
+    raw_org_id = (request.GET.get("org_id") or request.POST.get("org_id") or "").strip()
+    selected_org = None
+    if raw_org_id.isdigit():
+        selected_org = Organization.objects.filter(id=int(raw_org_id)).first()
+
+    # Heartbeat (instance-level)
+    hb = None
+    try:
+        from apps.core.models import WorkerHeartbeat
+
+        hb = WorkerHeartbeat.objects.filter(key="default").first()
+    except Exception:
+        hb = None
+
+    if request.method == "POST":
+        action = (request.POST.get("_action") or "").strip()
+        allow_all = (request.POST.get("allow_all_orgs") or "").strip() == "1"
+
+        from django.core.management import call_command
+
+        # Most operations are per-org to avoid accidental cross-org actions.
+        if action in {"sync_proxmox", "run_workflows", "deliver_notifications", "run_checklist_schedules", "schedule_backups"}:
+            if not selected_org:
+                _set_flash(title="Not run", body="Pick an organization first.")
+                return redirect(f"{reverse('ui:super_admin_operations')}?{urlencode({'org_id': raw_org_id})}" if raw_org_id else reverse("ui:super_admin_operations"))
+
+        try:
+            if action == "seed_workflow_rules":
+                if selected_org:
+                    call_command("seed_workflow_rules", org_id=int(selected_org.id))
+                    _set_flash(title="Done", body=f"Seeded workflow rules for org '{selected_org.name}'.")
+                else:
+                    if not allow_all:
+                        _set_flash(title="Not run", body="To seed rules for ALL orgs, check the confirmation box.")
+                        return redirect(reverse("ui:super_admin_operations"))
+                    call_command("seed_workflow_rules")
+                    _set_flash(title="Done", body="Seeded workflow rules for ALL orgs.")
+                return redirect(reverse("ui:super_admin_operations") + (f"?{urlencode({'org_id': selected_org.id})}" if selected_org else ""))
+
+            if action == "sync_proxmox":
+                conn_id = (request.POST.get("connection_id") or "").strip()
+                if conn_id and conn_id.isdigit():
+                    call_command("sync_proxmox", org_id=int(selected_org.id), connection_id=int(conn_id))
+                    _set_flash(title="Done", body="Proxmox sync completed for the selected connection.")
+                else:
+                    call_command("sync_proxmox", org_id=int(selected_org.id))
+                    _set_flash(title="Done", body="Proxmox sync completed for the selected org.")
+                return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+
+            if action == "run_checklist_schedules":
+                call_command("run_checklist_schedules_once", org_id=int(selected_org.id))
+                _set_flash(title="Done", body="Processed due checklist schedules for the selected org.")
+                return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+
+            if action == "run_workflows":
+                call_command("run_workflows_once", org_id=int(selected_org.id))
+                _set_flash(title="Done", body="Evaluated due workflow rules for the selected org.")
+                return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+
+            if action == "deliver_notifications":
+                call_command("deliver_workflow_notifications_once", org_id=int(selected_org.id))
+                _set_flash(title="Done", body="Attempted delivery of workflow notifications for the selected org.")
+                return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+
+            if action == "schedule_backups":
+                call_command("run_backup_scheduler_once", org_id=int(selected_org.id), force=True)
+                _set_flash(title="Done", body="Backup scheduler ran (force) for the selected org. Pending snapshots will be built by the worker.")
+                return redirect(reverse("ui:super_admin_operations") + f"?{urlencode({'org_id': selected_org.id})}")
+
+        except Exception as e:
+            _set_flash(title="Failed", body=str(e))
+            return redirect(reverse("ui:super_admin_operations") + (f"?{urlencode({'org_id': selected_org.id})}" if selected_org else ""))
+
+    # Org-scoped status (only when org is selected)
+    org_status = None
+    if selected_org:
+        from apps.backups.models import BackupSnapshot
+        from apps.integrations.models import ProxmoxConnection
+        from apps.workflows.models import Notification, WorkflowRule, NotificationDeliveryAttempt
+        from django.utils import timezone
+        from datetime import timedelta
+
+        pending_backups = BackupSnapshot.objects.filter(organization=selected_org, status__in=[BackupSnapshot.STATUS_PENDING, BackupSnapshot.STATUS_RUNNING]).count()
+        failed_backups_7d = BackupSnapshot.objects.filter(organization=selected_org, status=BackupSnapshot.STATUS_FAILED).order_by("-created_at")[:10]
+        prox_conns = list(ProxmoxConnection.objects.filter(organization=selected_org).order_by("name", "id")[:50])
+        unread_notifications = Notification.objects.filter(organization=selected_org, read_at__isnull=True).count()
+
+        since = timezone.now() - timedelta(days=1)
+        failed_deliveries_24h = NotificationDeliveryAttempt.objects.filter(
+            notification__organization=selected_org, ok=False, attempted_at__gte=since
+        ).count()
+
+        rule_errors = list(
+            WorkflowRule.objects.filter(organization=selected_org, enabled=True, last_run_ok=False)
+            .exclude(last_run_at__isnull=True)
+            .order_by("-last_run_at")[:20]
+        )
+
+        org_status = {
+            "pending_backups": int(pending_backups),
+            "failed_backups_7d": list(failed_backups_7d),
+            "proxmox_connections": prox_conns,
+            "unread_notifications": int(unread_notifications),
+            "failed_deliveries_24h": int(failed_deliveries_24h),
+            "workflow_rule_errors": rule_errors,
+        }
+
+    return render(
+        request,
+        "ui/super_admin_operations.html",
+        {
+            "org": org_ctx,
+            "crumbs": _crumbs(("Admin", reverse("ui:super_admin_home")), ("Operations", None)),
+            "flash": flash,
+            "orgs": orgs,
+            "selected_org": selected_org,
+            "hb": hb,
+            "org_status": org_status,
+        },
+    )
+
+
+@login_required
 def super_admin_org_detail(request: HttpRequest, org_id: int) -> HttpResponse:
     if not getattr(request.user, "is_superuser", False):
         raise PermissionDenied("Superuser required.")

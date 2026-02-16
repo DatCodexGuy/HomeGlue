@@ -553,6 +553,22 @@ class SystemSettings(models.Model):
         return "SystemSettings"
 
 
+class WorkerHeartbeat(models.Model):
+    """
+    Singleton-ish heartbeat written by the `worker` container so the UI can show health.
+    """
+
+    key = models.CharField(max_length=32, unique=True, default="default")
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    last_finished_at = models.DateTimeField(null=True, blank=True)
+    last_ok = models.BooleanField(default=True)
+    last_error = models.TextField(blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"WorkerHeartbeat({self.key})"
+
+
 class SavedView(models.Model):
     """
     Saved list filters per org per object type (NetBox-ish).
