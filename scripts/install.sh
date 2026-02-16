@@ -98,6 +98,14 @@ if [[ "$CREATED_ENV" -eq 1 ]]; then
   set_kv "HOMEGLUE_SECRET_KEY" "$(py_rand django_secret)" "$ENV_FILE"
   set_kv "HOMEGLUE_FERNET_KEY" "$(py_rand fernet)" "$ENV_FILE"
   set_kv "POSTGRES_PASSWORD" "$(py_rand token 18)" "$ENV_FILE"
+  # Keep DATABASE_URL in sync with the generated DB password (settings.py reads DATABASE_URL).
+  db_name="$(get_kv POSTGRES_DB "$ENV_FILE")"
+  db_user="$(get_kv POSTGRES_USER "$ENV_FILE")"
+  db_pass="$(get_kv POSTGRES_PASSWORD "$ENV_FILE")"
+  db_name="${db_name:-homeglue}"
+  db_user="${db_user:-homeglue}"
+  db_pass="${db_pass:-change-me}"
+  set_kv "DATABASE_URL" "postgres://${db_user}:${db_pass}@db:5432/${db_name}" "$ENV_FILE"
   set_kv "DJANGO_SUPERUSER_USERNAME" "admin" "$ENV_FILE"
   set_kv "DJANGO_SUPERUSER_EMAIL" "admin@example.local" "$ENV_FILE"
   set_kv "DJANGO_SUPERUSER_PASSWORD" "$(py_rand token 16)" "$ENV_FILE"
@@ -106,6 +114,7 @@ else
   fernet="$(get_kv HOMEGLUE_FERNET_KEY "$ENV_FILE")"
   secret="$(get_kv HOMEGLUE_SECRET_KEY "$ENV_FILE")"
   pgpw="$(get_kv POSTGRES_PASSWORD "$ENV_FILE")"
+  dburl="$(get_kv DATABASE_URL "$ENV_FILE")"
 
   if [[ -z "$fernet" || "$fernet" == "change-me" ]]; then
     echo "ERROR: HOMEGLUE_FERNET_KEY is missing or still set to 'change-me' in $ENV_FILE" >&2
@@ -133,6 +142,10 @@ PY
   fi
   if [[ "$pgpw" == "change-me" ]]; then
     echo "WARNING: POSTGRES_PASSWORD is still set to 'change-me' in $ENV_FILE (insecure)." >&2
+  fi
+  if [[ -n "$dburl" && "$dburl" == *\":change-me@\"* && "$pgpw" != "change-me" ]]; then
+    echo "WARNING: DATABASE_URL still contains ':change-me@' but POSTGRES_PASSWORD is different." >&2
+    echo "If your database is new, update DATABASE_URL to match POSTGRES_PASSWORD." >&2
   fi
 fi
 
