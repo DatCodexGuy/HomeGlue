@@ -45,7 +45,7 @@ POSTGRES_PASSWORD=change-me
 3. Start the stack:
 
 ```bash
-cd /root/homeglue
+cd /opt/HomeGlue  # or wherever you cloned the repo
 docker compose up -d --build
 ```
 
