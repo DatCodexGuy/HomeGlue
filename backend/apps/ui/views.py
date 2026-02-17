@@ -2225,6 +2225,12 @@ def super_admin_setup(request: HttpRequest) -> HttpResponse:
                 return redirect(reverse("ui:super_admin_setup") + "?step=1")
             # Set org in session so user lands inside the org.
             set_current_org_id(request, selected_org.id)
+            # Mark instance as having completed first-time setup.
+            from django.utils import timezone
+
+            if getattr(sys_obj, "setup_completed_at", None) is None:
+                sys_obj.setup_completed_at = timezone.now()
+                sys_obj.save(update_fields=["setup_completed_at", "updated_at"])
             request.session.pop("homeglue_setup_org_id", None)
             _set_flash(title="Setup complete", body=f"Entered organization '{selected_org.name}'.")
             return redirect("ui:dashboard")

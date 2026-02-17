@@ -577,6 +577,10 @@ class SystemSettings(models.Model):
     smtp_use_tls = models.BooleanField(default=True)
     smtp_use_ssl = models.BooleanField(default=False)
 
+    # First-time setup wizard completion marker.
+    # If unset, superusers will be redirected to the setup wizard on first login.
+    setup_completed_at = models.DateTimeField(null=True, blank=True)
+
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:

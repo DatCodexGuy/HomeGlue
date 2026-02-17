@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
+from django.utils import timezone
 
 from apps.core.models import Organization, OrganizationMembership, UserProfile
 
@@ -85,13 +86,35 @@ class UiBasicTests(TestCase):
         self.assertEqual(r.status_code, 403)
 
     def test_super_admin_sso_renders_for_superuser(self):
+        from apps.core.models import SystemSettings
+
         User = get_user_model()
         su = User.objects.create_superuser(username="root", password="pw", email="root@example.local")
+        SystemSettings.objects.create(setup_completed_at=timezone.now())
         c = Client(HTTP_HOST="localhost")
         assert c.login(username="root", password="pw")
         r = c.get("/app/admin/sso/")
         self.assertEqual(r.status_code, 200)
         self.assertContains(r, "SSO (OIDC)", status_code=200)
+
+    def test_superuser_is_forced_into_setup_wizard_until_completed(self):
+        from apps.core.models import SystemSettings
+
+        User = get_user_model()
+        su = User.objects.create_superuser(username="root2", password="pw", email="root2@example.local")
+        c = Client(HTTP_HOST="localhost")
+        assert c.login(username="root2", password="pw")
+
+        # With no setup_completed_at, superuser should be forced to the wizard.
+        SystemSettings.objects.create(setup_completed_at=None)
+        r = c.get("/app/dashboard/")
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r["Location"], "/app/admin/setup/")
+
+        # Once completed, superuser should be able to access normal pages (subject to org selection).
+        SystemSettings.objects.all().update(setup_completed_at=timezone.now())
+        r = c.get("/app/")
+        self.assertEqual(r.status_code, 200)
 
     def test_relationship_detail_renders(self):
         from django.contrib.contenttypes.models import ContentType
