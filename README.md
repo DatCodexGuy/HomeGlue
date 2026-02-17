@@ -24,13 +24,6 @@ One-liner installer (installs to `/opt/homeglue`, creates `.env` if missing, pul
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
 ```
 
-If the repo is private, install via SSH:
-
-```bash
-HOMEGLUE_REPO_URL=git@github.com:DatCodexGuy/HomeGlue.git \
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
-```
-
 Manual setup (if you want full control):
 
 ```bash
@@ -59,6 +52,13 @@ To update HomeGlue after install:
 ```bash
 cd /opt/homeglue
 ./scripts/update.sh
+```
+
+To pin a specific image tag (instead of `latest`):
+
+```bash
+cd /opt/homeglue
+HOMEGLUE_IMAGE=ghcr.io/datcodexguy/homeglue:<tag> ./scripts/update.sh
 ```
 
 ## Configuration

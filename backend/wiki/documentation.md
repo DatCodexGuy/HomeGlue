@@ -41,13 +41,11 @@ This will (by default):
 
 Notes:
 
-- If the repo is still private, install via `git clone` (below).
 - To install to a different directory: `HOMEGLUE_DIR=/srv/homeglue bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"`
 
 ### Manual Install
 
-1. Clone the repo onto your host
-2. Create `.env` (in the repo root) with at least:
+1. Create `.env` (in the install directory) with at least:
 
 ```text
 HOMEGLUE_SECRET_KEY=change-me
@@ -56,25 +54,16 @@ HOMEGLUE_FERNET_KEY=your-fernet-key
 POSTGRES_PASSWORD=change-me
 ```
 
-3. Start the stack:
+2. Start the stack:
 
 ```bash
 cd /opt/homeglue  # or wherever you cloned the repo
-docker compose up -d --build
+./scripts/install.sh
 ```
 
-4. Run migrations + create a superuser:
+3. Log in:
 
-```bash
-docker compose exec -T web python manage.py migrate --noinput
-DJANGO_SUPERUSER_USERNAME=admin DJANGO_SUPERUSER_EMAIL=admin@example.local DJANGO_SUPERUSER_PASSWORD=change-me \\
-  docker compose exec -T web python manage.py createsuperuser --noinput
-```
-
-5. Log in:
-
-- Web app: `/app/`
-- Admin: `/admin/`
+- Web app: `/`
 
 ## Core Concepts
 

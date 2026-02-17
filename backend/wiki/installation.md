@@ -9,6 +9,8 @@ This page covers installing HomeGlue on a Docker host.
   - Docker Compose plugin (`docker compose`)
 - Inbound access to the app port (default `8080`).
 
+HomeGlue runs from a prebuilt Docker image (pulled from GHCR).
+
 ## Install Options
 
 HomeGlue supports:
