@@ -36,6 +36,30 @@ DEST="${HOMEGLUE_DIR:-/opt/homeglue}"
 
 ROOT_PREFIX="$(as_root_prefix)"
 
+dir_has_files() {
+  local d="$1"
+  if [[ -z "${ROOT_PREFIX:-}" ]]; then
+    [[ -n "$(ls -A "$d" 2>/dev/null || true)" ]]
+    return
+  fi
+  $ROOT_PREFIX bash -c 'd="$1"; test -n "$(ls -A "$d" 2>/dev/null | head -n 1)"' _ "$d"
+}
+
+clone_repo() {
+  local url="$1"
+  local ref="$2"
+  local dest="$3"
+  if $ROOT_PREFIX git clone --depth 1 --branch "$ref" "$url" "$dest"; then
+    return 0
+  fi
+  log
+  log "Git clone failed."
+  log "If the repo is private, re-run with:"
+  log "  HOMEGLUE_REPO_URL=git@github.com:DatCodexGuy/HomeGlue.git bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)\""
+  log "And ensure your SSH key has access to the repo."
+  exit 1
+}
+
 log "HomeGlue bootstrap:"
 log "- repo:   ${REPO_URL}"
 log "- ref:    ${REF}"
@@ -55,17 +79,25 @@ if command -v git >/dev/null 2>&1; then
     if [[ -e "$DEST" && ! -d "$DEST" ]]; then
       die "DEST exists and is not a directory: $DEST"
     fi
-    if [[ -d "$DEST" && -n "$(ls -A "$DEST" 2>/dev/null || true)" ]]; then
-      die "DEST exists and is not empty (and not a git repo): $DEST"
-    fi
-    $ROOT_PREFIX rm -rf "$DEST"
-    if ! $ROOT_PREFIX git clone --depth 1 --branch "$REF" "$REPO_URL" "$DEST"; then
-      log
-      log "Git clone failed."
-      log "If the repo is private, re-run with:"
-      log "  HOMEGLUE_REPO_URL=git@github.com:DatCodexGuy/HomeGlue.git bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)\""
-      log "And ensure your SSH key has access to the repo."
-      exit 1
+    if [[ -d "$DEST" ]] && dir_has_files "$DEST"; then
+      # Common case: older bootstrap used the tarball path because git wasn't installed.
+      # Convert to a git clone while preserving the existing .env (and Docker volumes).
+      log "DEST exists but is not a git repo. Converting to git clone while preserving .env..."
+      tmpdir="$($ROOT_PREFIX mktemp -d)"
+      cleanup_tmp() { $ROOT_PREFIX rm -rf "$tmpdir" >/dev/null 2>&1 || true; }
+      trap cleanup_tmp EXIT
+      if $ROOT_PREFIX test -f "$DEST/.env"; then
+        $ROOT_PREFIX cp "$DEST/.env" "$tmpdir/.env"
+      fi
+      $ROOT_PREFIX rm -rf "$DEST"
+      clone_repo "$REPO_URL" "$REF" "$DEST"
+      if $ROOT_PREFIX test -f "$tmpdir/.env"; then
+        $ROOT_PREFIX cp "$tmpdir/.env" "$DEST/.env"
+        $ROOT_PREFIX chmod 600 "$DEST/.env" >/dev/null 2>&1 || true
+      fi
+    else
+      $ROOT_PREFIX rm -rf "$DEST"
+      clone_repo "$REPO_URL" "$REF" "$DEST"
     fi
   fi
 else
@@ -75,16 +107,27 @@ else
   need_cmd tar
   TARBALL_URL="${HOMEGLUE_TARBALL_URL:-https://github.com/DatCodexGuy/HomeGlue/archive/refs/heads/${REF}.tar.gz}"
   log "[1/3] Installing via tarball..."
-  $ROOT_PREFIX mkdir -p "$DEST"
+  $ROOT_PREFIX mkdir -p "$(dirname "$DEST")"
   tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' EXIT
+  cleanup_tmp() { rm -rf "$tmpdir" >/dev/null 2>&1 || true; }
+  trap cleanup_tmp EXIT
   curl -fsSL "$TARBALL_URL" -o "$tmpdir/homeglue.tgz"
+  # Preserve existing .env if present.
+  envbak=""
+  if [[ -f "${DEST}/.env" ]]; then
+    envbak="$tmpdir/.env"
+    $ROOT_PREFIX cp "${DEST}/.env" "$envbak"
+  fi
   $ROOT_PREFIX rm -rf "$DEST"
   $ROOT_PREFIX mkdir -p "$DEST"
   $ROOT_PREFIX tar -xzf "$tmpdir/homeglue.tgz" -C "$tmpdir"
   top="$(find "$tmpdir" -maxdepth 1 -type d -name 'HomeGlue-*' | head -n 1)"
   [[ -n "$top" ]] || die "Unexpected tarball format"
   $ROOT_PREFIX cp -a "$top/." "$DEST/"
+  if [[ -n "${envbak:-}" && -f "$envbak" ]]; then
+    $ROOT_PREFIX cp "$envbak" "$DEST/.env"
+    $ROOT_PREFIX chmod 600 "$DEST/.env" >/dev/null 2>&1 || true
+  fi
 fi
 
 log "[2/3] Running HomeGlue install..."
