@@ -1,14 +1,14 @@
 :root{
   /* Calm, neutral palette. Aimed to be readable for long sessions. */
-  --bg0:#f4f7f8;
-  --bg1:#e9eff2;
-  --paper:#fbfdfc;
-  --ink:#13211d;
-  --muted:rgba(19,33,29,.62);
-  --line:rgba(19,33,29,.14);
-  --accent:#2f7d6f;
-  --accent2:#3a6ea5;
-  --danger:#b84a4a;
+  --bg0:#f2f6f4;
+  --bg1:#e6eeea;
+  --paper:#fcfefd;
+  --ink:#12201b;
+  --muted:rgba(18,32,27,.62);
+  --line:rgba(18,32,27,.14);
+  --accent:#2f806a;   /* sage/teal */
+  --accent2:#2f6f8f;  /* muted blue for links */
+  --danger:#c04848;
   --shadow:0 10px 28px rgba(10,22,20,.10);
   --shadow2:0 16px 42px rgba(10,22,20,.14);
   --radius:12px;
@@ -18,29 +18,29 @@
   --content-max: 1240px;
 
   /* Surfaces (themeable) */
-  --side-bg: rgba(251,253,252,.78);
-  --side-card: rgba(251,253,252,.92);
-  --top-bg: rgba(251,253,252,.82);
-  --panel-bg: rgba(251,253,252,.92);
-  --mini-bg: rgba(251,253,252,.86);
-  --table-bg: rgba(251,253,252,.72);
-  --row-bg: rgba(251,253,252,.92);
-  --row-alt-bg: rgba(251,253,252,.84);
+  --side-bg: rgba(252,254,253,.80);
+  --side-card: rgba(252,254,253,.94);
+  --top-bg: rgba(252,254,253,.84);
+  --panel-bg: rgba(252,254,253,.94);
+  --mini-bg: rgba(252,254,253,.88);
+  --table-bg: rgba(252,254,253,.74);
+  --row-bg: rgba(252,254,253,.94);
+  --row-alt-bg: rgba(252,254,253,.86);
   --row-hover-bg: rgba(47,125,111,.08);
-  --input-bg: rgba(251,253,252,.92);
-  --search-bg: rgba(251,253,252,.88);
-  --ghost-bg: rgba(19,33,29,.05);
-  --ghost-bg-hover: rgba(19,33,29,.08);
+  --input-bg: rgba(252,254,253,.94);
+  --search-bg: rgba(252,254,253,.90);
+  --ghost-bg: rgba(18,32,27,.05);
+  --ghost-bg-hover: rgba(18,32,27,.08);
 }
 
 html[data-theme="dark"]{
-  --bg0:#0b1412;
-  --bg1:#0a1418;
-  --paper:#0d1a18;
-  --ink:#e7f0ec;
-  --muted:rgba(231,240,236,.62);
+  --bg0:#08110f;
+  --bg1:#081216;
+  --paper:#0c1815;
+  --ink:#e8f2ee;
+  --muted:rgba(232,242,238,.62);
   /* Slightly stronger borders for readability on dark surfaces. */
-  --line:rgba(231,240,236,.18);
+  --line:rgba(232,242,238,.18);
   --shadow:0 14px 44px rgba(0,0,0,.50);
   --shadow2:0 18px 58px rgba(0,0,0,.62);
 
@@ -69,8 +69,8 @@ body{
   margin:0;
   color:var(--ink);
   background:
-    radial-gradient(1300px 860px at 8% 0%, rgba(47,125,111,.10) 0%, transparent 62%),
-    radial-gradient(1200px 820px at 92% 10%, rgba(58,110,165,.09) 0%, transparent 58%),
+    radial-gradient(1300px 860px at 8% 0%, rgba(47,128,106,.09) 0%, transparent 62%),
+    radial-gradient(1200px 820px at 92% 10%, rgba(47,111,143,.08) 0%, transparent 58%),
     linear-gradient(180deg, var(--bg0), var(--bg1));
   font-family: var(--ui);
 }
