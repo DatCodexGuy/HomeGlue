@@ -1,4 +1,5 @@
 {% extends "ui/base.html" %}
+{% load ui_extras %}
 {% block title %}{{ node.node }} | {{ conn.name }} | {{ org.name }}{% endblock %}
 {% block content %}
   <section class="panel reveal">
@@ -26,7 +27,7 @@
             <span class="pill pill--tiny">uptime: {{ node.uptime }}</span>
           {% endif %}
         </div>
-        <div class="card__meta mono">CPU: {{ node.maxcpu|default:"?" }} Mem: {{ node.maxmem|default:"?" }} Disk: {{ node.maxdisk|default:"?" }}</div>
+        <div class="card__meta mono">CPU: {{ node.maxcpu|default:"?" }} Mem: {% if node.maxmem %}{{ node.maxmem|human_bytes }}{% else %}?{% endif %} Disk: {% if node.maxdisk %}{{ node.maxdisk|human_bytes }}{% else %}?{% endif %}</div>
         <div class="card__meta mono">Updated: {{ node.updated_at|date:"Y-m-d H:i" }}</div>
       </div>
 
@@ -142,7 +143,13 @@
                 <td class="mono">{{ s.storage }}</td>
                 <td class="mono">{{ s.kind }}</td>
                 <td><span class="pill pill--tiny">{{ s.status|default:"" }}</span></td>
-                <td class="mono">{% if s.used is not None and s.total is not None %}{{ s.used }} / {{ s.total }}{% endif %}</td>
+                <td class="mono">
+                  {% if s.used is not None and s.total is not None %}
+                    {{ s.used|human_bytes }} / {{ s.total|human_bytes }}
+                  {% else %}
+                    <span class="muted">-</span>
+                  {% endif %}
+                </td>
               </tr>
             {% empty %}
               <tr><td colspan="4" class="muted">No storages found.</td></tr>

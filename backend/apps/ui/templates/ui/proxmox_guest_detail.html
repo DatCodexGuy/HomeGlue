@@ -1,4 +1,5 @@
 {% extends "ui/base.html" %}
+{% load ui_extras %}
 {% block title %}{{ guest.name|default:"Guest" }} | {{ conn.name }} | {{ org.name }}{% endblock %}
 {% block content %}
   <section class="panel reveal">
@@ -35,7 +36,7 @@
         <div class="card__meta">
           <span class="pill pill--tiny {% if guest.status == 'running' %}pill--ok{% elif guest.status == 'stopped' %}pill--warn{% endif %}">{{ guest.status|default:"" }}</span>
           {% if guest.uptime is not None %}
-            <span class="pill pill--tiny">uptime: {{ guest.uptime }}</span>
+            <span class="pill pill--tiny">uptime: {{ guest.uptime|human_duration_seconds }}</span>
           {% endif %}
           {% if guest.ostype %}
             <span class="pill pill--tiny">os: <span class="mono">{{ guest.ostype }}</span></span>
@@ -55,7 +56,7 @@
       <div class="card">
         <div class="card__title">Resources</div>
         <div class="card__meta mono">
-          CPU: {{ guest.maxcpu|default:"?" }} Mem: {{ guest.maxmem|default:"?" }} Disk: {{ guest.maxdisk|default:"?" }}
+          CPU: {{ guest.maxcpu|default:"?" }} Mem: {% if guest.maxmem %}{{ guest.maxmem|human_bytes }}{% else %}?{% endif %} Disk: {% if guest.maxdisk %}{{ guest.maxdisk|human_bytes }}{% else %}?{% endif %}
         </div>
         <div class="card__meta mono">Updated: {{ guest.updated_at|date:"Y-m-d H:i" }}</div>
       </div>

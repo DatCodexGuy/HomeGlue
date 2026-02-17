@@ -1,4 +1,5 @@
 {% extends "ui/base.html" %}
+{% load ui_extras %}
 {% block title %}{{ conn.name }} | Integrations | {{ org.name }}{% endblock %}
 {% block content %}
   <section class="panel reveal">
@@ -88,7 +89,7 @@
                 <span class="mono">{{ n.node }}</span>
                 <span class="pill pill--tiny">{% if n.status %}{{ n.status }}{% else %}...{% endif %}</span>
               </div>
-              <div class="muted">CPU: {{ n.maxcpu|default:"?" }} Mem: {{ n.maxmem|default:"?" }} Disk: {{ n.maxdisk|default:"?" }}</div>
+              <div class="muted">CPU: {{ n.maxcpu|default:"?" }} Mem: {% if n.maxmem %}{{ n.maxmem|human_bytes }}{% else %}?{% endif %} Disk: {% if n.maxdisk %}{{ n.maxdisk|human_bytes }}{% else %}?{% endif %}</div>
               {% if n.asset_id or n.config_item_id %}
                 <div class="muted">
                   {% if n.asset_id %}Asset: <a class="link mono" href="{% url 'ui:asset_detail' asset_id=n.asset_id %}">open</a>{% endif %}
@@ -165,6 +166,9 @@
                 <span class="muted">{{ s.kind }}</span>
               </div>
               <div class="muted">{% if s.status %}{{ s.status }}{% else %}...{% endif %}</div>
+              {% if s.total and s.used %}
+                <div class="muted">Used: <span class="mono">{{ s.used|human_bytes }}</span> / <span class="mono">{{ s.total|human_bytes }}</span></div>
+              {% endif %}
             </div>
           {% empty %}
             <div class="mini__row"><span class="muted">No storages yet. Run a sync.</span></div>

@@ -1,41 +1,89 @@
 {% load ui_extras %}
 {% if custom_fields %}
-  <div class="mini">
-    <form method="post" class="form form--grid">
-      {% csrf_token %}
-      <input type="hidden" name="_action" value="save_custom_fields" />
-      {% for f in custom_fields %}
-        {% with val=custom_values|get_item:f.id %}
-          <p>
-            <label for="id_cf_{{ f.id }}">{{ f.name }}</label>
-            {% if f.field_type == "textarea" %}
-              <textarea name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" class="js-md" rows="5">{% if val %}{{ val }}{% endif %}</textarea>
-            {% elif f.field_type == "number" %}
-              <input type="number" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
-            {% elif f.field_type == "date" %}
-              <input type="date" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+  <div class="kv">
+    {% for f in custom_fields %}
+      {% with val=custom_values|get_item:f.id %}
+        <div class="kv__row">
+          <div class="kv__k">{{ f.name }}</div>
+          <div class="kv__v">
+            {% if f.field_type == "boolean" %}
+              {% if val %}<span class="pill pill--tiny pill--ok">Yes</span>{% else %}<span class="pill pill--tiny pill--warn">No</span>{% endif %}
             {% elif f.field_type == "url" %}
-              <input type="url" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
-	            {% elif f.field_type == "boolean" %}
-	              <div class="mt-10">
-	                <label class="label--plain flex gap-10 items-center">
-	                  <input type="checkbox" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="1" {% if val %}checked{% endif %} />
-	                  <span class="muted">{% if f.help_text %}{{ f.help_text }}{% else %}Enabled{% endif %}</span>
-	                </label>
-	              </div>
+              {% if val %}<a class="link mono" href="{{ val }}">{{ val }}</a>{% else %}<span class="muted">-</span>{% endif %}
+            {% elif f.field_type == "textarea" %}
+              {% if val %}<div class="mono prewrap">{{ val }}</div>{% else %}<span class="muted">-</span>{% endif %}
+            {% elif f.field_type == "number" %}
+              {% if val %}
+                {% with lname=f.name|lower %}
+                  {% if "bytes" in lname %}
+                    <span class="mono">{{ val|human_bytes }}</span>
+                  {% elif "uptime" in lname or "(s)" in lname %}
+                    <span class="mono">{{ val|human_duration_seconds }}</span>
+                  {% else %}
+                    <span class="mono">{{ val }}</span>
+                  {% endif %}
+                {% endwith %}
+              {% else %}
+                <span class="muted">-</span>
+              {% endif %}
             {% else %}
-              <input type="text" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+              {% if val %}<span class="mono">{{ val }}</span>{% else %}<span class="muted">-</span>{% endif %}
             {% endif %}
-            {% if f.help_text and f.field_type != "boolean" %}<span class="helptext">{{ f.help_text }}</span>{% endif %}
-          </p>
-        {% endwith %}
-      {% endfor %}
-      <button class="btn" type="submit">
-        <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
-        Save custom fields
-      </button>
-    </form>
+            {% if f.help_text and f.field_type != "boolean" %}
+              <div class="muted mt-6">{{ f.help_text }}</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endwith %}
+    {% endfor %}
   </div>
+
+  <details class="mt-10">
+    <summary class="muted">Edit custom fields</summary>
+    <div class="mini mt-10">
+      <form method="post" class="form form--grid">
+        {% csrf_token %}
+        <input type="hidden" name="_action" value="save_custom_fields" />
+        {% for f in custom_fields %}
+          {% with val=custom_values|get_item:f.id %}
+            {% with is_synced="Synced from Proxmox." in f.help_text %}
+              <p>
+                <label for="id_cf_{{ f.id }}">{{ f.name }}</label>
+                {% if is_synced %}
+                  <div class="muted">Managed by Proxmox sync.</div>
+                  <div class="mono mt-6">{% if val %}{{ val }}{% else %}-{% endif %}</div>
+                {% else %}
+                  {% if f.field_type == "textarea" %}
+                    <textarea name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" class="js-md" rows="5">{% if val %}{{ val }}{% endif %}</textarea>
+                  {% elif f.field_type == "number" %}
+                    <input type="number" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+                  {% elif f.field_type == "date" %}
+                    <input type="date" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+                  {% elif f.field_type == "url" %}
+                    <input type="url" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+                  {% elif f.field_type == "boolean" %}
+                    <div class="mt-10">
+                      <label class="label--plain flex gap-10 items-center">
+                        <input type="checkbox" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="1" {% if val %}checked{% endif %} />
+                        <span class="muted">{% if f.help_text %}{{ f.help_text }}{% else %}Enabled{% endif %}</span>
+                      </label>
+                    </div>
+                  {% else %}
+                    <input type="text" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+                  {% endif %}
+                  {% if f.help_text and f.field_type != "boolean" %}<span class="helptext">{{ f.help_text }}</span>{% endif %}
+                {% endif %}
+              </p>
+            {% endwith %}
+          {% endwith %}
+        {% endfor %}
+        <button class="btn" type="submit">
+          <svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>
+          Save custom fields
+        </button>
+      </form>
+    </div>
+  </details>
 	{% else %}
 	  <div class="muted">No custom fields defined for this object type yet.</div>
 	  <div class="mt-10">

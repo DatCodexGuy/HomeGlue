@@ -1,4 +1,5 @@
 {% extends "ui/base.html" %}
+{% load ui_extras %}
 {% block title %}Nodes | {{ conn.name }} | {{ org.name }}{% endblock %}
 {% block content %}
   <section class="panel reveal">
@@ -49,7 +50,7 @@
                 <a class="link" href="{% url 'ui:proxmox_node_detail' conn_id=conn.id node_id=n.id %}">{{ n.node }}</a>
               </td>
               <td><span class="pill pill--tiny {% if n.status == 'online' %}pill--ok{% endif %}">{{ n.status|default:"" }}</span></td>
-              <td class="mono">CPU: {{ n.maxcpu|default:"?" }} Mem: {{ n.maxmem|default:"?" }} Disk: {{ n.maxdisk|default:"?" }}</td>
+              <td class="mono">CPU: {{ n.maxcpu|default:"?" }} Mem: {% if n.maxmem %}{{ n.maxmem|human_bytes }}{% else %}?{% endif %} Disk: {% if n.maxdisk %}{{ n.maxdisk|human_bytes }}{% else %}?{% endif %}</td>
               <td class="mono">
                 {% if n.asset_id %}<a class="link" href="{% url 'ui:asset_detail' asset_id=n.asset_id %}">asset</a>{% endif %}
                 {% if n.asset_id and n.config_item_id %} · {% endif %}
