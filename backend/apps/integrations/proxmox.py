@@ -12,7 +12,7 @@ from django.db import transaction
 from django.contrib.contenttypes.models import ContentType
 
 from apps.assets.models import Asset, ConfigurationItem
-from apps.core.models import Relationship, RelationshipType, Tag
+from apps.core.models import CustomField, CustomFieldValue, Relationship, RelationshipType, Tag
 
 from .models import (
     ProxmoxCluster,
@@ -259,6 +259,7 @@ def _ensure_ci_for_guest(*, org, guest: ProxmoxGuest) -> None:
             ci.save()
         ci.tags.add(tag)
         _apply_proxmox_tags_to(org=org, obj=ci, tags=list(guest.proxmox_tags or []), pool=str(guest.pool or ""))
+        _apply_proxmox_custom_fields_for_guest(org=org, guest=guest, obj=ci)
         return
 
     # Create new
@@ -278,6 +279,7 @@ def _ensure_ci_for_guest(*, org, guest: ProxmoxGuest) -> None:
     )
     ci.tags.add(tag)
     _apply_proxmox_tags_to(org=org, obj=ci, tags=list(guest.proxmox_tags or []), pool=str(guest.pool or ""))
+    _apply_proxmox_custom_fields_for_guest(org=org, guest=guest, obj=ci)
     guest.config_item = ci
     guest.save(update_fields=["config_item", "updated_at"])
 
@@ -317,6 +319,7 @@ def _ensure_ci_for_node(*, org, node: ProxmoxNode) -> None:
             ci.save()
         ci.tags.add(tag)
         # Nodes don't expose the same tag concepts; keep only the global marker tag for now.
+        _apply_proxmox_custom_fields_for_node(org=org, node=node, obj=ci)
         return
 
     # Create new (avoid hijacking an existing human-made record with the same name).
@@ -335,6 +338,7 @@ def _ensure_ci_for_node(*, org, node: ProxmoxNode) -> None:
         notes=marker,
     )
     ci.tags.add(tag)
+    _apply_proxmox_custom_fields_for_node(org=org, node=node, obj=ci)
     node.config_item = ci
     node.save(update_fields=["config_item", "updated_at"])
 
@@ -381,6 +385,7 @@ def _ensure_asset_for_guest(*, org, guest: ProxmoxGuest) -> None:
         asset.save()
     asset.tags.add(tag)
     _apply_proxmox_tags_to(org=org, obj=asset, tags=list(guest.proxmox_tags or []), pool=str(guest.pool or ""))
+    _apply_proxmox_custom_fields_for_guest(org=org, guest=guest, obj=asset)
 
     if guest.asset_id != asset.id:
         guest.asset = asset
@@ -426,6 +431,7 @@ def _ensure_asset_for_node(*, org, node: ProxmoxNode) -> None:
     if changed:
         asset.save()
     asset.tags.add(tag)
+    _apply_proxmox_custom_fields_for_node(org=org, node=node, obj=asset)
 
     if node.asset_id != asset.id:
         node.asset = asset
@@ -529,6 +535,121 @@ def _apply_proxmox_tags_to(*, org, obj, tags: list[str], pool: str = "") -> None
         tag, _ = Tag.objects.get_or_create(organization=org, name=name)
         obj.tags.add(tag)
 
+
+def _get_or_create_cf(*, org, model_cls, key: str, name: str, field_type: str, sort_order: int) -> CustomField:
+    """
+    Upsert a Proxmox-related CustomField definition for a given model class.
+    """
+
+    ct = ContentType.objects.get_for_model(model_cls)
+    cf, _ = CustomField.objects.get_or_create(
+        organization=org,
+        content_type=ct,
+        flexible_asset_type=None,
+        key=key[:64],
+        defaults={
+            "name": name[:120],
+            "field_type": field_type,
+            "required": False,
+            "help_text": "Synced from Proxmox.",
+            "sort_order": int(sort_order),
+        },
+    )
+    # Keep definitions stable but allow us to improve labels/order over time.
+    changed = False
+    if cf.name != name[:120]:
+        cf.name = name[:120]
+        changed = True
+    if cf.field_type != field_type:
+        cf.field_type = field_type
+        changed = True
+    if cf.help_text != "Synced from Proxmox.":
+        cf.help_text = "Synced from Proxmox."
+        changed = True
+    if int(cf.sort_order or 0) != int(sort_order):
+        cf.sort_order = int(sort_order)
+        changed = True
+    if changed:
+        cf.save(update_fields=["name", "field_type", "help_text", "sort_order"])
+    return cf
+
+
+def _set_cf_value(*, org, obj, key: str, name: str, field_type: str, sort_order: int, value) -> None:
+    """
+    Upsert a CustomFieldValue on obj, creating the CustomField if needed.
+    """
+
+    if value is None:
+        return
+    if field_type == CustomField.TYPE_BOOLEAN:
+        v = "true" if bool(value) else "false"
+    else:
+        v = str(value).strip()
+    if not v:
+        return
+
+    cf = _get_or_create_cf(org=org, model_cls=obj.__class__, key=key, name=name, field_type=field_type, sort_order=sort_order)
+    ct = ContentType.objects.get_for_model(obj.__class__)
+    CustomFieldValue.objects.update_or_create(
+        organization=org,
+        field=cf,
+        content_type=ct,
+        object_id=str(obj.pk),
+        defaults={"value_text": v},
+    )
+
+
+def _apply_proxmox_custom_fields_for_guest(*, org, guest: ProxmoxGuest, obj) -> None:
+    """
+    Apply a consistent set of Proxmox metadata to either an Asset or ConfigItem.
+    """
+
+    base_sort = 10
+    _set_cf_value(org=org, obj=obj, key="proxmox_connection", name="Proxmox Connection", field_type=CustomField.TYPE_TEXT, sort_order=base_sort, value=guest.connection.name)
+    _set_cf_value(org=org, obj=obj, key="proxmox_base_url", name="Proxmox Base URL", field_type=CustomField.TYPE_URL, sort_order=base_sort + 1, value=guest.connection.base_url)
+    _set_cf_value(org=org, obj=obj, key="proxmox_guest_type", name="Proxmox Guest Type", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 2, value=guest.guest_type)
+    _set_cf_value(org=org, obj=obj, key="proxmox_vmid", name="Proxmox VMID", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 3, value=guest.vmid)
+    _set_cf_value(org=org, obj=obj, key="proxmox_node", name="Proxmox Node", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 4, value=guest.node)
+    _set_cf_value(org=org, obj=obj, key="proxmox_status", name="Proxmox Status", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 5, value=guest.status)
+    _set_cf_value(org=org, obj=obj, key="proxmox_uptime", name="Proxmox Uptime (s)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 6, value=guest.uptime)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxcpu", name="Proxmox vCPU (max)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 7, value=guest.maxcpu)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxmem", name="Proxmox Memory (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 8, value=guest.maxmem)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxdisk", name="Proxmox Disk (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 9, value=guest.maxdisk)
+    _set_cf_value(org=org, obj=obj, key="proxmox_ostype", name="Proxmox OS Type", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 10, value=guest.ostype)
+    _set_cf_value(org=org, obj=obj, key="proxmox_pool", name="Proxmox Pool", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 11, value=guest.pool)
+    _set_cf_value(org=org, obj=obj, key="proxmox_agent_hostname", name="Proxmox Agent Hostname", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 12, value=guest.agent_hostname)
+    if guest.ip_addrs:
+        _set_cf_value(
+            org=org,
+            obj=obj,
+            key="proxmox_ips",
+            name="Proxmox IPs",
+            field_type=CustomField.TYPE_TEXTAREA,
+            sort_order=base_sort + 13,
+            value="\n".join([str(x) for x in (guest.ip_addrs or [])[:50] if str(x).strip()]),
+        )
+
+
+def _apply_proxmox_custom_fields_for_node(*, org, node: ProxmoxNode, obj) -> None:
+    base_sort = 10
+    _set_cf_value(org=org, obj=obj, key="proxmox_connection", name="Proxmox Connection", field_type=CustomField.TYPE_TEXT, sort_order=base_sort, value=node.connection.name)
+    _set_cf_value(org=org, obj=obj, key="proxmox_base_url", name="Proxmox Base URL", field_type=CustomField.TYPE_URL, sort_order=base_sort + 1, value=node.connection.base_url)
+    _set_cf_value(org=org, obj=obj, key="proxmox_node", name="Proxmox Node", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 2, value=node.node)
+    _set_cf_value(org=org, obj=obj, key="proxmox_status", name="Proxmox Status", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 3, value=node.status)
+    _set_cf_value(org=org, obj=obj, key="proxmox_uptime", name="Proxmox Uptime (s)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 4, value=node.uptime)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxcpu", name="Proxmox CPU (max)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 5, value=node.maxcpu)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxmem", name="Proxmox Memory (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 6, value=node.maxmem)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxdisk", name="Proxmox Disk (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 7, value=node.maxdisk)
+    if isinstance(getattr(node, "version_raw", None), dict):
+        _set_cf_value(
+            org=org,
+            obj=obj,
+            key="proxmox_version",
+            name="Proxmox Version",
+            field_type=CustomField.TYPE_TEXT,
+            sort_order=base_sort + 8,
+            value=(node.version_raw or {}).get("version") or "",
+        )
 
 def _parse_tags(raw: str) -> list[str]:
     s = (raw or "").strip()

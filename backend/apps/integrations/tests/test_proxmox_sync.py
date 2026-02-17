@@ -14,7 +14,7 @@ from apps.integrations.models import (
 )
 from apps.integrations.proxmox import sync_proxmox_connection
 from apps.assets.models import Asset, ConfigurationItem
-from apps.core.models import Relationship, RelationshipType
+from apps.core.models import CustomFieldValue, Relationship, RelationshipType
 
 
 class _FakeClient:
@@ -113,6 +113,10 @@ class ProxmoxSyncTests(TestCase):
         # Asset <-> CI linking exists for node + guests.
         self.assertTrue(RelationshipType.objects.filter(organization=org, name="Linked To").exists())
         self.assertGreaterEqual(Relationship.objects.filter(organization=org, relationship_type__name="Linked To").count(), 3)
+
+        # Proxmox custom fields are populated on mapped objects.
+        self.assertTrue(CustomFieldValue.objects.filter(organization=org, value_text__icontains="pve.local").exists())
+        self.assertTrue(CustomFieldValue.objects.filter(organization=org, value_text="100").exists())  # VMID
 
     def test_sync_records_status_when_connection_disabled(self):
         org = Organization.objects.create(name="Org 1")
