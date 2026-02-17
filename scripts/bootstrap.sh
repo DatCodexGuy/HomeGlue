@@ -90,7 +90,7 @@ fi
 log "[2/3] Running HomeGlue install..."
 cd "$DEST"
 # Pass through a few useful overrides even when ROOT_PREFIX is sudo.
-$ROOT_PREFIX env \
+$ROOT_PREFIX env -u HOMEGLUE_NO_PREREQS \
   HOMEGLUE_COMPOSE_PROJECT="${HOMEGLUE_COMPOSE_PROJECT:-}" \
   HOMEGLUE_PORT="${HOMEGLUE_PORT:-}" \
   bash ./scripts/install.sh

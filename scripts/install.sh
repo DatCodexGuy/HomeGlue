@@ -113,8 +113,23 @@ install_docker_get() {
     ensure_pkg_deb ca-certificates curl
   fi
   log "Installing Docker via get.docker.com..."
-  curl -fsSL https://get.docker.com | $ROOT_PREFIX sh
+  if curl -fsSL https://get.docker.com | $ROOT_PREFIX sh; then
+    :
+  else
+    log "Docker convenience script failed. Falling back to OS packages (docker.io)..."
+    ensure_pkg_deb docker.io docker-compose-plugin
+  fi
+
+  # Start docker service (systemd or sysvinit). Ignore failures (some environments like LXCs may vary).
   $ROOT_PREFIX systemctl enable --now docker >/dev/null 2>&1 || true
+  $ROOT_PREFIX service docker start >/dev/null 2>&1 || true
+  $ROOT_PREFIX rc-service docker start >/dev/null 2>&1 || true
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "ERROR: Docker still not available after install attempt." >&2
+    echo "If you're on Debian/Ubuntu, re-run this script as root and check network connectivity to get.docker.com." >&2
+    exit 1
+  fi
 }
 
 ensure_prereqs() {
