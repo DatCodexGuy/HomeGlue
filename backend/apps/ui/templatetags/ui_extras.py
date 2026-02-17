@@ -35,6 +35,14 @@ def markdown(text):
 
 
 @register.filter
+def contains(haystack, needle) -> bool:
+    try:
+        return str(needle) in str(haystack)
+    except Exception:
+        return False
+
+
+@register.filter
 def human_bytes(v) -> str:
     """
     Format byte counts into a compact human-friendly string (binary units).

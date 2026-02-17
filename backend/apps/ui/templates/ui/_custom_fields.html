@@ -46,7 +46,7 @@
         <input type="hidden" name="_action" value="save_custom_fields" />
         {% for f in custom_fields %}
           {% with val=custom_values|get_item:f.id %}
-            {% with is_synced="Synced from Proxmox." in f.help_text %}
+            {% with is_synced=f.help_text|contains:"Synced from Proxmox." %}
               <p>
                 <label for="id_cf_{{ f.id }}">{{ f.name }}</label>
                 {% if is_synced %}
