@@ -36,13 +36,6 @@ DEST="${HOMEGLUE_DIR:-/opt/homeglue}"
 
 ROOT_PREFIX="$(as_root_prefix)"
 
-need_cmd docker
-need_cmd python3
-
-if ! docker info >/dev/null 2>&1; then
-  die "Docker daemon not running or not accessible. Install Docker and ensure your user can run docker."
-fi
-
 log "HomeGlue bootstrap:"
 log "- repo:   ${REPO_URL}"
 log "- ref:    ${REF}"

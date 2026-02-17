@@ -96,6 +96,16 @@ ensure_pkg_deb() {
   $ROOT_PREFIX apt-get install -y "${pkgs[@]}"
 }
 
+ensure_compose_plugin_deb() {
+  # Ensure `docker compose` works (Compose V2 plugin). If it isn't present, try to install it.
+  if docker compose version >/dev/null 2>&1; then
+    return
+  fi
+  # Debian/Ubuntu package name is typically docker-compose-plugin.
+  log "Installing Docker Compose plugin..."
+  ensure_pkg_deb docker-compose-plugin
+}
+
 install_docker_get() {
   # Uses Docker's convenience script. This is intentionally the "fast path" for one-liner installs.
   # It typically installs docker engine + compose plugin on Debian/Ubuntu.
@@ -127,6 +137,7 @@ ensure_prereqs() {
       if ! command -v docker >/dev/null 2>&1; then
         install_docker_get
       fi
+      ensure_compose_plugin_deb
       ;;
     *)
       # Non-deb hosts: don't try to be clever.
@@ -188,7 +199,7 @@ if [[ "$CREATED_ENV" -eq 1 ]]; then
     if [[ -n "${hn:-}" && "$hosts" != *"$hn"* ]]; then hosts="${hosts},${hn}"; fi
     if [[ -n "${hnf:-}" && "$hosts" != *"$hnf"* ]]; then hosts="${hosts},${hnf}"; fi
     # Include primary non-loopback IPv4 if available.
-    ip4="$(hostname -I 2>/dev/null | tr ' ' '\n' | rg -m1 '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$' || true)"
+    ip4="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m1 -E '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$' || true)"
     if [[ -n "${ip4:-}" ]]; then hosts="${hosts},${ip4}"; fi
     set_kv "HOMEGLUE_ALLOWED_HOSTS" "$hosts" "$ENV_FILE"
   fi
