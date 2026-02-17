@@ -15,6 +15,7 @@ from apps.integrations.models import (
 from apps.integrations.proxmox import sync_proxmox_connection
 from apps.assets.models import Asset, ConfigurationItem
 from apps.core.models import CustomFieldValue, Relationship, RelationshipType
+from apps.flexassets.models import FlexibleAsset, FlexibleAssetType
 
 
 class _FakeClient:
@@ -117,6 +118,18 @@ class ProxmoxSyncTests(TestCase):
         # Proxmox custom fields are populated on mapped objects.
         self.assertTrue(CustomFieldValue.objects.filter(organization=org, value_text__icontains="pve.local").exists())
         self.assertTrue(CustomFieldValue.objects.filter(organization=org, value_text="100").exists())  # VMID
+
+        # Flexible assets are created for networks/storages/pools/vnets and related.
+        self.assertTrue(FlexibleAssetType.objects.filter(organization=org, name="Proxmox Network Interface").exists())
+        self.assertTrue(FlexibleAssetType.objects.filter(organization=org, name="Proxmox Storage").exists())
+        self.assertTrue(FlexibleAssetType.objects.filter(organization=org, name="Proxmox Pool").exists())
+        self.assertTrue(FlexibleAssetType.objects.filter(organization=org, name="Proxmox SDN VNet").exists())
+        self.assertGreaterEqual(FlexibleAsset.objects.filter(organization=org).count(), 4)
+
+        # Relationships exist between HomeGlue objects and flex assets.
+        self.assertTrue(RelationshipType.objects.filter(organization=org, name="Has Interface").exists())
+        self.assertTrue(RelationshipType.objects.filter(organization=org, name="Uses Storage").exists())
+        self.assertTrue(RelationshipType.objects.filter(organization=org, name="In Pool").exists())
 
     def test_sync_records_status_when_connection_disabled(self):
         org = Organization.objects.create(name="Org 1")

@@ -13,6 +13,7 @@ from django.contrib.contenttypes.models import ContentType
 
 from apps.assets.models import Asset, ConfigurationItem
 from apps.core.models import CustomField, CustomFieldValue, Relationship, RelationshipType, Tag
+from apps.flexassets.models import FlexibleAsset, FlexibleAssetType
 
 from .models import (
     ProxmoxCluster,
@@ -479,6 +480,36 @@ def _ensure_guest_asset_hosted_on_node_asset(*, org, guest: ProxmoxGuest, node: 
     )
 
 
+def _ensure_connected_to(*, org, left_obj, right_obj, note: str) -> None:
+    """
+    Create a symmetric "Connected To" relationship between two objects.
+    """
+
+    rt, _ = RelationshipType.objects.get_or_create(
+        organization=org,
+        name="Connected To",
+        defaults={"inverse_name": "Connected To", "symmetric": True},
+    )
+    left_ct = ContentType.objects.get_for_model(left_obj.__class__)
+    right_ct = ContentType.objects.get_for_model(right_obj.__class__)
+
+    l_key = (int(left_ct.id), str(left_obj.pk))
+    r_key = (int(right_ct.id), str(right_obj.pk))
+    if r_key < l_key:
+        left_ct, right_ct = right_ct, left_ct
+        left_obj, right_obj = right_obj, left_obj
+
+    Relationship.objects.get_or_create(
+        organization=org,
+        relationship_type=rt,
+        source_content_type=left_ct,
+        source_object_id=str(left_obj.pk),
+        target_content_type=right_ct,
+        target_object_id=str(right_obj.pk),
+        defaults={"notes": note[:5000]},
+    )
+
+
 def _ensure_linked_relationship(*, org, left_obj, right_obj, note: str) -> None:
     """
     Create a symmetric "Linked To" relationship between two objects (any types).
@@ -651,6 +682,144 @@ def _apply_proxmox_custom_fields_for_node(*, org, node: ProxmoxNode, obj) -> Non
             value=(node.version_raw or {}).get("version") or "",
         )
 
+
+def _ensure_flex_type(*, org, name: str, description: str, icon: str, color: str, sort_order: int) -> FlexibleAssetType:
+    ft, _ = FlexibleAssetType.objects.get_or_create(
+        organization=org,
+        name=name[:120],
+        defaults={
+            "description": description,
+            "icon": icon[:64],
+            "color": color[:32],
+            "sort_order": int(sort_order),
+            "archived": False,
+        },
+    )
+    changed = False
+    if (ft.description or "") != (description or ""):
+        ft.description = description or ""
+        changed = True
+    if (ft.icon or "") != (icon or ""):
+        ft.icon = icon[:64]
+        changed = True
+    if (ft.color or "") != (color or ""):
+        ft.color = color[:32]
+        changed = True
+    if int(ft.sort_order or 0) != int(sort_order):
+        ft.sort_order = int(sort_order)
+        changed = True
+    if bool(ft.archived):
+        ft.archived = False
+        changed = True
+    if changed:
+        ft.save(update_fields=["description", "icon", "color", "sort_order", "archived", "updated_at"])
+    return ft
+
+
+def _ensure_flex_asset(*, org, ftype: FlexibleAssetType, name: str, marker: str) -> FlexibleAsset:
+    fa, _ = FlexibleAsset.objects.get_or_create(
+        organization=org,
+        asset_type=ftype,
+        name=name[:200],
+        defaults={"notes": marker[:5000]},
+    )
+    if marker and marker not in (fa.notes or ""):
+        fa.notes = ((fa.notes or "").strip() + ("\n" if (fa.notes or "").strip() else "") + marker).strip()[:5000]
+        fa.save(update_fields=["notes", "updated_at"])
+    tag, _ = Tag.objects.get_or_create(organization=org, name="synced:proxmox")
+    fa.tags.add(tag)
+    return fa
+
+
+def _get_or_create_flex_cf(*, org, flex_type: FlexibleAssetType, key: str, name: str, field_type: str, sort_order: int) -> CustomField:
+    ct = ContentType.objects.get_for_model(FlexibleAsset)
+    cf, _ = CustomField.objects.get_or_create(
+        organization=org,
+        content_type=ct,
+        flexible_asset_type=flex_type,
+        key=key[:64],
+        defaults={
+            "name": name[:120],
+            "field_type": field_type,
+            "required": False,
+            "help_text": "Synced from Proxmox.",
+            "sort_order": int(sort_order),
+        },
+    )
+    changed = False
+    if cf.name != name[:120]:
+        cf.name = name[:120]
+        changed = True
+    if cf.field_type != field_type:
+        cf.field_type = field_type
+        changed = True
+    if cf.help_text != "Synced from Proxmox.":
+        cf.help_text = "Synced from Proxmox."
+        changed = True
+    if int(cf.sort_order or 0) != int(sort_order):
+        cf.sort_order = int(sort_order)
+        changed = True
+    if changed:
+        cf.save(update_fields=["name", "field_type", "help_text", "sort_order"])
+    return cf
+
+
+def _set_flex_cf_value(*, org, flex_type: FlexibleAssetType, flex_asset: FlexibleAsset, key: str, name: str, field_type: str, sort_order: int, value) -> None:
+    if value is None:
+        return
+    v = str(value).strip()
+    if not v:
+        return
+    cf = _get_or_create_flex_cf(org=org, flex_type=flex_type, key=key, name=name, field_type=field_type, sort_order=sort_order)
+    ct = ContentType.objects.get_for_model(FlexibleAsset)
+    CustomFieldValue.objects.update_or_create(
+        organization=org,
+        field=cf,
+        content_type=ct,
+        object_id=str(flex_asset.pk),
+        defaults={"value_text": v},
+    )
+
+
+def _parse_storage_ids_from_guest_config(config: dict) -> set[str]:
+    if not isinstance(config, dict):
+        return set()
+    storage_ids: set[str] = set()
+    keys = set(config.keys())
+    # QEMU disks like scsi0, sata0, virtio0, ide0, efidisk0, tpmstate0; LXC: rootfs, mp0..mp9
+    for k in keys:
+        ks = str(k or "").lower()
+        if not (ks.startswith(("scsi", "sata", "virtio", "ide", "efidisk", "tpmstate", "mp")) or ks in {"rootfs"}):
+            continue
+        raw = str(config.get(k) or "")
+        if ":" not in raw:
+            continue
+        first = raw.split(",", 1)[0].strip()
+        if ":" not in first:
+            continue
+        sid = first.split(":", 1)[0].strip()
+        if sid:
+            storage_ids.add(sid[:200])
+    return storage_ids
+
+
+def _parse_bridges_from_guest_config(config: dict) -> set[str]:
+    if not isinstance(config, dict):
+        return set()
+    bridges: set[str] = set()
+    for k, v in (config or {}).items():
+        ks = str(k or "").lower()
+        if not ks.startswith("net"):
+            continue
+        s = str(v or "")
+        for chunk in s.split(","):
+            chunk = chunk.strip()
+            if chunk.startswith("bridge="):
+                b = chunk.split("=", 1)[1].strip()
+                if b:
+                    bridges.add(b[:200])
+    return bridges
+
 def _parse_tags(raw: str) -> list[str]:
     s = (raw or "").strip()
     if not s:
@@ -705,6 +874,70 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
         cluster = client.get("/cluster/status") or []
         ProxmoxCluster.objects.update_or_create(connection=conn, defaults={"raw": {"status": cluster}})
 
+        # Flexible Assets: Proxmox primitives (org-scoped, per connection).
+        org = conn.organization
+        ft_cluster = _ensure_flex_type(
+            org=org,
+            name="Proxmox Cluster",
+            description="Proxmox cluster snapshot (synced).",
+            icon="shapes",
+            color="sky",
+            sort_order=10,
+        )
+        ft_pool = _ensure_flex_type(
+            org=org,
+            name="Proxmox Pool",
+            description="Proxmox resource pools (synced).",
+            icon="box",
+            color="teal",
+            sort_order=20,
+        )
+        ft_vnet = _ensure_flex_type(
+            org=org,
+            name="Proxmox SDN VNet",
+            description="Proxmox SDN VNets (synced).",
+            icon="link",
+            color="indigo",
+            sort_order=30,
+        )
+        ft_subnet = _ensure_flex_type(
+            org=org,
+            name="Proxmox SDN Subnet",
+            description="Proxmox SDN subnets (synced).",
+            icon="globe",
+            color="indigo",
+            sort_order=31,
+        )
+        ft_zone = _ensure_flex_type(
+            org=org,
+            name="Proxmox SDN Zone",
+            description="Proxmox SDN zones (synced).",
+            icon="globe",
+            color="indigo",
+            sort_order=32,
+        )
+        ft_net = _ensure_flex_type(
+            org=org,
+            name="Proxmox Network Interface",
+            description="Proxmox node network interfaces (synced).",
+            icon="wifi",
+            color="blue",
+            sort_order=40,
+        )
+        ft_storage = _ensure_flex_type(
+            org=org,
+            name="Proxmox Storage",
+            description="Proxmox node storages (synced).",
+            icon="database",
+            color="slate",
+            sort_order=50,
+        )
+
+        pool_flex: dict[str, FlexibleAsset] = {}
+        vnet_flex: dict[str, FlexibleAsset] = {}
+        subnet_flex: dict[str, FlexibleAsset] = {}
+        zone_flex: dict[str, FlexibleAsset] = {}
+
         # Pools (optional)
         pools = _safe_get(client, "/pools")
         seen_pools = set()
@@ -725,6 +958,12 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                         "detail_raw": detail if isinstance(detail, (dict, list)) else {},
                     },
                 )
+                fa = _ensure_flex_asset(org=org, ftype=ft_pool, name=pid, marker=f"[proxmox] {conn.name} pool={pid}")
+                _set_flex_cf_value(org=org, flex_type=ft_pool, flex_asset=fa, key="poolid", name="Pool ID", field_type=CustomField.TYPE_TEXT, sort_order=10, value=pid)
+                _set_flex_cf_value(org=org, flex_type=ft_pool, flex_asset=fa, key="comment", name="Comment", field_type=CustomField.TYPE_TEXTAREA, sort_order=20, value=(p.get("comment") or p.get("remark") or ""))
+                _set_flex_cf_value(org=org, flex_type=ft_pool, flex_asset=fa, key="connection", name="Connection", field_type=CustomField.TYPE_TEXT, sort_order=30, value=conn.name)
+                _set_flex_cf_value(org=org, flex_type=ft_pool, flex_asset=fa, key="base_url", name="Base URL", field_type=CustomField.TYPE_URL, sort_order=31, value=conn.base_url)
+                pool_flex[pid] = fa
             ProxmoxPool.objects.filter(connection=conn).exclude(poolid__in=list(seen_pools)).delete()
 
         # SDN (optional; may not exist depending on Proxmox version/config)
@@ -743,6 +982,11 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                     zone=zid,
                     defaults={"kind": (z.get("type") or z.get("kind") or "")[:64], "raw": z},
                 )
+                fa = _ensure_flex_asset(org=org, ftype=ft_zone, name=zid, marker=f"[proxmox] {conn.name} zone={zid}")
+                _set_flex_cf_value(org=org, flex_type=ft_zone, flex_asset=fa, key="zone", name="Zone", field_type=CustomField.TYPE_TEXT, sort_order=10, value=zid)
+                _set_flex_cf_value(org=org, flex_type=ft_zone, flex_asset=fa, key="kind", name="Kind", field_type=CustomField.TYPE_TEXT, sort_order=20, value=(z.get("type") or z.get("kind") or ""))
+                _set_flex_cf_value(org=org, flex_type=ft_zone, flex_asset=fa, key="connection", name="Connection", field_type=CustomField.TYPE_TEXT, sort_order=30, value=conn.name)
+                zone_flex[zid] = fa
             ProxmoxSdnZone.objects.filter(connection=conn).exclude(zone__in=list(seen_zones)).delete()
 
         vnets = _safe_get(client, "/cluster/sdn/vnets")
@@ -767,6 +1011,13 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                         "raw": v,
                     },
                 )
+                fa = _ensure_flex_asset(org=org, ftype=ft_vnet, name=vid, marker=f"[proxmox] {conn.name} vnet={vid}")
+                _set_flex_cf_value(org=org, flex_type=ft_vnet, flex_asset=fa, key="vnet", name="VNet", field_type=CustomField.TYPE_TEXT, sort_order=10, value=vid)
+                _set_flex_cf_value(org=org, flex_type=ft_vnet, flex_asset=fa, key="zone", name="Zone", field_type=CustomField.TYPE_TEXT, sort_order=20, value=v.get("zone") or "")
+                _set_flex_cf_value(org=org, flex_type=ft_vnet, flex_asset=fa, key="alias", name="Alias", field_type=CustomField.TYPE_TEXT, sort_order=30, value=(v.get("alias") or v.get("comment") or ""))
+                _set_flex_cf_value(org=org, flex_type=ft_vnet, flex_asset=fa, key="tag", name="Tag", field_type=CustomField.TYPE_NUMBER, sort_order=40, value=tag)
+                _set_flex_cf_value(org=org, flex_type=ft_vnet, flex_asset=fa, key="connection", name="Connection", field_type=CustomField.TYPE_TEXT, sort_order=50, value=conn.name)
+                vnet_flex[vid] = fa
             ProxmoxSdnVnet.objects.filter(connection=conn).exclude(vnet__in=list(seen_vnets)).delete()
 
         subnets = _safe_get(client, "/cluster/sdn/subnets")
@@ -788,6 +1039,11 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                         "raw": s,
                     },
                 )
+                fa = _ensure_flex_asset(org=org, ftype=ft_subnet, name=sid, marker=f"[proxmox] {conn.name} subnet={sid}")
+                _set_flex_cf_value(org=org, flex_type=ft_subnet, flex_asset=fa, key="subnet", name="Subnet", field_type=CustomField.TYPE_TEXT, sort_order=10, value=sid)
+                _set_flex_cf_value(org=org, flex_type=ft_subnet, flex_asset=fa, key="vnet", name="VNet", field_type=CustomField.TYPE_TEXT, sort_order=20, value=s.get("vnet") or "")
+                _set_flex_cf_value(org=org, flex_type=ft_subnet, flex_asset=fa, key="gateway", name="Gateway", field_type=CustomField.TYPE_TEXT, sort_order=30, value=s.get("gateway") or "")
+                subnet_flex[sid] = fa
             ProxmoxSdnSubnet.objects.filter(connection=conn).exclude(subnet__in=list(seen_subnets)).delete()
 
         resources = client.get("/cluster/resources") or []
@@ -832,6 +1088,44 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                 )
             node_obj_by_name[node] = node_obj
         ProxmoxNode.objects.filter(connection=conn).exclude(node__in=list(seen_nodes)).delete()
+
+        # Cluster flexible asset and node membership relationships.
+        cluster_name = ""
+        cluster_ver = ""
+        if isinstance(cluster, list):
+            for row in cluster:
+                if isinstance(row, dict) and row.get("type") == "cluster":
+                    cluster_name = str(row.get("name") or "").strip()
+                    cluster_ver = str(row.get("version") or "").strip()
+                    break
+        if not cluster_name:
+            cluster_name = conn.name or "Proxmox"
+        fa_cluster = _ensure_flex_asset(org=org, ftype=ft_cluster, name=cluster_name, marker=f"[proxmox] {conn.name} cluster={cluster_name}")
+        _set_flex_cf_value(org=org, flex_type=ft_cluster, flex_asset=fa_cluster, key="cluster_name", name="Cluster Name", field_type=CustomField.TYPE_TEXT, sort_order=10, value=cluster_name)
+        _set_flex_cf_value(org=org, flex_type=ft_cluster, flex_asset=fa_cluster, key="cluster_version", name="Cluster Version", field_type=CustomField.TYPE_TEXT, sort_order=20, value=cluster_ver)
+        _set_flex_cf_value(org=org, flex_type=ft_cluster, flex_asset=fa_cluster, key="connection", name="Connection", field_type=CustomField.TYPE_TEXT, sort_order=30, value=conn.name)
+        _set_flex_cf_value(org=org, flex_type=ft_cluster, flex_asset=fa_cluster, key="base_url", name="Base URL", field_type=CustomField.TYPE_URL, sort_order=31, value=conn.base_url)
+
+        rt_member, _ = RelationshipType.objects.get_or_create(
+            organization=org,
+            name="Member Of",
+            defaults={"inverse_name": "Has Member", "symmetric": False},
+        )
+        for node_name, node_obj in node_obj_by_name.items():
+            for obj in [node_obj.asset, node_obj.config_item]:
+                if not obj:
+                    continue
+                ct_obj = ContentType.objects.get_for_model(obj.__class__)
+                ct_fa = ContentType.objects.get_for_model(FlexibleAsset)
+                Relationship.objects.get_or_create(
+                    organization=org,
+                    relationship_type=rt_member,
+                    source_content_type=ct_obj,
+                    source_object_id=str(obj.pk),
+                    target_content_type=ct_fa,
+                    target_object_id=str(fa_cluster.pk),
+                    defaults={"notes": f"[proxmox] {conn.name} node={node_name}"},
+                )
 
         # Guests
         guest_rows = [r for r in resources if isinstance(r, dict) and r.get("type") in {"qemu", "lxc"} and r.get("vmid")]
@@ -946,6 +1240,78 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                 _ensure_hosted_on_relationship(org=conn.organization, guest=guest_obj, node=host_node)
                 _ensure_guest_asset_hosted_on_node_asset(org=conn.organization, guest=guest_obj, node=host_node)
 
+                # Guest -> network/storage relationships (best-effort from config).
+                cfg = guest_obj.config_raw or {}
+                bridges = _parse_bridges_from_guest_config(cfg if isinstance(cfg, dict) else {})
+                storage_ids = _parse_storage_ids_from_guest_config(cfg if isinstance(cfg, dict) else {})
+                ct_fa = ContentType.objects.get_for_model(FlexibleAsset)
+
+                # Connected To (guest <-> interface)
+                for br in sorted(list(bridges))[:20]:
+                    if not guest_obj.node:
+                        continue
+                    fa_net = _ensure_flex_asset(org=org, ftype=ft_net, name=f"{guest_obj.node}:{br}", marker=f"[proxmox] {conn.name} net={guest_obj.node}:{br}")
+                    _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="node", name="Node", field_type=CustomField.TYPE_TEXT, sort_order=10, value=guest_obj.node)
+                    _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="iface", name="Interface", field_type=CustomField.TYPE_TEXT, sort_order=20, value=br)
+                    _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="connection", name="Connection", field_type=CustomField.TYPE_TEXT, sort_order=60, value=conn.name)
+                    for obj in [guest_obj.asset, guest_obj.config_item]:
+                        if not obj:
+                            continue
+                        _ensure_connected_to(org=org, left_obj=obj, right_obj=fa_net, note=f"[proxmox] {conn.name}")
+
+                # Uses Storage (guest -> storage)
+                rt_storage, _ = RelationshipType.objects.get_or_create(
+                    organization=org,
+                    name="Uses Storage",
+                    defaults={"inverse_name": "Used By", "symmetric": False},
+                )
+                for sid in sorted(list(storage_ids))[:20]:
+                    if not guest_obj.node:
+                        continue
+                    fa_st = _ensure_flex_asset(org=org, ftype=ft_storage, name=f"{guest_obj.node}:{sid}", marker=f"[proxmox] {conn.name} storage={guest_obj.node}:{sid}")
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="node", name="Node", field_type=CustomField.TYPE_TEXT, sort_order=10, value=guest_obj.node)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="storage", name="Storage", field_type=CustomField.TYPE_TEXT, sort_order=20, value=sid)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="connection", name="Connection", field_type=CustomField.TYPE_TEXT, sort_order=60, value=conn.name)
+                    for obj in [guest_obj.asset, guest_obj.config_item]:
+                        if not obj:
+                            continue
+                        ct_obj = ContentType.objects.get_for_model(obj.__class__)
+                        Relationship.objects.get_or_create(
+                            organization=org,
+                            relationship_type=rt_storage,
+                            source_content_type=ct_obj,
+                            source_object_id=str(obj.pk),
+                            target_content_type=ct_fa,
+                            target_object_id=str(fa_st.pk),
+                            defaults={"notes": f"[proxmox] {conn.name}"},
+                        )
+
+                # Guest -> Pool relationship (if any)
+                if guest_obj.pool:
+                    pid = str(guest_obj.pool).strip()
+                    if pid:
+                        fa_pool = pool_flex.get(pid) or _ensure_flex_asset(org=org, ftype=ft_pool, name=pid, marker=f"[proxmox] {conn.name} pool={pid}")
+                        pool_flex[pid] = fa_pool
+                        rt_in_pool, _ = RelationshipType.objects.get_or_create(
+                            organization=org,
+                            name="In Pool",
+                            defaults={"inverse_name": "Contains", "symmetric": False},
+                        )
+                        ct_fa = ContentType.objects.get_for_model(FlexibleAsset)
+                        for obj in [guest_obj.asset, guest_obj.config_item]:
+                            if not obj:
+                                continue
+                            ct_obj = ContentType.objects.get_for_model(obj.__class__)
+                            Relationship.objects.get_or_create(
+                                organization=org,
+                                relationship_type=rt_in_pool,
+                                source_content_type=ct_obj,
+                                source_object_id=str(obj.pk),
+                                target_content_type=ct_fa,
+                                target_object_id=str(fa_pool.pk),
+                                defaults={"notes": f"[proxmox] {conn.name}"},
+                            )
+
         # Remove missing guests
         existing = list(ProxmoxGuest.objects.filter(connection=conn).values_list("guest_type", "vmid"))
         to_delete = [(t, v) for (t, v) in existing if (t, v) not in seen_guests]
@@ -966,7 +1332,7 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                 if not iface:
                     continue
                 seen_nets.add((node, iface))
-                ProxmoxNetwork.objects.update_or_create(
+                net_obj, _ = ProxmoxNetwork.objects.update_or_create(
                     connection=conn,
                     node=node,
                     iface=iface,
@@ -978,6 +1344,37 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                         "raw": n,
                     },
                 )
+                fa_net = _ensure_flex_asset(org=org, ftype=ft_net, name=f"{node}:{iface}", marker=f"[proxmox] {conn.name} net={node}:{iface}")
+                _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="node", name="Node", field_type=CustomField.TYPE_TEXT, sort_order=10, value=node)
+                _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="iface", name="Interface", field_type=CustomField.TYPE_TEXT, sort_order=20, value=iface)
+                _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="kind", name="Kind", field_type=CustomField.TYPE_TEXT, sort_order=30, value=net_obj.kind)
+                _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="address", name="Address", field_type=CustomField.TYPE_TEXT, sort_order=40, value=net_obj.address)
+                _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="netmask", name="Netmask", field_type=CustomField.TYPE_TEXT, sort_order=41, value=net_obj.netmask)
+                _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="gateway", name="Gateway", field_type=CustomField.TYPE_TEXT, sort_order=42, value=net_obj.gateway)
+                _set_flex_cf_value(org=org, flex_type=ft_net, flex_asset=fa_net, key="connection", name="Connection", field_type=CustomField.TYPE_TEXT, sort_order=60, value=conn.name)
+
+                # Node has interface relationship.
+                rt_iface, _ = RelationshipType.objects.get_or_create(
+                    organization=org,
+                    name="Has Interface",
+                    defaults={"inverse_name": "Interface Of", "symmetric": False},
+                )
+                ct_fa = ContentType.objects.get_for_model(FlexibleAsset)
+                node_obj = node_obj_by_name.get(node)
+                if node_obj:
+                    for obj in [node_obj.asset, node_obj.config_item]:
+                        if not obj:
+                            continue
+                        ct_obj = ContentType.objects.get_for_model(obj.__class__)
+                        Relationship.objects.get_or_create(
+                            organization=org,
+                            relationship_type=rt_iface,
+                            source_content_type=ct_obj,
+                            source_object_id=str(obj.pk),
+                            target_content_type=ct_fa,
+                            target_object_id=str(fa_net.pk),
+                            defaults={"notes": f"[proxmox] {conn.name}"},
+                        )
 
             stor = client.get(f"/nodes/{urllib.parse.quote(node)}/storage") or []
             if isinstance(stor, list):
@@ -988,7 +1385,7 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                     if not sid:
                         continue
                     seen_stor.add((node, sid))
-                    ProxmoxStorage.objects.update_or_create(
+                    stor_obj, _ = ProxmoxStorage.objects.update_or_create(
                         connection=conn,
                         node=node,
                         storage=sid,
@@ -1001,6 +1398,37 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                             "raw": s,
                         },
                     )
+                    fa_st = _ensure_flex_asset(org=org, ftype=ft_storage, name=f"{node}:{sid}", marker=f"[proxmox] {conn.name} storage={node}:{sid}")
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="node", name="Node", field_type=CustomField.TYPE_TEXT, sort_order=10, value=node)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="storage", name="Storage", field_type=CustomField.TYPE_TEXT, sort_order=20, value=sid)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="kind", name="Kind", field_type=CustomField.TYPE_TEXT, sort_order=30, value=stor_obj.kind)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="status", name="Status", field_type=CustomField.TYPE_TEXT, sort_order=31, value=stor_obj.status)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="total", name="Total (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=40, value=stor_obj.total)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="used", name="Used (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=41, value=stor_obj.used)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="avail", name="Available (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=42, value=stor_obj.avail)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="connection", name="Connection", field_type=CustomField.TYPE_TEXT, sort_order=60, value=conn.name)
+
+                    rt_storage, _ = RelationshipType.objects.get_or_create(
+                        organization=org,
+                        name="Uses Storage",
+                        defaults={"inverse_name": "Used By", "symmetric": False},
+                    )
+                    ct_fa = ContentType.objects.get_for_model(FlexibleAsset)
+                    node_obj = node_obj_by_name.get(node)
+                    if node_obj:
+                        for obj in [node_obj.asset, node_obj.config_item]:
+                            if not obj:
+                                continue
+                            ct_obj = ContentType.objects.get_for_model(obj.__class__)
+                            Relationship.objects.get_or_create(
+                                organization=org,
+                                relationship_type=rt_storage,
+                                source_content_type=ct_obj,
+                                source_object_id=str(obj.pk),
+                                target_content_type=ct_fa,
+                                target_object_id=str(fa_st.pk),
+                                defaults={"notes": f"[proxmox] {conn.name}"},
+                            )
 
         existing_nets = list(ProxmoxNetwork.objects.filter(connection=conn).values_list("node", "iface"))
         for node, iface in existing_nets:
