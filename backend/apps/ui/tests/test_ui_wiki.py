@@ -34,3 +34,14 @@ class UiWikiTests(TestCase):
         # Nested lists should render as nested <ul> blocks (regression for 2-space indentation).
         self.assertContains(r, "Inventory:<ul>", status_code=200)
         self.assertContains(r, "<li>Assets</li>", status_code=200)
+
+    def test_public_wiki_is_accessible_without_login(self):
+        c = Client(HTTP_HOST="localhost")
+        r = c.get("/wiki/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "Wiki", status_code=200)
+        self.assertContains(r, "HomeGlue Documentation", status_code=200)
+
+        r = c.get("/wiki/documentation/")
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, "<h1", status_code=200)

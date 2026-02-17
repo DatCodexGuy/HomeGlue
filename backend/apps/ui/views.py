@@ -576,7 +576,7 @@ _WIKI_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9\\-]*$", re.IGNORECASE)
 _WIKI_A_HREF_RE = re.compile(r'(<a\\b[^>]*\\bhref=")([^"]+)(")', re.IGNORECASE)
 
 
-def _rewrite_wiki_internal_links(html: str) -> str:
+def _rewrite_wiki_internal_links(html: str, *, page_view_name: str) -> str:
     """
     Rewrite relative markdown links like `assets.md` to the in-app wiki routes.
     This keeps shipped wiki pages navigable without requiring absolute URLs.
@@ -603,7 +603,7 @@ def _rewrite_wiki_internal_links(html: str) -> str:
         if not _WIKI_SLUG_RE.fullmatch(slug):
             return m.group(0)
 
-        new_href = reverse("ui:wiki_page", kwargs={"slug": slug})
+        new_href = reverse(page_view_name, kwargs={"slug": slug})
         if frag:
             new_href += f"#{frag}"
         return f'{prefix}{new_href}{suffix}'
@@ -611,7 +611,7 @@ def _rewrite_wiki_internal_links(html: str) -> str:
     return _WIKI_A_HREF_RE.sub(_repl, html or "")
 
 
-def _render_markdown_simple(md: str) -> str:
+def _render_markdown_simple(md: str, *, page_view_name: str) -> str:
     """
     Markdown-to-HTML renderer for the in-app wiki.
     Prefers Python-Markdown + bleach sanitization; falls back to a minimal safe renderer.
@@ -620,10 +620,10 @@ def _render_markdown_simple(md: str) -> str:
     # Use the same safe renderer as user-entered markdown (Docs/Notes/etc),
     # then rewrite relative wiki links to in-app routes.
     cleaned = render_markdown(md or "")
-    return _rewrite_wiki_internal_links(cleaned)
+    return _rewrite_wiki_internal_links(cleaned, page_view_name=page_view_name)
 
 
-def _wiki_pages_index() -> list[dict]:
+def _wiki_pages_index(*, page_view_name: str) -> list[dict]:
     """
     Build an index of shipped wiki markdown pages.
     """
@@ -645,7 +645,7 @@ def _wiki_pages_index() -> list[dict]:
                 "slug": slug,
                 "title": title,
                 "path": p,
-                "url": reverse("ui:wiki_page", kwargs={"slug": slug}),
+                "url": reverse(page_view_name, kwargs={"slug": slug}),
             }
         )
     return pages
@@ -686,8 +686,8 @@ def _wiki_load_nav(pages_by_slug: dict[str, dict]) -> dict:
     return {"home": home, "sections": out_sections}
 
 
-def _wiki_nav_context(*, active_slug: str | None, q: str) -> dict:
-    pages = _wiki_pages_index()
+def _wiki_nav_context(*, active_slug: str | None, q: str, page_view_name: str) -> dict:
+    pages = _wiki_pages_index(page_view_name=page_view_name)
     pages_by_slug = {p["slug"]: p for p in pages}
     nav = _wiki_load_nav(pages_by_slug=pages_by_slug)
 
@@ -4870,7 +4870,7 @@ def wiki_index(request: HttpRequest) -> HttpResponse:
     ctx = require_current_org(request)
     org = ctx.organization
     q = (request.GET.get("q") or "").strip()
-    nav_ctx = _wiki_nav_context(active_slug=None, q=q)
+    nav_ctx = _wiki_nav_context(active_slug=None, q=q, page_view_name="ui:wiki_page")
     pages = nav_ctx["wiki_pages"]
     pages_by_slug = nav_ctx["wiki_pages_by_slug"]
 
@@ -4902,7 +4902,7 @@ def wiki_index(request: HttpRequest) -> HttpResponse:
     if not q and home_slug and home_slug in pages_by_slug:
         try:
             md = pages_by_slug[home_slug]["path"].read_text(encoding="utf-8")
-            home_body_html = _render_markdown_simple(md)
+            home_body_html = _render_markdown_simple(md, page_view_name="ui:wiki_page")
         except Exception:
             home_body_html = ""
 
@@ -4934,7 +4934,7 @@ def wiki_page(request: HttpRequest, slug: str) -> HttpResponse:
         raise PermissionDenied("Wiki page not found.")
 
     md = path.read_text(encoding="utf-8")
-    body_html = _render_markdown_simple(md)
+    body_html = _render_markdown_simple(md, page_view_name="ui:wiki_page")
     title = slug
     for line in md.splitlines():
         if line.startswith("# "):
@@ -4950,7 +4950,99 @@ def wiki_page(request: HttpRequest, slug: str) -> HttpResponse:
             "title": title,
             "body_html": body_html,
             "wiki_q": "",
-            "wiki_nav": _wiki_nav_context(active_slug=slug, q="")["wiki_nav"],
+            "wiki_nav": _wiki_nav_context(active_slug=slug, q="", page_view_name="ui:wiki_page")["wiki_nav"],
+        },
+    )
+
+
+def public_wiki_index(request: HttpRequest) -> HttpResponse:
+    """
+    Public (no-login) read-only view of the shipped documentation wiki.
+    """
+
+    q = (request.GET.get("q") or "").strip()
+    nav_ctx = _wiki_nav_context(active_slug=None, q=q, page_view_name="public_wiki:wiki_page")
+    pages = nav_ctx["wiki_pages"]
+    pages_by_slug = nav_ctx["wiki_pages_by_slug"]
+
+    results = []
+    if q:
+        q_lower = q.lower()
+        for p in pages:
+            try:
+                md = p["path"].read_text(encoding="utf-8")
+            except Exception:
+                continue
+            lines = md.splitlines()
+            matches = [ln for ln in lines if q_lower in ln.lower()]
+            if not matches:
+                continue
+            snippet = ""
+            for ln in matches[:3]:
+                s = (ln or "").strip()
+                if not s or s.startswith("#"):
+                    continue
+                snippet = s[:220]
+                break
+            results.append({"slug": p["slug"], "title": p["title"], "url": p["url"], "count": len(matches), "snippet": snippet})
+        results.sort(key=lambda r: (-int(r["count"]), str(r["title"]).lower()))
+
+    home_slug = nav_ctx["wiki_home_slug"]
+    home_title = nav_ctx["wiki_home_title"]
+    home_body_html = ""
+    if not q and home_slug and home_slug in pages_by_slug:
+        try:
+            md = pages_by_slug[home_slug]["path"].read_text(encoding="utf-8")
+            home_body_html = _render_markdown_simple(md, page_view_name="public_wiki:wiki_page")
+        except Exception:
+            home_body_html = ""
+
+    return render(
+        request,
+        "ui/wiki_public_index.html",
+        {
+            "org": None,
+            "crumbs": _crumbs(("Wiki", None)),
+            "wiki_q": q,
+            "wiki_nav": nav_ctx["wiki_nav"],
+            "home_title": home_title or "Wiki",
+            "home_body_html": home_body_html,
+            "results": results,
+        },
+    )
+
+
+def public_wiki_page(request: HttpRequest, slug: str) -> HttpResponse:
+    """
+    Public (no-login) read-only wiki page.
+    """
+
+    slug = (slug or "").strip()
+    if not _WIKI_SLUG_RE.match(slug):
+        raise PermissionDenied("Invalid wiki page.")
+
+    path = _wiki_root() / f"{slug}.md"
+    if not path.exists():
+        raise PermissionDenied("Wiki page not found.")
+
+    md = path.read_text(encoding="utf-8")
+    body_html = _render_markdown_simple(md, page_view_name="public_wiki:wiki_page")
+    title = slug
+    for line in md.splitlines():
+        if line.startswith("# "):
+            title = line[2:].strip() or slug
+            break
+
+    return render(
+        request,
+        "ui/wiki_public_page.html",
+        {
+            "org": None,
+            "crumbs": _crumbs(("Wiki", reverse("public_wiki:wiki_index")), (title, None)),
+            "title": title,
+            "body_html": body_html,
+            "wiki_q": "",
+            "wiki_nav": _wiki_nav_context(active_slug=slug, q="", page_view_name="public_wiki:wiki_page")["wiki_nav"],
         },
     )
 

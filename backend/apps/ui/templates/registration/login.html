@@ -24,6 +24,13 @@
           <button class="btn" type="submit">Sign in</button>
         </form>
 
+        <div class="mt-10">
+          <a class="btn btn--ghost btn--sm" href="/wiki/" target="_blank" rel="noopener">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>
+            View Help Wiki
+          </a>
+        </div>
+
         {% if HOMEGLUE_OIDC_ENABLED %}
           <div class="hr" style="margin:14px 0"></div>
           <a class="btn btn--ghost" href="/oidc/authenticate/">

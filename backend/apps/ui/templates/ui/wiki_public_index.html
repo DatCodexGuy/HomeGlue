@@ -1,0 +1,45 @@
+{% extends "ui/wiki_public_base.html" %}
+{% block title %}Wiki | HomeGlue{% endblock %}
+
+{% block wiki_content %}
+  {% if wiki_q %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">Search</h1>
+        <div class="sub">Results for <span class="mono">{{ wiki_q }}</span></div>
+      </div>
+    </div>
+
+    <div class="table">
+      <div class="row row--head row--wiki-search">
+        <div>Page</div><div>Matches</div>
+      </div>
+      {% for r in results %}
+        <div class="row row--click row--wiki-search" data-href="{{ r.url }}">
+          <div class="titlecell">
+            <a class="row__link" href="{{ r.url }}">{{ r.title }}</a>
+            {% if r.snippet %}<div class="sub mt-6">{{ r.snippet }}</div>{% endif %}
+          </div>
+          <div class="muted mono">{{ r.count }}</div>
+        </div>
+      {% empty %}
+        <div class="empty">
+          <div class="empty__title">No results</div>
+          <div class="empty__body">Try different terms.</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="listhead">
+      <div>
+        <h1 class="h2">{{ home_title }}</h1>
+        <div class="sub">Documentation home</div>
+      </div>
+    </div>
+
+    <div class="md">
+      {{ home_body_html|safe }}
+    </div>
+  {% endif %}
+{% endblock %}
+

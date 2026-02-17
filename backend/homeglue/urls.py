@@ -9,6 +9,7 @@ from django.conf import settings
 urlpatterns = [
     path("", RedirectView.as_view(url="/app/", permanent=False)),
     path("app/", include("apps.ui.urls")),
+    path("wiki/", include(("apps.ui.public_wiki_urls", "public_wiki"), namespace="public_wiki")),
     path("share/", include(("apps.ui.public_urls", "public"), namespace="public")),
     path("accounts/", include("django.contrib.auth.urls")),
     path("admin/", admin.site.urls),
