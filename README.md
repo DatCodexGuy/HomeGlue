@@ -51,13 +51,6 @@ cd /opt/homeglue
 ./scripts/update.sh
 ```
 
-Pin a specific release tag:
-
-```bash
-cd /opt/homeglue
-HOMEGLUE_IMAGE=ghcr.io/datcodexguy/homeglue:v1.0.0 ./scripts/update.sh
-```
-
 ## Configuration
 
 HomeGlue reads configuration from `.env` in the install directory (`/opt/homeglue/.env` by default).

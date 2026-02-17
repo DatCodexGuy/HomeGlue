@@ -102,7 +102,6 @@ Recommended upgrade options:
 
 - Re-run the one-liner bootstrap (safe; updates `/opt/homeglue` and runs the installer)
 - Or run the local updater script: `/opt/homeglue/scripts/update.sh`
-- For stable upgrades, pin `HOMEGLUE_IMAGE` to a release tag in `.env` (recommended).
 
 Manual upgrade is pull images + restart + migrate.
 
