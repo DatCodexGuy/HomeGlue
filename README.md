@@ -93,7 +93,7 @@ See `.env.example` for the full list.
 - The UI restore wizard supports uploading/validating a bundle and extracting `media/` into `MEDIA_ROOT`.
 - Database restore is an operator action; safest approach is restoring into a fresh stack and running `loaddata` on `fixture.json`.
 
-More details: `docs/wiki/backups.md`
+More details: see the in-app Wiki (Help -> Wiki) or `backend/wiki/backups.md`.
 
 ## Development Notes
 
@@ -107,7 +107,5 @@ AGPL-3.0 (see `LICENSE`).
 
 ## Docs
 
-- Public status: `docs/STATUS.md`
-- IT Glue parity: `docs/PARITY_ITGLUE.md`
-- Wiki content (source of truth): `backend/wiki/`
-- Wiki content (mirrored for GitHub browsing): `docs/wiki/`
+- In-app Wiki content (ships with HomeGlue): `backend/wiki/`
+- Note: `docs/` is intentionally not tracked in git; end-user documentation ships via `backend/wiki/`.

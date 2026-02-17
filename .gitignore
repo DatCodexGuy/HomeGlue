@@ -5,6 +5,9 @@
 # Internal notes (keep out of repo)
 docs/internal/
 
+# Local-only docs (use the in-app Wiki in backend/wiki instead)
+docs/
+
 # Python
 __pycache__/
 *.py[cod]

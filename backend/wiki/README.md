@@ -2,7 +2,7 @@
 
 This wiki documents HomeGlue functionality from a user/admin point of view.
 
-Note: the in-app Wiki viewer reads markdown from `backend/wiki` so it ships with the Docker image. Keep `docs/wiki` and `backend/wiki` in sync.
+Note: the in-app Wiki viewer reads markdown from `backend/wiki` so it ships with the Docker image.
 
 ## Core Concepts
 
@@ -14,15 +14,15 @@ Note: the in-app Wiki viewer reads markdown from `backend/wiki` so it ships with
 
 ## Pages
 
-- HomeGlue Documentation (setup, requirements, features): `docs/wiki/documentation.md`
-- Organizations and Memberships: `docs/wiki/organizations.md`
-- Security (IP allowlist + OIDC): `docs/wiki/security.md`
-- Assets and Inventory: `docs/wiki/assets.md`
-- Config Items: `docs/wiki/config-items.md`
-- Documents and Templates: `docs/wiki/docs.md`
-- Passwords and Folders: `docs/wiki/passwords.md`
-- Relationships: `docs/wiki/relationships.md`
-- Checklists (Templates, Runs, Schedules): `docs/wiki/checklists.md`
-- Workflows and Notifications (Email/Webhooks): `docs/wiki/workflows.md`
-- API (Auth + Org Scoping): `docs/wiki/api.md`
-- Proxmox Integration: `docs/wiki/integrations-proxmox.md`
+- HomeGlue Documentation (setup, requirements, features): `backend/wiki/documentation.md`
+- Organizations and Memberships: `backend/wiki/organizations.md`
+- Security (IP allowlist + OIDC): `backend/wiki/security.md`
+- Assets and Inventory: `backend/wiki/assets.md`
+- Config Items: `backend/wiki/config-items.md`
+- Documents and Templates: `backend/wiki/docs.md`
+- Passwords and Folders: `backend/wiki/passwords.md`
+- Relationships: `backend/wiki/relationships.md`
+- Checklists (Templates, Runs, Schedules): `backend/wiki/checklists.md`
+- Workflows and Notifications (Email/Webhooks): `backend/wiki/workflows.md`
+- API (Auth + Org Scoping): `backend/wiki/api.md`
+- Proxmox Integration: `backend/wiki/integrations-proxmox.md`
