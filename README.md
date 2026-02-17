@@ -61,8 +61,8 @@ If you want to run on a different port, set `HOMEGLUE_PORT` in `.env` (default: 
 
 Open:
 
-- App UI: `http://localhost:${HOMEGLUE_PORT:-8080}/app/`
-- Admin: `http://localhost:${HOMEGLUE_PORT:-8080}/admin/`
+- App UI (login): `http://localhost:${HOMEGLUE_PORT:-8080}/`
+- Wiki (public): `http://localhost:${HOMEGLUE_PORT:-8080}/wiki/`
 - API: `http://localhost:${HOMEGLUE_PORT:-8080}/api/`
 - API docs (Swagger): `http://localhost:${HOMEGLUE_PORT:-8080}/api/docs/`
 

@@ -213,8 +213,14 @@ if [[ "$CREATED_ENV" -eq 1 ]]; then
     hnf="$(hostname -f 2>/dev/null || true)"
     if [[ -n "${hn:-}" && "$hosts" != *"$hn"* ]]; then hosts="${hosts},${hn}"; fi
     if [[ -n "${hnf:-}" && "$hosts" != *"$hnf"* ]]; then hosts="${hosts},${hnf}"; fi
-    # Include primary non-loopback IPv4 if available.
+      # Include primary non-loopback IPv4 if available.
     ip4="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m1 -E '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$' || true)"
+    if [[ -z "${ip4:-}" ]] && command -v ip >/dev/null 2>&1; then
+      ip4="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i==\"src\") {print $(i+1); exit}}' || true)"
+    fi
+    if [[ -z "${ip4:-}" ]] && command -v ip >/dev/null 2>&1; then
+      ip4="$(ip -4 addr show scope global 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | head -n 1 || true)"
+    fi
     if [[ -n "${ip4:-}" ]]; then hosts="${hosts},${ip4}"; fi
     set_kv "HOMEGLUE_ALLOWED_HOSTS" "$hosts" "$ENV_FILE"
   fi
@@ -300,9 +306,17 @@ echo
 PORT="$(get_kv HOMEGLUE_PORT "$ENV_FILE")"
 PORT="${PORT:-8080}"
 echo "HomeGlue is running:"
-echo "- Web app:  http://localhost:${PORT}/app/"
-echo "- Wiki:     http://localhost:${PORT}/app/wiki/"
-echo "- Admin:    http://localhost:${PORT}/admin/"
+echo "- Open:     http://localhost:${PORT}/"
+if command -v hostname >/dev/null 2>&1; then
+  ip4_out="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m1 -E '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$' || true)"
+fi
+if [[ -z "${ip4_out:-}" ]] && command -v ip >/dev/null 2>&1; then
+  ip4_out="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i==\"src\") {print $(i+1); exit}}' || true)"
+fi
+if [[ -n "${ip4_out:-}" ]]; then
+  echo "- Open LAN: http://${ip4_out}:${PORT}/"
+fi
+echo "- Wiki:     http://localhost:${PORT}/wiki/"
 echo "- API docs: http://localhost:${PORT}/api/docs/"
 echo
 echo "Superuser credentials (from .env):"

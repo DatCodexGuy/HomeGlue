@@ -2,12 +2,24 @@ from django.conf import settings
 from django.views.static import serve
 from django.contrib import admin
 from django.urls import include, path, re_path
-from django.views.generic import RedirectView
+from django.shortcuts import redirect
+from django.http import HttpRequest, HttpResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
-from django.conf import settings
+
+
+def root(request: HttpRequest) -> HttpResponse:
+    """
+    Friendly landing route:
+    - If authenticated, take the user into the app.
+    - Otherwise, show the login page (with next=/app/).
+    """
+
+    if getattr(request, "user", None) is not None and request.user.is_authenticated:
+        return redirect("/app/")
+    return redirect("/accounts/login/?next=/app/")
 
 urlpatterns = [
-    path("", RedirectView.as_view(url="/app/", permanent=False)),
+    path("", root),
     path("app/", include("apps.ui.urls")),
     path("wiki/", include(("apps.ui.public_wiki_urls", "public_wiki"), namespace="public_wiki")),
     path("share/", include(("apps.ui.public_urls", "public"), namespace="public")),

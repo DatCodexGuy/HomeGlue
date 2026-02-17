@@ -50,7 +50,7 @@ What the bootstrap does:
 
 After install:
 
-- App: `http://<host>:<port>/app/`
+- App (login): `http://<host>:<port>/`
 - Login uses the superuser from `.env`
 
 ## Install From Git (Manual)
@@ -89,7 +89,9 @@ UI-based system settings (superuser-only):
 
 See also:
 
-- `/app/wiki/configuration/` (full configuration guide)
+- Public Wiki: `/wiki/`
+- In-app Wiki: `/app/wiki/`
+- Full configuration guide: `/wiki/configuration/`
 
 ## Upgrade
 
