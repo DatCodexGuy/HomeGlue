@@ -15,10 +15,12 @@
             {% elif f.field_type == "number" %}
               {% if val %}
                 {% with k=f.key|lower %}
-                  {% if f.help_text|contains:"Synced from Proxmox." and k|in_csv:"proxmox_maxmem,proxmox_maxdisk,total,used,avail" %}
+                  {% if k|in_csv:"proxmox_maxmem,proxmox_maxdisk" %}
                     <span class="mono">{{ val|human_bytes }}</span>
-                  {% elif f.help_text|contains:"Synced from Proxmox." and k == "proxmox_uptime" %}
+                  {% elif k == "proxmox_uptime" %}
                     <span class="mono">{{ val|human_duration_seconds }}</span>
+                  {% elif f.flexible_asset_type and "Proxmox" in f.flexible_asset_type.name and k|in_csv:"total,used,avail" %}
+                    <span class="mono">{{ val|human_bytes }}</span>
                   {% else %}
                     <span class="mono">{{ val }}</span>
                   {% endif %}
