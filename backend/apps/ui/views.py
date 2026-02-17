@@ -11551,7 +11551,17 @@ def proxmox_sync(request: HttpRequest, conn_id: int) -> HttpResponse:
     org = ctx.organization
     _require_org_admin(request.user, org)
     conn = get_object_or_404(ProxmoxConnection, organization=org, id=conn_id)
-    sync_proxmox_connection(conn)
+    res = sync_proxmox_connection(conn)
+    if res.ok:
+        request.session["homeglue_flash"] = {
+            "title": "Proxmox synced",
+            "body": f"Sync completed: {res.nodes} nodes, {res.guests} guests, {res.networks} networks.",
+        }
+    else:
+        request.session["homeglue_flash"] = {
+            "title": "Proxmox sync failed",
+            "body": res.error or "Unknown error.",
+        }
     return redirect("ui:proxmox_detail", conn_id=conn.id)
 
 

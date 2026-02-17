@@ -29,11 +29,15 @@ class Command(BaseCommand):
         if not conns:
             raise CommandError("No matching Proxmox connections found.")
 
+        any_failed = False
         for c in conns:
             self.stdout.write(f"Syncing {c.id} {c.organization_id} {c.name} ...")
             res = sync_proxmox_connection(c)
             if not res.ok:
+                any_failed = True
                 self.stdout.write(self.style.ERROR(f"  FAILED: {res.error}"))
             else:
                 self.stdout.write(self.style.SUCCESS(f"  OK: nodes={res.nodes} guests={res.guests} nets={res.networks}"))
 
+        if any_failed:
+            raise CommandError("One or more Proxmox syncs failed. Check the connection details and try again.")

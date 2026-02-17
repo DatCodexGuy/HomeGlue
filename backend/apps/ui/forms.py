@@ -774,8 +774,27 @@ class ProxmoxConnectionForm(OrgBoundModelForm):
         model = ProxmoxConnection
         fields = ["name", "base_url", "token_id", "token_secret", "verify_ssl", "enabled", "sync_interval_minutes"]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Django ModelForms don't reliably apply model defaults as HTML initial values
+        # for new objects. Ensure "enabled" is checked by default on create, otherwise
+        # users can accidentally create disabled connections and sync will be a no-op.
+        if not getattr(self.instance, "pk", None):
+            self.fields["enabled"].initial = True
+
     def clean_name(self):
         return (self.cleaned_data.get("name") or "").strip() or "Proxmox"
+
+    def clean(self):
+        cleaned = super().clean()
+        # Require the token secret on create; on edit it's optional (blank keeps unchanged).
+        if not getattr(self.instance, "pk", None):
+            secret = (cleaned.get("token_secret") or "").strip()
+            if not secret:
+                from django.core.exceptions import ValidationError
+
+                raise ValidationError({"token_secret": "Token secret is required when creating a new connection."})
+        return cleaned
 
     def save(self, commit=True):
         obj = super().save(commit=False)

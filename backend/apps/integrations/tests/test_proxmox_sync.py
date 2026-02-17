@@ -98,3 +98,24 @@ class ProxmoxSyncTests(TestCase):
         self.assertEqual(ConfigurationItem.objects.filter(organization=org).count(), 2)
         self.assertTrue(ProxmoxPool.objects.filter(connection=conn, poolid="prod").exists())
         self.assertTrue(ProxmoxSdnVnet.objects.filter(connection=conn, vnet="vnet0").exists())
+
+    def test_sync_records_status_when_connection_disabled(self):
+        org = Organization.objects.create(name="Org 1")
+        conn = ProxmoxConnection.objects.create(
+            organization=org,
+            name="PVE",
+            base_url="https://pve.local:8006",
+            token_id="root@pam!homeglue",
+            verify_ssl=False,
+            enabled=False,
+        )
+        conn.set_token_secret("secret")
+        conn.save()
+
+        res = sync_proxmox_connection(conn, client=_FakeClient({}))  # type: ignore[arg-type]
+        self.assertFalse(res.ok)
+
+        conn.refresh_from_db()
+        self.assertIsNotNone(conn.last_sync_at)
+        self.assertFalse(conn.last_sync_ok)
+        self.assertIn("disabled", (conn.last_sync_error or "").lower())

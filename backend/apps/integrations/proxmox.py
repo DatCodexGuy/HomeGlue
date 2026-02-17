@@ -300,7 +300,13 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
     - per-guest config to extract ipconfig/net hints (best-effort)
     """
 
+    # Even for disabled connections, record the attempted sync so the UI doesn't
+    # misleadingly show "never synced".
     if not conn.enabled:
+        conn.last_sync_at = datetime.now(tz=timezone.utc)
+        conn.last_sync_ok = False
+        conn.last_sync_error = "Connection disabled."
+        conn.save(update_fields=["last_sync_at", "last_sync_ok", "last_sync_error", "updated_at"])
         return SyncResult(ok=False, nodes=0, guests=0, networks=0, error="Connection disabled.")
 
     try:
