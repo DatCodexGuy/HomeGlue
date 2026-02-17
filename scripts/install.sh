@@ -319,6 +319,10 @@ fi
 echo "- Wiki:     http://localhost:${PORT}/wiki/"
 echo "- API docs: http://localhost:${PORT}/api/docs/"
 echo
+echo "To update later:"
+echo "- One-liner: bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)\""
+echo "- Or:        cd ${ROOT} && ./scripts/update.sh"
+echo
 echo "Superuser credentials (from .env):"
 echo "- username: $(grep -E '^DJANGO_SUPERUSER_USERNAME=' "$ENV_FILE" | cut -d= -f2-)"
 if [[ "$CREATED_ENV" -eq 1 ]]; then

@@ -95,13 +95,16 @@ See also:
 
 ## Upgrade
 
-Upgrade is pull + rebuild + migrate.
+Recommended upgrade options:
+
+- Re-run the one-liner bootstrap (safe; updates `/opt/homeglue` and runs the installer)
+- Or run the local updater script: `/opt/homeglue/scripts/update.sh`
+
+Manual upgrade is pull + rebuild + migrate.
 
 ```bash
 cd /opt/homeglue
-git pull
-docker compose up -d --build
-docker compose exec -T web python manage.py migrate --noinput
+./scripts/update.sh
 ```
 
 Notes:
