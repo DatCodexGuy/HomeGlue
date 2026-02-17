@@ -67,9 +67,10 @@ fi
 log "[2/3] Running installer..."
 cd "$DEST"
 $ROOT_PREFIX env -u HOMEGLUE_NO_PREREQS \
+  # Bootstrap should always bring the install to the latest image, even if /opt/homeglue/.env pins HOMEGLUE_IMAGE.
+  HOMEGLUE_IMAGE="ghcr.io/datcodexguy/homeglue:latest" \
   HOMEGLUE_COMPOSE_PROJECT="${HOMEGLUE_COMPOSE_PROJECT:-}" \
   HOMEGLUE_PORT="${HOMEGLUE_PORT:-}" \
   bash ./scripts/install.sh
 
 log "[3/3] Done."
-
