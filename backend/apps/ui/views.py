@@ -9301,6 +9301,7 @@ def password_detail(request: HttpRequest, password_id: int) -> HttpResponse:
     sess_key_share = f"pw_share_new_url:{entry.id}"
     share_new_url = request.session.pop(sess_key_share, None)
     reauth_url = reverse("ui:reauth") + "?" + urlencode({"next": request.get_full_path()})
+    flash = request.session.pop("homeglue_flash", None)
 
     if request.method == "POST" and request.POST.get("_action") == "upload_attachment":
         _create_attachment(org=org, obj=entry, uploaded_by=request.user, file=request.FILES.get("file"))
@@ -9319,7 +9320,7 @@ def password_detail(request: HttpRequest, password_id: int) -> HttpResponse:
         entry.save(update_fields=["last_changed_at", "updated_at"])
         return redirect("ui:password_detail", password_id=entry.id)
 
-    if request.method == "POST" and request.POST.get("_action") in ["enable_totp", "rotate_totp", "disable_totp"]:
+    if request.method == "POST" and request.POST.get("_action") in ["enable_totp", "rotate_totp", "set_totp", "disable_totp"]:
         if not can_reveal:
             raise PermissionDenied("Not allowed to manage OTP for this password.")
         if not is_reauthed:
@@ -9331,10 +9332,62 @@ def password_detail(request: HttpRequest, password_id: int) -> HttpResponse:
                 entry.save(update_fields=["totp_secret_ciphertext", "updated_at"])
             return redirect("ui:password_detail", password_id=entry.id)
 
-        # enable_totp / rotate_totp
+        if action == "set_totp":
+            # Allow pasting either a Base32 secret or a full otpauth:// URI from an authenticator provider.
+            from apps.secretsapp.totp import normalize_base32_secret, parse_otpauth_url
+
+            raw = (request.POST.get("totp_secret") or "").strip()
+            if not raw:
+                request.session["homeglue_flash"] = {"title": "OTP not set", "body": "Paste a Base32 secret or an otpauth:// URI."}
+                request.session.modified = True
+                return redirect("ui:password_detail", password_id=entry.id)
+
+            secret = ""
+            digits = 6
+            period = 30
+            algorithm = "SHA1"
+            try:
+                if raw.lower().startswith("otpauth://"):
+                    parsed = parse_otpauth_url(raw)
+                    secret = str(parsed["secret_b32"])
+                    digits = int(parsed["digits"])
+                    period = int(parsed["period"])
+                    algorithm = str(parsed["algorithm"])
+                else:
+                    secret = normalize_base32_secret(raw)
+                    # Optional overrides for non-URI secrets.
+                    try:
+                        digits = int((request.POST.get("totp_digits") or "6").strip() or "6")
+                    except Exception:
+                        digits = 6
+                    try:
+                        period = int((request.POST.get("totp_period") or "30").strip() or "30")
+                    except Exception:
+                        period = 30
+                    algorithm = (request.POST.get("totp_algorithm") or "SHA1").strip().upper() or "SHA1"
+            except TotpError as e:
+                request.session["homeglue_flash"] = {"title": "OTP not set", "body": str(e)}
+                request.session.modified = True
+                return redirect("ui:password_detail", password_id=entry.id)
+
+            # Validate by generating once (ensures algorithm/digits/period are acceptable).
+            from apps.secretsapp.totp import totp as _totp
+
+            _totp(secret_b32=secret, digits=int(digits), period=int(period), algorithm=str(algorithm))
+
+            entry.set_totp_secret(secret)
+            entry.totp_digits = int(digits)
+            entry.totp_period = int(period)
+            entry.totp_algorithm = str(algorithm).upper()
+            entry.save(update_fields=["totp_secret_ciphertext", "totp_digits", "totp_period", "totp_algorithm", "updated_at"])
+
+            request.session["homeglue_flash"] = {"title": "OTP set", "body": "OTP secret saved. Codes should now match your authenticator/provider."}
+            request.session.modified = True
+            return redirect("ui:password_detail", password_id=entry.id)
+
+        # enable_totp / rotate_totp (generate a new secret)
         secret = generate_base32_secret()
         entry.set_totp_secret(secret)
-        # Keep defaults for now; make these editable later.
         entry.totp_digits = 6
         entry.totp_period = 30
         entry.totp_algorithm = "SHA1"
@@ -9462,6 +9515,7 @@ def password_detail(request: HttpRequest, password_id: int) -> HttpResponse:
             "can_reveal": can_reveal,
             "is_reauthed": is_reauthed,
             "reauth_url": reauth_url,
+            "flash": flash,
             "totp_enabled": entry.has_totp(),
             "totp_code_url": reverse("ui:password_totp_code", kwargs={"password_id": entry.id}),
             "totp_new_secret": totp_new_secret,

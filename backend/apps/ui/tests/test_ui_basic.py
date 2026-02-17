@@ -608,6 +608,7 @@ class UiBasicTests(TestCase):
         import re
 
         from apps.secretsapp.models import PasswordEntry
+        from apps.secretsapp.totp import normalize_base32_secret
 
         self.client.get(f"/app/orgs/{self.org.id}/enter/")
         p = PasswordEntry.objects.create(organization=self.org, created_by=self.user, name="P", username="u")
@@ -630,6 +631,13 @@ class UiBasicTests(TestCase):
         self.assertEqual(r3.status_code, 302)
         r4 = self.client.get(f"/app/passwords/{p.id}/totp/")
         self.assertEqual(r4.status_code, 404)
+
+        # Set an existing provider secret and ensure it's stored normalized.
+        r5 = self.client.post(f"/app/passwords/{p.id}/", {"_action": "set_totp", "totp_secret": "jbsw y3dp-ehpk 3pxp"})
+        self.assertEqual(r5.status_code, 302)
+        p.refresh_from_db()
+        self.assertTrue(p.has_totp())
+        self.assertEqual(p.get_totp_secret(), normalize_base32_secret("jbsw y3dp-ehpk 3pxp"))
 
     def test_reports_does_not_leak_private_passwords(self):
         from django.contrib.auth import get_user_model

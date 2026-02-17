@@ -6,7 +6,7 @@ import hmac
 import secrets
 import struct
 import time
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlparse, parse_qs
 
 
 class TotpError(ValueError):
@@ -103,3 +103,55 @@ def build_otpauth_url(
     )
     return f"otpauth://totp/{label}?{qs}"
 
+
+def parse_otpauth_url(uri: str) -> dict[str, str | int]:
+    """
+    Parse an otpauth://totp/... URI and return normalized fields.
+
+    Returns keys: secret_b32 (str), issuer (str), account_name (str), algorithm (str), digits (int), period (int)
+    """
+
+    u = (uri or "").strip()
+    if not u.lower().startswith("otpauth://"):
+        raise TotpError("Not an otpauth URI.")
+    p = urlparse(u)
+    if (p.scheme or "").lower() != "otpauth":
+        raise TotpError("Invalid otpauth URI.")
+    if (p.netloc or "").lower() != "totp":
+        raise TotpError("Only TOTP otpauth URIs are supported.")
+
+    # Label: /Issuer:Account or /Account
+    label = unquote((p.path or "").lstrip("/")).strip()
+    issuer_from_label = ""
+    account_name = label
+    if ":" in label:
+        issuer_from_label, account_name = label.split(":", 1)
+        issuer_from_label = (issuer_from_label or "").strip()
+        account_name = (account_name or "").strip()
+    account_name = (account_name or "").strip()
+
+    qs = parse_qs(p.query or "", keep_blank_values=True)
+    secret_raw = (qs.get("secret", [""])[0] or "").strip()
+    if not secret_raw:
+        raise TotpError("otpauth URI is missing the secret.")
+    secret_b32 = normalize_base32_secret(secret_raw)
+
+    issuer = (qs.get("issuer", [""])[0] or "").strip() or issuer_from_label
+    algorithm = (qs.get("algorithm", ["SHA1"])[0] or "SHA1").strip().upper()
+    try:
+        digits = int((qs.get("digits", ["6"])[0] or "6").strip())
+    except Exception as e:
+        raise TotpError("Invalid digits value in otpauth URI.") from e
+    try:
+        period = int((qs.get("period", ["30"])[0] or "30").strip())
+    except Exception as e:
+        raise TotpError("Invalid period value in otpauth URI.") from e
+
+    return {
+        "secret_b32": secret_b32,
+        "issuer": issuer,
+        "account_name": account_name,
+        "algorithm": algorithm,
+        "digits": digits,
+        "period": period,
+    }
