@@ -98,6 +98,20 @@ ensure_pkg_deb() {
   $ROOT_PREFIX apt-get install -y "${pkgs[@]}"
 }
 
+detect_primary_ipv4() {
+  # Best-effort: return a single "best" IPv4 for LAN display purposes.
+  local ip4=""
+  if command -v ip >/dev/null 2>&1; then
+    ip4="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i=="src") {print $(i+1); exit}}' || true)"
+  fi
+  if [[ -z "${ip4:-}" ]]; then
+    ip4="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m1 -E '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$' || true)"
+  fi
+  ip4="${ip4//$'\n'/}"
+  ip4="${ip4//$'\r'/}"
+  echo "$ip4"
+}
+
 ensure_compose_plugin_deb() {
   # Ensure `docker compose` works (Compose V2 plugin). If it isn't present, try to install it.
   if docker compose version >/dev/null 2>&1; then
@@ -150,6 +164,9 @@ ensure_prereqs() {
       fi
       if ! command -v python3 >/dev/null 2>&1; then
         ensure_pkg_deb python3
+      fi
+      if ! command -v ip >/dev/null 2>&1; then
+        ensure_pkg_deb iproute2
       fi
       if ! command -v docker >/dev/null 2>&1; then
         install_docker_get
@@ -208,23 +225,9 @@ if [[ "$CREATED_ENV" -eq 1 ]]; then
   if [[ -n "${HOMEGLUE_ALLOWED_HOSTS:-}" ]]; then
     set_kv "HOMEGLUE_ALLOWED_HOSTS" "${HOMEGLUE_ALLOWED_HOSTS}" "$ENV_FILE"
   else
-    # Always include local loopback hosts.
-    hosts="localhost,127.0.0.1,::1"
-    # Include hostname(s).
-    hn="$(hostname 2>/dev/null || true)"
-    hnf="$(hostname -f 2>/dev/null || true)"
-    if [[ -n "${hn:-}" && "$hosts" != *"$hn"* ]]; then hosts="${hosts},${hn}"; fi
-    if [[ -n "${hnf:-}" && "$hosts" != *"$hnf"* ]]; then hosts="${hosts},${hnf}"; fi
-      # Include primary non-loopback IPv4 if available.
-    ip4="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m1 -E '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$' || true)"
-    if [[ -z "${ip4:-}" ]] && command -v ip >/dev/null 2>&1; then
-      ip4="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i==\"src\") {print $(i+1); exit}}' || true)"
-    fi
-    if [[ -z "${ip4:-}" ]] && command -v ip >/dev/null 2>&1; then
-      ip4="$(ip -4 addr show scope global 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | head -n 1 || true)"
-    fi
-    if [[ -n "${ip4:-}" ]]; then hosts="${hosts},${ip4}"; fi
-    set_kv "HOMEGLUE_ALLOWED_HOSTS" "$hosts" "$ENV_FILE"
+    # Default to wildcard to avoid DisallowedHost 400s in common home-lab setups.
+    # Operators can restrict this later in .env or via Admin -> System settings.
+    set_kv "HOMEGLUE_ALLOWED_HOSTS" "*" "$ENV_FILE"
   fi
 
   set_kv "HOMEGLUE_SECRET_KEY" "$(py_rand django_secret)" "$ENV_FILE"
@@ -315,12 +318,7 @@ PORT="$(get_kv HOMEGLUE_PORT "$ENV_FILE")"
 PORT="${PORT:-8080}"
 echo "HomeGlue is running:"
 echo "- Open:     http://localhost:${PORT}/"
-if command -v hostname >/dev/null 2>&1; then
-  ip4_out="$(hostname -I 2>/dev/null | tr ' ' '\n' | grep -m1 -E '^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$' || true)"
-fi
-if [[ -z "${ip4_out:-}" ]] && command -v ip >/dev/null 2>&1; then
-  ip4_out="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i=1;i<=NF;i++) if ($i==\"src\") {print $(i+1); exit}}' || true)"
-fi
+ip4_out="$(detect_primary_ipv4)"
 if [[ -n "${ip4_out:-}" ]]; then
   echo "- Open LAN: http://${ip4_out}:${PORT}/"
 fi
