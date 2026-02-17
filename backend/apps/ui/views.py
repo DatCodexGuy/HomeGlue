@@ -5275,7 +5275,7 @@ def location_detail(request: HttpRequest, location_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=loc)
-        return redirect("ui:location_detail", location_id=loc.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST":
         loc.name = (request.POST.get("name") or "").strip()
@@ -5535,7 +5535,7 @@ def contact_detail(request: HttpRequest, contact_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=contact)
-        return redirect("ui:contact_detail", contact_id=contact.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST":
         form = ContactForm(request.POST, instance=contact, org=org)
@@ -5823,7 +5823,7 @@ def config_item_detail(request: HttpRequest, item_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=item)
-        return redirect("ui:config_item_detail", item_id=item.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST":
         form = ConfigurationItemForm(request.POST, instance=item, org=org)
@@ -6118,7 +6118,7 @@ def asset_detail(request: HttpRequest, asset_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=asset)
-        return redirect("ui:asset_detail", asset_id=asset.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST":
         form = AssetForm(request.POST, instance=asset, org=org)
@@ -6663,7 +6663,7 @@ def document_detail(request: HttpRequest, document_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=doc)
-        return redirect("ui:document_detail", document_id=doc.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST" and request.POST.get("_action") == "set_review_state":
         next_state = (request.POST.get("review_state") or "").strip()
@@ -8560,7 +8560,7 @@ def template_detail(request: HttpRequest, template_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=tmpl)
-        return redirect("ui:template_detail", template_id=tmpl.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST" and request.POST.get("_action") == "set_review_state":
         next_state = (request.POST.get("review_state") or "").strip()
@@ -9210,7 +9210,7 @@ def password_detail(request: HttpRequest, password_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=entry)
-        return redirect("ui:password_detail", password_id=entry.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST" and request.POST.get("_action") == "mark_rotated":
         if not (_is_org_admin(request.user, org) or getattr(request.user, "is_superuser", False)):
@@ -9797,7 +9797,7 @@ def domain_detail(request: HttpRequest, domain_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=dom)
-        return redirect("ui:domain_detail", domain_id=dom.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST":
         form = DomainForm(request.POST, instance=dom, org=org)
@@ -10289,7 +10289,7 @@ def sslcert_detail(request: HttpRequest, sslcert_id: int) -> HttpResponse:
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=cert)
-        return redirect("ui:sslcert_detail", sslcert_id=cert.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST":
         form = SSLCertificateForm(request.POST, instance=cert, org=org)
@@ -11179,7 +11179,7 @@ def flex_asset_detail(request: HttpRequest, type_id: int, asset_id: int) -> Http
 
     if request.method == "POST" and request.POST.get("_action") == "save_custom_fields":
         _save_custom_fields_from_post(request=request, org=org, obj=asset)
-        return redirect("ui:flex_asset_detail", type_id=ftype.id, asset_id=asset.id)
+        return redirect(request.get_full_path())
 
     if request.method == "POST":
         form = FlexibleAssetForm(request.POST, instance=asset, org=org, asset_type=ftype)
