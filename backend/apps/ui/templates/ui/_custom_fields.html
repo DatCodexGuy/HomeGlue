@@ -38,7 +38,7 @@
     {% endfor %}
   </div>
 
-  <details class="mt-10">
+  <details class="mt-10" {% if edit_mode %}open{% endif %}>
     <summary class="muted">Edit custom fields</summary>
     <div class="mini mt-10">
       <form method="post" class="form form--grid">
@@ -49,29 +49,28 @@
             {% with is_synced=f.help_text|contains:"Synced from Proxmox." %}
               <p>
                 <label for="id_cf_{{ f.id }}">{{ f.name }}</label>
-                {% if is_synced %}
-                  <div class="muted">Managed by Proxmox sync.</div>
-                  <div class="mono mt-6">{% if val %}{{ val }}{% else %}-{% endif %}</div>
+                {% if f.field_type == "textarea" %}
+                  <textarea name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" class="js-md" rows="5">{% if val %}{{ val }}{% endif %}</textarea>
+                {% elif f.field_type == "number" %}
+                  <input type="number" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+                {% elif f.field_type == "date" %}
+                  <input type="date" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+                {% elif f.field_type == "url" %}
+                  <input type="url" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+                {% elif f.field_type == "boolean" %}
+                  <div class="mt-10">
+                    <label class="label--plain flex gap-10 items-center">
+                      <input type="checkbox" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="1" {% if val %}checked{% endif %} />
+                      <span class="muted">{% if f.help_text %}{{ f.help_text }}{% else %}Enabled{% endif %}</span>
+                    </label>
+                  </div>
                 {% else %}
-                  {% if f.field_type == "textarea" %}
-                    <textarea name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" class="js-md" rows="5">{% if val %}{{ val }}{% endif %}</textarea>
-                  {% elif f.field_type == "number" %}
-                    <input type="number" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
-                  {% elif f.field_type == "date" %}
-                    <input type="date" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
-                  {% elif f.field_type == "url" %}
-                    <input type="url" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
-                  {% elif f.field_type == "boolean" %}
-                    <div class="mt-10">
-                      <label class="label--plain flex gap-10 items-center">
-                        <input type="checkbox" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="1" {% if val %}checked{% endif %} />
-                        <span class="muted">{% if f.help_text %}{{ f.help_text }}{% else %}Enabled{% endif %}</span>
-                      </label>
-                    </div>
-                  {% else %}
-                    <input type="text" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
-                  {% endif %}
-                  {% if f.help_text and f.field_type != "boolean" %}<span class="helptext">{{ f.help_text }}</span>{% endif %}
+                  <input type="text" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
+                {% endif %}
+                {% if is_synced %}
+                  <span class="helptext">Synced from Proxmox (may be overwritten on next sync).</span>
+                {% elif f.help_text and f.field_type != "boolean" %}
+                  <span class="helptext">{{ f.help_text }}</span>
                 {% endif %}
               </p>
             {% endwith %}
