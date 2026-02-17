@@ -9355,16 +9355,10 @@ def password_detail(request: HttpRequest, password_id: int) -> HttpResponse:
                     algorithm = str(parsed["algorithm"])
                 else:
                     secret = normalize_base32_secret(raw)
-                    # Optional overrides for non-URI secrets.
-                    try:
-                        digits = int((request.POST.get("totp_digits") or "6").strip() or "6")
-                    except Exception:
-                        digits = 6
-                    try:
-                        period = int((request.POST.get("totp_period") or "30").strip() or "30")
-                    except Exception:
-                        period = 30
-                    algorithm = (request.POST.get("totp_algorithm") or "SHA1").strip().upper() or "SHA1"
+                    # Base32 secrets alone don't carry configuration; use standard defaults.
+                    digits = 6
+                    period = 30
+                    algorithm = "SHA1"
             except TotpError as e:
                 request.session["homeglue_flash"] = {"title": "OTP not set", "body": str(e)}
                 request.session.modified = True
