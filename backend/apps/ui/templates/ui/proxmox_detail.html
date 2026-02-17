@@ -89,6 +89,13 @@
                 <span class="pill pill--tiny">{% if n.status %}{{ n.status }}{% else %}...{% endif %}</span>
               </div>
               <div class="muted">CPU: {{ n.maxcpu|default:"?" }} Mem: {{ n.maxmem|default:"?" }} Disk: {{ n.maxdisk|default:"?" }}</div>
+              {% if n.asset_id or n.config_item_id %}
+                <div class="muted">
+                  {% if n.asset_id %}Asset: <a class="link mono" href="{% url 'ui:asset_detail' asset_id=n.asset_id %}">open</a>{% endif %}
+                  {% if n.asset_id and n.config_item_id %} · {% endif %}
+                  {% if n.config_item_id %}CI: <a class="link mono" href="{% url 'ui:config_item_detail' item_id=n.config_item_id %}">open</a>{% endif %}
+                </div>
+              {% endif %}
             </div>
           {% empty %}
             <div class="mini__row"><span class="muted">No nodes yet. Run a sync.</span></div>
@@ -118,6 +125,9 @@
               {% endif %}
               {% if g.config_item_id %}
                 <div class="muted">CI: <a class="link mono" href="{% url 'ui:config_item_detail' item_id=g.config_item_id %}">open</a></div>
+              {% endif %}
+              {% if g.asset_id %}
+                <div class="muted">Asset: <a class="link mono" href="{% url 'ui:asset_detail' asset_id=g.asset_id %}">open</a></div>
               {% endif %}
             </div>
           {% empty %}

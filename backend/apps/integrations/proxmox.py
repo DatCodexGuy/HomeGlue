@@ -9,9 +9,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from django.db import transaction
+from django.contrib.contenttypes.models import ContentType
 
-from apps.assets.models import ConfigurationItem
-from apps.core.models import Tag
+from apps.assets.models import Asset, ConfigurationItem
+from apps.core.models import Relationship, RelationshipType, Tag
 
 from .models import (
     ProxmoxCluster,
@@ -233,10 +234,22 @@ def _ensure_ci_for_guest(*, org, guest: ProxmoxGuest) -> None:
         if primary_ip and (ci.primary_ip is None or str(ci.primary_ip) != primary_ip):
             ci.primary_ip = primary_ip
             changed = True
-        if guest.node and (not ci.hostname):
+        if not ci.hostname:
             # Keep conservative: don't overwrite hostname if user set one.
             ci.hostname = base_name
             changed = True
+        if not ci.operating_system:
+            # Best-effort fill OS from guest agent metadata; otherwise keep blank.
+            osinfo = guest.agent_osinfo or {}
+            if isinstance(osinfo, dict):
+                os_name = (osinfo.get("name") or "").strip()
+                os_ver = (osinfo.get("version") or "").strip()
+                if os_name and os_ver:
+                    ci.operating_system = f"{os_name} {os_ver}"[:200]
+                    changed = True
+                elif os_name:
+                    ci.operating_system = str(os_name)[:200]
+                    changed = True
         # Add a small marker note once.
         marker = f"[proxmox] {guest.connection.name} {guest.guest_type}:{guest.vmid} node={guest.node}".strip()
         if marker not in (ci.notes or ""):
@@ -265,6 +278,175 @@ def _ensure_ci_for_guest(*, org, guest: ProxmoxGuest) -> None:
     ci.tags.add(tag)
     guest.config_item = ci
     guest.save(update_fields=["config_item", "updated_at"])
+
+
+def _ensure_ci_for_node(*, org, node: ProxmoxNode) -> None:
+    """
+    Best-effort mapping from Proxmox nodes into Configuration Items.
+    """
+
+    base_name = (node.node or "").strip()
+    if not base_name:
+        return
+
+    tag, _ = Tag.objects.get_or_create(organization=org, name="synced:proxmox")
+    marker = f"[proxmox] {node.connection.name} node={node.node}".strip()
+
+    if node.config_item_id:
+        ci = node.config_item
+        if not ci:
+            node.config_item_id = None
+            node.save(update_fields=["config_item", "updated_at"])
+            return
+        changed = False
+        if ci.ci_type != ConfigurationItem.TYPE_SERVER:
+            ci.ci_type = ConfigurationItem.TYPE_SERVER
+            changed = True
+        if not ci.hostname:
+            ci.hostname = base_name[:200]
+            changed = True
+        if not ci.operating_system:
+            ci.operating_system = "Proxmox VE"
+            changed = True
+        if marker not in (ci.notes or ""):
+            ci.notes = ((ci.notes or "").strip() + ("\n" if (ci.notes or "").strip() else "") + marker).strip()
+            changed = True
+        if changed:
+            ci.save()
+        ci.tags.add(tag)
+        return
+
+    # Create new (avoid hijacking an existing human-made record with the same name).
+    name = base_name
+    if ConfigurationItem.objects.filter(organization=org, name=name).exists():
+        name = f"{base_name} (pve node)"
+    if ConfigurationItem.objects.filter(organization=org, name=name).exists():
+        name = f"{base_name} (pve node {node.connection_id})"
+
+    ci = ConfigurationItem.objects.create(
+        organization=org,
+        name=name[:200],
+        ci_type=ConfigurationItem.TYPE_SERVER,
+        hostname=base_name[:200],
+        operating_system="Proxmox VE",
+        notes=marker,
+    )
+    ci.tags.add(tag)
+    node.config_item = ci
+    node.save(update_fields=["config_item", "updated_at"])
+
+
+def _ensure_asset_for_guest(*, org, guest: ProxmoxGuest) -> None:
+    base_name = (guest.name or "").strip()
+    if not base_name:
+        return
+
+    tag, _ = Tag.objects.get_or_create(organization=org, name="synced:proxmox")
+    marker = f"[proxmox] {guest.connection.name} {guest.guest_type}:{guest.vmid} node={guest.node}".strip()
+    desired_type = Asset.TYPE_SERVER if guest.guest_type == ProxmoxGuest.TYPE_QEMU else Asset.TYPE_OTHER
+
+    asset = guest.asset
+    if not asset:
+        asset = Asset.objects.filter(organization=org, name=base_name, archived_at__isnull=True).first()
+    created = False
+    if not asset:
+        asset = Asset.objects.create(
+            organization=org,
+            name=base_name[:200],
+            asset_type=desired_type,
+            manufacturer="Proxmox",
+            model="VM" if guest.guest_type == ProxmoxGuest.TYPE_QEMU else "Container",
+            notes=marker,
+        )
+        created = True
+
+    changed = False
+    if marker not in (asset.notes or ""):
+        asset.notes = ((asset.notes or "").strip() + ("\n" if (asset.notes or "").strip() else "") + marker).strip()
+        changed = True
+    # Only fill these if blank (avoid clobbering user-provided data).
+    if created and asset.asset_type != desired_type:
+        asset.asset_type = desired_type
+        changed = True
+    if not asset.manufacturer:
+        asset.manufacturer = "Proxmox"
+        changed = True
+    if not asset.model:
+        asset.model = "VM" if guest.guest_type == ProxmoxGuest.TYPE_QEMU else "Container"
+        changed = True
+    if changed:
+        asset.save()
+    asset.tags.add(tag)
+
+    if guest.asset_id != asset.id:
+        guest.asset = asset
+        guest.save(update_fields=["asset", "updated_at"])
+
+
+def _ensure_asset_for_node(*, org, node: ProxmoxNode) -> None:
+    base_name = (node.node or "").strip()
+    if not base_name:
+        return
+
+    tag, _ = Tag.objects.get_or_create(organization=org, name="synced:proxmox")
+    marker = f"[proxmox] {node.connection.name} node={node.node}".strip()
+
+    asset = node.asset
+    if not asset:
+        asset = Asset.objects.filter(organization=org, name=base_name, archived_at__isnull=True).first()
+    created = False
+    if not asset:
+        asset = Asset.objects.create(
+            organization=org,
+            name=base_name[:200],
+            asset_type=Asset.TYPE_SERVER,
+            manufacturer="Proxmox",
+            model="Node",
+            notes=marker,
+        )
+        created = True
+
+    changed = False
+    if marker not in (asset.notes or ""):
+        asset.notes = ((asset.notes or "").strip() + ("\n" if (asset.notes or "").strip() else "") + marker).strip()
+        changed = True
+    if created and asset.asset_type != Asset.TYPE_SERVER:
+        asset.asset_type = Asset.TYPE_SERVER
+        changed = True
+    if not asset.manufacturer:
+        asset.manufacturer = "Proxmox"
+        changed = True
+    if not asset.model:
+        asset.model = "Node"
+        changed = True
+    if changed:
+        asset.save()
+    asset.tags.add(tag)
+
+    if node.asset_id != asset.id:
+        node.asset = asset
+        node.save(update_fields=["asset", "updated_at"])
+
+
+def _ensure_hosted_on_relationship(*, org, guest: ProxmoxGuest, node: ProxmoxNode | None) -> None:
+    if not guest.config_item_id or not node or not node.config_item_id:
+        return
+
+    rt, _ = RelationshipType.objects.get_or_create(
+        organization=org,
+        name="Hosted On",
+        defaults={"inverse_name": "Hosts", "symmetric": False},
+    )
+    ct = ContentType.objects.get_for_model(ConfigurationItem)
+    Relationship.objects.get_or_create(
+        organization=org,
+        relationship_type=rt,
+        source_content_type=ct,
+        source_object_id=str(guest.config_item_id),
+        target_content_type=ct,
+        target_object_id=str(node.config_item_id),
+        defaults={"notes": f"[proxmox] {guest.connection.name}"},
+    )
 
 
 def _parse_tags(raw: str) -> list[str]:
@@ -413,12 +595,13 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
         # Nodes
         node_rows = [r for r in resources if isinstance(r, dict) and r.get("type") == "node" and r.get("node")]
         seen_nodes = set()
+        node_obj_by_name: dict[str, ProxmoxNode] = {}
         for r in node_rows:
             node = str(r.get("node"))
             seen_nodes.add(node)
             status_raw = _safe_get(client, f"/nodes/{urllib.parse.quote(node)}/status") or {}
             version_raw = _safe_get(client, f"/nodes/{urllib.parse.quote(node)}/version") or {}
-            ProxmoxNode.objects.update_or_create(
+            node_obj, _ = ProxmoxNode.objects.update_or_create(
                 connection=conn,
                 node=node,
                 defaults={
@@ -435,6 +618,10 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                     "version_raw": version_raw if isinstance(version_raw, (dict, list)) else {},
                 },
             )
+            # Map into "real" HomeGlue records.
+            _ensure_asset_for_node(org=conn.organization, node=node_obj)
+            _ensure_ci_for_node(org=conn.organization, node=node_obj)
+            node_obj_by_name[node] = node_obj
         ProxmoxNode.objects.filter(connection=conn).exclude(node__in=list(seen_nodes)).delete()
 
         # Guests
@@ -527,10 +714,19 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                     "config_raw": config,
                 },
             )
-            guest_obj = ProxmoxGuest.objects.filter(connection=conn, guest_type=gtype, vmid=vmid).select_related("config_item").first()
+            guest_obj = (
+                ProxmoxGuest.objects.filter(connection=conn, guest_type=gtype, vmid=vmid)
+                .select_related("config_item", "asset")
+                .first()
+            )
             if guest_obj:
                 _upsert_ip_history(guest=guest_obj, ips=ips, source=ip_source)
+                _ensure_asset_for_guest(org=conn.organization, guest=guest_obj)
                 _ensure_ci_for_guest(org=conn.organization, guest=guest_obj)
+                host_node = node_obj_by_name.get(node) if node else None
+                if not host_node and node:
+                    host_node = ProxmoxNode.objects.filter(connection=conn, node=node).select_related("config_item").first()
+                _ensure_hosted_on_relationship(org=conn.organization, guest=guest_obj, node=host_node)
 
         # Remove missing guests
         existing = list(ProxmoxGuest.objects.filter(connection=conn).values_list("guest_type", "vmid"))

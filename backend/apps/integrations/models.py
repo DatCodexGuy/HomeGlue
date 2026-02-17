@@ -4,7 +4,7 @@ from django.db import models
 
 from apps.core.models import Organization
 from apps.secretsapp.crypto import decrypt_str, encrypt_str
-from apps.assets.models import ConfigurationItem
+from apps.assets.models import Asset, ConfigurationItem
 
 
 class ProxmoxConnection(models.Model):
@@ -47,6 +47,14 @@ class ProxmoxConnection(models.Model):
 
 class ProxmoxNode(models.Model):
     connection = models.ForeignKey(ProxmoxConnection, on_delete=models.CASCADE, related_name="nodes")
+    asset = models.OneToOneField(Asset, on_delete=models.SET_NULL, null=True, blank=True, related_name="proxmox_node")
+    config_item = models.OneToOneField(
+        ConfigurationItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="proxmox_node",
+    )
     node = models.CharField(max_length=200)
     status = models.CharField(max_length=32, blank=True, default="")
     cpu = models.FloatField(null=True, blank=True)
@@ -75,6 +83,7 @@ class ProxmoxGuest(models.Model):
     TYPE_CHOICES = [(TYPE_QEMU, "VM"), (TYPE_LXC, "Container")]
 
     connection = models.ForeignKey(ProxmoxConnection, on_delete=models.CASCADE, related_name="guests")
+    asset = models.OneToOneField(Asset, on_delete=models.SET_NULL, null=True, blank=True, related_name="proxmox_guest")
     config_item = models.OneToOneField(ConfigurationItem, on_delete=models.SET_NULL, null=True, blank=True, related_name="proxmox_guest")
     node = models.CharField(max_length=200, blank=True, default="")
     vmid = models.IntegerField()

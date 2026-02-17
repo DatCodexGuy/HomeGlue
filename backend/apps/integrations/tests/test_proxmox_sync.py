@@ -13,7 +13,8 @@ from apps.integrations.models import (
     ProxmoxSdnVnet,
 )
 from apps.integrations.proxmox import sync_proxmox_connection
-from apps.assets.models import ConfigurationItem
+from apps.assets.models import Asset, ConfigurationItem
+from apps.core.models import Relationship, RelationshipType
 
 
 class _FakeClient:
@@ -95,9 +96,19 @@ class ProxmoxSyncTests(TestCase):
         self.assertIn("10.0.0.20/24", ct.ip_addrs)
         self.assertIsNotNone(ct.config_item_id)
 
-        self.assertEqual(ConfigurationItem.objects.filter(organization=org).count(), 2)
+        self.assertEqual(ConfigurationItem.objects.filter(organization=org).count(), 3)
         self.assertTrue(ProxmoxPool.objects.filter(connection=conn, poolid="prod").exists())
         self.assertTrue(ProxmoxSdnVnet.objects.filter(connection=conn, vnet="vnet0").exists())
+
+        # Assets are created for nodes + guests (best-effort).
+        self.assertGreaterEqual(Asset.objects.filter(organization=org).count(), 3)
+        self.assertTrue(ProxmoxNode.objects.filter(connection=conn, node="pve1").exclude(asset__isnull=True).exists())
+        self.assertTrue(ProxmoxGuest.objects.filter(connection=conn, guest_type="qemu", vmid=100).exclude(asset__isnull=True).exists())
+
+        # Nodes also map into configuration items (and guests are linked as Hosted On).
+        self.assertTrue(ProxmoxNode.objects.filter(connection=conn, node="pve1").exclude(config_item__isnull=True).exists())
+        self.assertTrue(RelationshipType.objects.filter(organization=org, name="Hosted On").exists())
+        self.assertEqual(Relationship.objects.filter(organization=org, relationship_type__name="Hosted On").count(), 2)
 
     def test_sync_records_status_when_connection_disabled(self):
         org = Organization.objects.create(name="Org 1")

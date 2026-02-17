@@ -11516,8 +11516,8 @@ def proxmox_detail(request: HttpRequest, conn_id: int) -> HttpResponse:
         else:
             form = ProxmoxConnectionForm(instance=conn, org=org)
 
-    nodes = list(ProxmoxNode.objects.filter(connection=conn).order_by("node")[:200])
-    guests = list(ProxmoxGuest.objects.filter(connection=conn).order_by("guest_type", "vmid")[:500])
+    nodes = list(ProxmoxNode.objects.filter(connection=conn).select_related("asset", "config_item").order_by("node")[:200])
+    guests = list(ProxmoxGuest.objects.filter(connection=conn).select_related("asset", "config_item").order_by("guest_type", "vmid")[:500])
     nets = list(ProxmoxNetwork.objects.filter(connection=conn).order_by("node", "iface")[:500])
     stor = list(conn.storages.order_by("node", "storage")[:200])
     pools = list(conn.pools.order_by("poolid")[:50])
@@ -11617,7 +11617,7 @@ def proxmox_guests(request: HttpRequest, conn_id: int) -> HttpResponse:
     has_ip = (request.GET.get("has_ip") or "").strip()
     pool = (request.GET.get("pool") or "").strip()
 
-    qs = ProxmoxGuest.objects.filter(connection=conn).select_related("config_item").order_by("node", "guest_type", "vmid")
+    qs = ProxmoxGuest.objects.filter(connection=conn).select_related("asset", "config_item").order_by("node", "guest_type", "vmid")
     if q:
         qs = qs.filter(Q(name__icontains=q) | Q(node__icontains=q) | Q(vmid__icontains=q))
     if status in {"running", "stopped"}:
@@ -11667,7 +11667,7 @@ def proxmox_guest_detail(request: HttpRequest, conn_id: int, guest_id: int) -> H
     ctx = require_current_org(request)
     org = ctx.organization
     conn = get_object_or_404(ProxmoxConnection, organization=org, id=conn_id)
-    guest = get_object_or_404(ProxmoxGuest.objects.select_related("config_item"), connection=conn, id=guest_id)
+    guest = get_object_or_404(ProxmoxGuest.objects.select_related("asset", "config_item"), connection=conn, id=guest_id)
 
     return render(
         request,
@@ -11699,7 +11699,7 @@ def proxmox_nodes(request: HttpRequest, conn_id: int) -> HttpResponse:
     conn = get_object_or_404(ProxmoxConnection, organization=org, id=conn_id)
     q = (request.GET.get("q") or "").strip()
 
-    qs = ProxmoxNode.objects.filter(connection=conn).order_by("node")
+    qs = ProxmoxNode.objects.filter(connection=conn).select_related("asset", "config_item").order_by("node")
     if q:
         qs = qs.filter(node__icontains=q)
 
@@ -11723,10 +11723,14 @@ def proxmox_node_detail(request: HttpRequest, conn_id: int, node_id: int) -> Htt
     ctx = require_current_org(request)
     org = ctx.organization
     conn = get_object_or_404(ProxmoxConnection, organization=org, id=conn_id)
-    node = get_object_or_404(ProxmoxNode, connection=conn, id=node_id)
+    node = get_object_or_404(ProxmoxNode.objects.select_related("asset", "config_item"), connection=conn, id=node_id)
     networks = list(ProxmoxNetwork.objects.filter(connection=conn, node=node.node).order_by("iface")[:500])
     storages = list(conn.storages.filter(node=node.node).order_by("storage")[:200])
-    guests = list(ProxmoxGuest.objects.filter(connection=conn, node=node.node).select_related("config_item").order_by("guest_type", "vmid")[:500])
+    guests = list(
+        ProxmoxGuest.objects.filter(connection=conn, node=node.node)
+        .select_related("asset", "config_item")
+        .order_by("guest_type", "vmid")[:500]
+    )
 
     return render(
         request,

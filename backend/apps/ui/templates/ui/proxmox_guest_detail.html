@@ -20,6 +20,12 @@
             Open CI
           </a>
         {% endif %}
+        {% if guest.asset_id %}
+          <a class="btn btn--sm" href="{% url 'ui:asset_detail' asset_id=guest.asset_id %}">
+            <svg class="ico" viewBox="0 0 24 24"><use href="#i-asset"/></svg>
+            Open Asset
+          </a>
+        {% endif %}
       </div>
     </div>
 

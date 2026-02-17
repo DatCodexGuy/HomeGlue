@@ -34,6 +34,21 @@
         <div class="card__title">Version</div>
         <div class="card__meta mono">{% firstof node.version_raw.version "?" %}</div>
 	      </div>
+
+        <div class="card">
+          <div class="card__title">HomeGlue</div>
+          <div class="card__meta">
+            {% if node.asset_id %}
+              <div class="muted">Asset: <a class="link mono" href="{% url 'ui:asset_detail' asset_id=node.asset_id %}">open</a></div>
+            {% endif %}
+            {% if node.config_item_id %}
+              <div class="muted">CI: <a class="link mono" href="{% url 'ui:config_item_detail' item_id=node.config_item_id %}">open</a></div>
+            {% endif %}
+            {% if not node.asset_id and not node.config_item_id %}
+              <div class="muted">No mapped HomeGlue records yet.</div>
+            {% endif %}
+          </div>
+        </div>
 	    </div>
 
 	    <div class="mt-18">
@@ -46,6 +61,7 @@
               <th>Status</th>
               <th>IP</th>
               <th>CI</th>
+              <th>Asset</th>
             </tr>
           </thead>
           <tbody>
@@ -64,9 +80,16 @@
                     <span class="muted">-</span>
                   {% endif %}
                 </td>
+                <td>
+                  {% if g.asset_id %}
+                    <a class="link mono" href="{% url 'ui:asset_detail' asset_id=g.asset_id %}">open</a>
+                  {% else %}
+                    <span class="muted">-</span>
+                  {% endif %}
+                </td>
               </tr>
             {% empty %}
-              <tr><td colspan="4" class="muted">No guests found.</td></tr>
+              <tr><td colspan="5" class="muted">No guests found.</td></tr>
             {% endfor %}
           </tbody>
         </table>
