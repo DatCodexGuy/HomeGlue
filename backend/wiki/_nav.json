@@ -6,6 +6,8 @@
       "title": "Getting Started",
       "items": [
         { "slug": "documentation", "title": "HomeGlue Documentation" },
+        { "slug": "v1-release", "title": "v1 Release Checklist" },
+        { "slug": "itglue-parity", "title": "IT Glue Parity (Feature Comparison)" },
         { "slug": "installation", "title": "Installation, Upgrade, and Uninstall" },
         { "slug": "configuration", "title": "Configuration" },
         { "slug": "first-time-setup", "title": "First-Time Setup" },
