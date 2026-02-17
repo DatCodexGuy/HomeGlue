@@ -61,6 +61,13 @@ cd /opt/homeglue
 HOMEGLUE_IMAGE=ghcr.io/datcodexguy/homeglue:<tag> ./scripts/update.sh
 ```
 
+## Releases
+
+HomeGlue is published to GHCR as:
+
+- `ghcr.io/datcodexguy/homeglue:latest` (tracks `main`)
+- `ghcr.io/datcodexguy/homeglue:vX.Y.Z` (versioned release tags)
+
 ## Configuration
 
 Minimum required env vars:
