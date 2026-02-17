@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+COMPOSE_FILE="${HOMEGLUE_COMPOSE_FILE:-docker-compose.yml}"
+
 compose() {
   # Prefer docker compose; fallback to docker-compose if installed.
   # Note: HOMEGLUE_COMPOSE_PROJECT is a convenience override for smoke tests and side-by-side installs.
@@ -12,11 +14,11 @@ compose() {
     project=(-p "$HOMEGLUE_COMPOSE_PROJECT")
   fi
   if docker compose version >/dev/null 2>&1; then
-    docker compose "${project[@]}" "$@"
+    docker compose -f "$COMPOSE_FILE" "${project[@]}" "$@"
     return
   fi
   if command -v docker-compose >/dev/null 2>&1; then
-    docker-compose "${project[@]}" "$@"
+    docker-compose -f "$COMPOSE_FILE" "${project[@]}" "$@"
     return
   fi
   echo "ERROR: Docker Compose not found. Install Docker Engine + Compose plugin." >&2
@@ -282,7 +284,13 @@ fi
 chmod 600 "$ENV_FILE" || true
 
 echo "[1/4] Building and starting containers..."
-compose up -d --build
+# Production default: pull images and start. For local development, set HOMEGLUE_BUILD=1 or HOMEGLUE_COMPOSE_FILE=docker-compose.dev.yml.
+if [[ "${HOMEGLUE_BUILD:-}" == "1" ]]; then
+  compose up -d --build
+else
+  compose pull
+  compose up -d
+fi
 
 echo "[2/4] Waiting for web container to be ready..."
 for i in {1..30}; do

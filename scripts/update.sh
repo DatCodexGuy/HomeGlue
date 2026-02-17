@@ -4,28 +4,33 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-log() { printf '%s\n' "$*"; }
-die() { echo "ERROR: $*" >&2; exit 1; }
+COMPOSE_FILE="${HOMEGLUE_COMPOSE_FILE:-docker-compose.yml}"
 
-if [[ ! -d .git ]]; then
-  die "This install is not a git clone. Re-run the one-liner bootstrap to reinstall/upgrade HomeGlue."
-fi
+compose() {
+  local -a project=()
+  if [[ -n "${HOMEGLUE_COMPOSE_PROJECT:-}" ]]; then
+    project=(-p "$HOMEGLUE_COMPOSE_PROJECT")
+  fi
+  if docker compose version >/dev/null 2>&1; then
+    docker compose -f "$COMPOSE_FILE" "${project[@]}" "$@"
+    return
+  fi
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose -f "$COMPOSE_FILE" "${project[@]}" "$@"
+    return
+  fi
+  echo "ERROR: Docker Compose not found. Install Docker Engine + Compose plugin." >&2
+  exit 1
+}
 
-if ! command -v git >/dev/null 2>&1; then
-  die "git is required to update. Install git, or re-run the one-liner bootstrap."
-fi
+echo "[1/3] Pulling latest images..."
+compose pull
 
-if [[ -n "$(git status --porcelain 2>/dev/null || true)" && "${HOMEGLUE_FORCE_UPDATE:-}" != "1" ]]; then
-  die "Local changes detected. Commit/stash them first, or re-run with HOMEGLUE_FORCE_UPDATE=1."
-fi
+echo "[2/3] Restarting containers..."
+compose up -d
 
-ref="${HOMEGLUE_REF:-main}"
-log "Updating HomeGlue (ref: ${ref})..."
+echo "[3/3] Running migrations..."
+compose exec -T web python manage.py migrate_with_lock
 
-git fetch --all --prune
-git checkout -q "$ref" || true
-git reset --hard "origin/${ref}"
-
-log "Running installer (rebuild + migrate)..."
-bash ./scripts/install.sh
+echo "Update complete."
 

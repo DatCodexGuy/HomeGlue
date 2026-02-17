@@ -42,9 +42,9 @@ HOMEGLUE_COMPOSE_PROJECT=homeglue_test HOMEGLUE_PORT=8091 HOMEGLUE_DIR=/opt/home
 
 What the bootstrap does:
 
-- clones or downloads the repo
+- downloads the deployment files into `/opt/homeglue` (no git required)
 - creates `.env` with secure defaults (if missing)
-- builds and starts the Docker stack
+- pulls and starts the Docker stack
 - runs migrations
 - creates/updates the default superuser (credentials stored in `.env`)
 
@@ -56,9 +56,10 @@ After install:
 ## Install From Git (Manual)
 
 ```bash
-git clone git@github.com:DatCodexGuy/HomeGlue.git /opt/homeglue
-cd /opt/homeglue
-./scripts/install.sh
+git clone git@github.com:DatCodexGuy/HomeGlue.git /opt/homeglue-src
+cd /opt/homeglue-src
+# Dev only:
+HOMEGLUE_COMPOSE_FILE=docker-compose.dev.yml HOMEGLUE_BUILD=1 ./scripts/install.sh
 ```
 
 Notes:
@@ -100,7 +101,7 @@ Recommended upgrade options:
 - Re-run the one-liner bootstrap (safe; updates `/opt/homeglue` and runs the installer)
 - Or run the local updater script: `/opt/homeglue/scripts/update.sh`
 
-Manual upgrade is pull + rebuild + migrate.
+Manual upgrade is pull images + restart + migrate.
 
 ```bash
 cd /opt/homeglue
