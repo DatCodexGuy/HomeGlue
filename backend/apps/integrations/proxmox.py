@@ -258,6 +258,7 @@ def _ensure_ci_for_guest(*, org, guest: ProxmoxGuest) -> None:
         if changed:
             ci.save()
         ci.tags.add(tag)
+        _apply_proxmox_tags_to(org=org, obj=ci, tags=list(guest.proxmox_tags or []), pool=str(guest.pool or ""))
         return
 
     # Create new
@@ -276,6 +277,7 @@ def _ensure_ci_for_guest(*, org, guest: ProxmoxGuest) -> None:
         notes=f"[proxmox] {guest.connection.name} {guest.guest_type}:{guest.vmid} node={guest.node}".strip(),
     )
     ci.tags.add(tag)
+    _apply_proxmox_tags_to(org=org, obj=ci, tags=list(guest.proxmox_tags or []), pool=str(guest.pool or ""))
     guest.config_item = ci
     guest.save(update_fields=["config_item", "updated_at"])
 
@@ -314,6 +316,7 @@ def _ensure_ci_for_node(*, org, node: ProxmoxNode) -> None:
         if changed:
             ci.save()
         ci.tags.add(tag)
+        # Nodes don't expose the same tag concepts; keep only the global marker tag for now.
         return
 
     # Create new (avoid hijacking an existing human-made record with the same name).
@@ -377,6 +380,7 @@ def _ensure_asset_for_guest(*, org, guest: ProxmoxGuest) -> None:
     if changed:
         asset.save()
     asset.tags.add(tag)
+    _apply_proxmox_tags_to(org=org, obj=asset, tags=list(guest.proxmox_tags or []), pool=str(guest.pool or ""))
 
     if guest.asset_id != asset.id:
         guest.asset = asset
@@ -447,6 +451,83 @@ def _ensure_hosted_on_relationship(*, org, guest: ProxmoxGuest, node: ProxmoxNod
         target_object_id=str(node.config_item_id),
         defaults={"notes": f"[proxmox] {guest.connection.name}"},
     )
+
+
+def _ensure_guest_asset_hosted_on_node_asset(*, org, guest: ProxmoxGuest, node: ProxmoxNode | None) -> None:
+    if not guest.asset_id or not node or not node.asset_id:
+        return
+    rt, _ = RelationshipType.objects.get_or_create(
+        organization=org,
+        name="Hosted On",
+        defaults={"inverse_name": "Hosts", "symmetric": False},
+    )
+    a_ct = ContentType.objects.get_for_model(Asset)
+    Relationship.objects.get_or_create(
+        organization=org,
+        relationship_type=rt,
+        source_content_type=a_ct,
+        source_object_id=str(guest.asset_id),
+        target_content_type=a_ct,
+        target_object_id=str(node.asset_id),
+        defaults={"notes": f"[proxmox] {guest.connection.name}"},
+    )
+
+
+def _ensure_linked_relationship(*, org, left_obj, right_obj, note: str) -> None:
+    """
+    Create a symmetric "Linked To" relationship between two objects (any types).
+
+    We canonicalize the source/target ordering up-front to avoid IntegrityError
+    when a reversed relationship already exists.
+    """
+
+    rt, _ = RelationshipType.objects.get_or_create(
+        organization=org,
+        name="Linked To",
+        defaults={"inverse_name": "Linked To", "symmetric": True},
+    )
+    left_ct = ContentType.objects.get_for_model(left_obj.__class__)
+    right_ct = ContentType.objects.get_for_model(right_obj.__class__)
+
+    l_key = (int(left_ct.id), str(left_obj.pk))
+    r_key = (int(right_ct.id), str(right_obj.pk))
+    if r_key < l_key:
+        left_ct, right_ct = right_ct, left_ct
+        left_obj, right_obj = right_obj, left_obj
+
+    Relationship.objects.get_or_create(
+        organization=org,
+        relationship_type=rt,
+        source_content_type=left_ct,
+        source_object_id=str(left_obj.pk),
+        target_content_type=right_ct,
+        target_object_id=str(right_obj.pk),
+        defaults={"notes": note[:5000]},
+    )
+
+
+def _apply_proxmox_tags_to(*, org, obj, tags: list[str], pool: str = "") -> None:
+    """
+    Translate Proxmox tags/pool into HomeGlue Tags on the target object.
+    """
+
+    if not hasattr(obj, "tags"):
+        return
+
+    names: list[str] = []
+    for t in (tags or [])[:50]:
+        t = (t or "").strip()
+        if not t:
+            continue
+        names.append(f"proxmox:{t}"[:100])
+    if pool:
+        names.append(f"proxmox:pool:{pool}"[:100])
+    if not names:
+        return
+
+    for name in names:
+        tag, _ = Tag.objects.get_or_create(organization=org, name=name)
+        obj.tags.add(tag)
 
 
 def _parse_tags(raw: str) -> list[str]:
@@ -621,6 +702,13 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
             # Map into "real" HomeGlue records.
             _ensure_asset_for_node(org=conn.organization, node=node_obj)
             _ensure_ci_for_node(org=conn.organization, node=node_obj)
+            if node_obj.asset_id and node_obj.config_item_id:
+                _ensure_linked_relationship(
+                    org=conn.organization,
+                    left_obj=node_obj.asset,
+                    right_obj=node_obj.config_item,
+                    note=f"[proxmox] {conn.name} node={node_obj.node}",
+                )
             node_obj_by_name[node] = node_obj
         ProxmoxNode.objects.filter(connection=conn).exclude(node__in=list(seen_nodes)).delete()
 
@@ -723,10 +811,19 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                 _upsert_ip_history(guest=guest_obj, ips=ips, source=ip_source)
                 _ensure_asset_for_guest(org=conn.organization, guest=guest_obj)
                 _ensure_ci_for_guest(org=conn.organization, guest=guest_obj)
+                # Link the created HomeGlue objects for easy navigation.
+                if guest_obj.asset_id and guest_obj.config_item_id:
+                    _ensure_linked_relationship(
+                        org=conn.organization,
+                        left_obj=guest_obj.asset,
+                        right_obj=guest_obj.config_item,
+                        note=f"[proxmox] {conn.name} {guest_obj.guest_type}:{guest_obj.vmid}",
+                    )
                 host_node = node_obj_by_name.get(node) if node else None
                 if not host_node and node:
                     host_node = ProxmoxNode.objects.filter(connection=conn, node=node).select_related("config_item").first()
                 _ensure_hosted_on_relationship(org=conn.organization, guest=guest_obj, node=host_node)
+                _ensure_guest_asset_hosted_on_node_asset(org=conn.organization, guest=guest_obj, node=host_node)
 
         # Remove missing guests
         existing = list(ProxmoxGuest.objects.filter(connection=conn).values_list("guest_type", "vmid"))

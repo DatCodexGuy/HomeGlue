@@ -108,7 +108,11 @@ class ProxmoxSyncTests(TestCase):
         # Nodes also map into configuration items (and guests are linked as Hosted On).
         self.assertTrue(ProxmoxNode.objects.filter(connection=conn, node="pve1").exclude(config_item__isnull=True).exists())
         self.assertTrue(RelationshipType.objects.filter(organization=org, name="Hosted On").exists())
-        self.assertEqual(Relationship.objects.filter(organization=org, relationship_type__name="Hosted On").count(), 2)
+        self.assertEqual(Relationship.objects.filter(organization=org, relationship_type__name="Hosted On").count(), 4)
+
+        # Asset <-> CI linking exists for node + guests.
+        self.assertTrue(RelationshipType.objects.filter(organization=org, name="Linked To").exists())
+        self.assertGreaterEqual(Relationship.objects.filter(organization=org, relationship_type__name="Linked To").count(), 3)
 
     def test_sync_records_status_when_connection_disabled(self):
         org = Organization.objects.create(name="Org 1")
