@@ -1,8 +1,18 @@
 # HomeGlue
 
-Self-hosted IT documentation system inspired by IT Glue, focused on clean org-first tenancy, fast navigation, and solid “day-to-day ops” features.
+[![Release](https://img.shields.io/github/v/release/DatCodexGuy/HomeGlue)](https://github.com/DatCodexGuy/HomeGlue/releases)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io%2Fdatcodexguy%2Fhomeglue-2496ed)](https://github.com/DatCodexGuy/HomeGlue/pkgs/container/homeglue)
 
-## Highlights
+Self-hosted IT documentation system inspired by IT Glue, focused on clean org-first tenancy, fast navigation, and solid day-to-day ops features.
+
+## Why This Exists
+
+HomeGlue started as a practical response to gaps (and friction) in existing IT documentation platforms for a homelab-first workflow.
+
+It is also a real-world experiment in AI-assisted software delivery: this project was built end-to-end by prompting **Codex 5.3** with **zero manual code changes**. All implementation, iteration, and fixes were done via prompts, and the result exceeded expectations.
+
+## Features
 
 - Org-first tenancy (you must enter an org; no combined org view)
 - Assets, configuration items, flexible assets
@@ -16,7 +26,7 @@ Self-hosted IT documentation system inspired by IT Glue, focused on clean org-fi
 - Backups (manual + scheduled snapshots) + restore wizard (bundle validation + media extraction)
 - Dark mode + quick palette + saved views + CSV import/export
 
-## Quick Start (Docker)
+## Quick Start
 
 One-liner installer (installs to `/opt/homeglue`, creates `.env` if missing, pulls the latest Docker images):
 
@@ -24,51 +34,33 @@ One-liner installer (installs to `/opt/homeglue`, creates `.env` if missing, pul
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/bootstrap.sh)"
 ```
 
-Manual setup (if you want full control):
-
-```bash
-mkdir -p /opt/homeglue/scripts
-cd /opt/homeglue
-curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/docker-compose.yml -o docker-compose.yml
-curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/.env.example -o .env.example
-curl -fsSL https://raw.githubusercontent.com/DatCodexGuy/HomeGlue/main/scripts/install.sh -o scripts/install.sh
-chmod +x scripts/install.sh
-./scripts/install.sh
-```
-
-If you want to run on a different port, set `HOMEGLUE_PORT` in `.env` (default: 8080).
-
 Open:
 
-- App UI (login): `http://localhost:${HOMEGLUE_PORT:-8080}/`
-- Wiki (public): `http://localhost:${HOMEGLUE_PORT:-8080}/wiki/`
-- API: `http://localhost:${HOMEGLUE_PORT:-8080}/api/`
-- API docs (Swagger): `http://localhost:${HOMEGLUE_PORT:-8080}/api/docs/`
+- App UI (login): `http://localhost:8080/` or `http://<LAN-IP>:8080/`
+- Wiki (public): `http://localhost:8080/wiki/`
+- API docs (Swagger): `http://localhost:8080/api/docs/`
+
+Superuser credentials are stored in `/opt/homeglue/.env` after install.
 
 ## Updates
 
-To update HomeGlue after install:
+Update to the latest image:
 
 ```bash
 cd /opt/homeglue
 ./scripts/update.sh
 ```
 
-To pin a specific image tag (instead of `latest`):
+Pin a specific release tag:
 
 ```bash
 cd /opt/homeglue
-HOMEGLUE_IMAGE=ghcr.io/datcodexguy/homeglue:<tag> ./scripts/update.sh
+HOMEGLUE_IMAGE=ghcr.io/datcodexguy/homeglue:v1.0.0 ./scripts/update.sh
 ```
 
-## Releases
-
-HomeGlue is published to GHCR as:
-
-- `ghcr.io/datcodexguy/homeglue:latest` (tracks `main`)
-- `ghcr.io/datcodexguy/homeglue:vX.Y.Z` (versioned release tags)
-
 ## Configuration
+
+HomeGlue reads configuration from `.env` in the install directory (`/opt/homeglue/.env` by default).
 
 Minimum required env vars:
 
@@ -83,31 +75,24 @@ Recommended:
 
 See `.env.example` for the full list.
 
-## Key Concepts
+## Documentation
 
-- **Organization (org)**: top-level tenancy boundary. Users must be a member of an org to access its data.
-- **Visibility/ACLs**: Docs and Passwords support org/admin/private/shared visibility rules; non-admins cannot see restricted objects or their attachments.
-- **Relationships**: stored generically (ContentType/object_id) so anything can relate to anything within an org.
+- Public Wiki: `/wiki/`
+- In-app Wiki: `/app/wiki/` (when logged in)
+- Wiki content source (shipped with the image): `backend/wiki/`
 
-## Backups & Restore
+## Development
 
-- Backups are org snapshot zip bundles: `manifest.json` + `fixture.json` + `media/` binaries.
-- The UI restore wizard supports uploading/validating a bundle and extracting `media/` into `MEDIA_ROOT`.
-- Database restore is an operator action; safest approach is restoring into a fresh stack and running `loaddata` on `fixture.json`.
+Local development (build from source instead of pulling images):
 
-More details: see the in-app Wiki (Help -> Wiki) or `backend/wiki/backups.md`.
-
-## Development Notes
-
-- This repo is designed to be run via Docker Compose.
-- Code is baked into images by default (only media is persisted in a volume).
-- If you change Python code, rebuild: `docker compose up -d --build web worker`
+```bash
+HOMEGLUE_COMPOSE_FILE=docker-compose.dev.yml HOMEGLUE_BUILD=1 ./scripts/install.sh
+```
 
 ## License
 
 AGPL-3.0 (see `LICENSE`).
 
-## Docs
+## Contributing
 
-- In-app Wiki content (ships with HomeGlue): `backend/wiki/`
-- Note: `docs/` is intentionally not tracked in git; end-user documentation ships via `backend/wiki/`.
+Issues and PRs are welcome. Please keep user-facing documentation in `backend/wiki/` and keep any internal notes out of the repo.
