@@ -14,10 +14,10 @@
               {% if val %}<div class="mono prewrap">{{ val }}</div>{% else %}<span class="muted">-</span>{% endif %}
             {% elif f.field_type == "number" %}
               {% if val %}
-                {% with lname=f.name|lower %}
-                  {% if "bytes" in lname %}
+                {% with k=f.key|lower %}
+                  {% if f.help_text|contains:"Synced from Proxmox." and k|in_csv:"proxmox_maxmem,proxmox_maxdisk,total,used,avail" %}
                     <span class="mono">{{ val|human_bytes }}</span>
-                  {% elif "uptime" in lname or "(s)" in lname %}
+                  {% elif f.help_text|contains:"Synced from Proxmox." and k == "proxmox_uptime" %}
                     <span class="mono">{{ val|human_duration_seconds }}</span>
                   {% else %}
                     <span class="mono">{{ val }}</span>
@@ -68,7 +68,13 @@
                   <input class="input" type="text" name="cf_{{ f.id }}" id="id_cf_{{ f.id }}" value="{% if val %}{{ val }}{% endif %}" />
                 {% endif %}
                 {% if is_synced %}
-                  <span class="helptext">Synced from Proxmox (may be overwritten on next sync).</span>
+                  {% with k=f.key|lower %}
+                    <span class="helptext">
+                      Synced from Proxmox (may be overwritten on next sync).
+                      {% if k == "proxmox_uptime" %}Units: seconds.{% endif %}
+                      {% if k == "proxmox_maxmem" or k == "proxmox_maxdisk" or k == "total" or k == "used" or k == "avail" %}Units: bytes.{% endif %}
+                    </span>
+                  {% endwith %}
                 {% elif f.help_text and f.field_type != "boolean" %}
                   <span class="helptext">{{ f.help_text }}</span>
                 {% endif %}

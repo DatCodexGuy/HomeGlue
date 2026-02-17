@@ -642,10 +642,10 @@ def _apply_proxmox_custom_fields_for_guest(*, org, guest: ProxmoxGuest, obj) -> 
     _set_cf_value(org=org, obj=obj, key="proxmox_vmid", name="Proxmox VMID", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 3, value=guest.vmid)
     _set_cf_value(org=org, obj=obj, key="proxmox_node", name="Proxmox Node", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 4, value=guest.node)
     _set_cf_value(org=org, obj=obj, key="proxmox_status", name="Proxmox Status", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 5, value=guest.status)
-    _set_cf_value(org=org, obj=obj, key="proxmox_uptime", name="Proxmox Uptime (s)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 6, value=guest.uptime)
+    _set_cf_value(org=org, obj=obj, key="proxmox_uptime", name="Proxmox Uptime", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 6, value=guest.uptime)
     _set_cf_value(org=org, obj=obj, key="proxmox_maxcpu", name="Proxmox vCPU (max)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 7, value=guest.maxcpu)
-    _set_cf_value(org=org, obj=obj, key="proxmox_maxmem", name="Proxmox Memory (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 8, value=guest.maxmem)
-    _set_cf_value(org=org, obj=obj, key="proxmox_maxdisk", name="Proxmox Disk (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 9, value=guest.maxdisk)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxmem", name="Proxmox Memory", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 8, value=guest.maxmem)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxdisk", name="Proxmox Disk", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 9, value=guest.maxdisk)
     _set_cf_value(org=org, obj=obj, key="proxmox_ostype", name="Proxmox OS Type", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 10, value=guest.ostype)
     _set_cf_value(org=org, obj=obj, key="proxmox_pool", name="Proxmox Pool", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 11, value=guest.pool)
     _set_cf_value(org=org, obj=obj, key="proxmox_agent_hostname", name="Proxmox Agent Hostname", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 12, value=guest.agent_hostname)
@@ -667,10 +667,10 @@ def _apply_proxmox_custom_fields_for_node(*, org, node: ProxmoxNode, obj) -> Non
     _set_cf_value(org=org, obj=obj, key="proxmox_base_url", name="Proxmox Base URL", field_type=CustomField.TYPE_URL, sort_order=base_sort + 1, value=node.connection.base_url)
     _set_cf_value(org=org, obj=obj, key="proxmox_node", name="Proxmox Node", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 2, value=node.node)
     _set_cf_value(org=org, obj=obj, key="proxmox_status", name="Proxmox Status", field_type=CustomField.TYPE_TEXT, sort_order=base_sort + 3, value=node.status)
-    _set_cf_value(org=org, obj=obj, key="proxmox_uptime", name="Proxmox Uptime (s)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 4, value=node.uptime)
+    _set_cf_value(org=org, obj=obj, key="proxmox_uptime", name="Proxmox Uptime", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 4, value=node.uptime)
     _set_cf_value(org=org, obj=obj, key="proxmox_maxcpu", name="Proxmox CPU (max)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 5, value=node.maxcpu)
-    _set_cf_value(org=org, obj=obj, key="proxmox_maxmem", name="Proxmox Memory (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 6, value=node.maxmem)
-    _set_cf_value(org=org, obj=obj, key="proxmox_maxdisk", name="Proxmox Disk (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 7, value=node.maxdisk)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxmem", name="Proxmox Memory", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 6, value=node.maxmem)
+    _set_cf_value(org=org, obj=obj, key="proxmox_maxdisk", name="Proxmox Disk", field_type=CustomField.TYPE_NUMBER, sort_order=base_sort + 7, value=node.maxdisk)
     if isinstance(getattr(node, "version_raw", None), dict):
         _set_cf_value(
             org=org,
@@ -1403,9 +1403,9 @@ def sync_proxmox_connection(conn: ProxmoxConnection, *, client: ProxmoxClient | 
                     _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="storage", name="Storage", field_type=CustomField.TYPE_TEXT, sort_order=20, value=sid)
                     _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="kind", name="Kind", field_type=CustomField.TYPE_TEXT, sort_order=30, value=stor_obj.kind)
                     _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="status", name="Status", field_type=CustomField.TYPE_TEXT, sort_order=31, value=stor_obj.status)
-                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="total", name="Total (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=40, value=stor_obj.total)
-                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="used", name="Used (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=41, value=stor_obj.used)
-                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="avail", name="Available (bytes)", field_type=CustomField.TYPE_NUMBER, sort_order=42, value=stor_obj.avail)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="total", name="Total", field_type=CustomField.TYPE_NUMBER, sort_order=40, value=stor_obj.total)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="used", name="Used", field_type=CustomField.TYPE_NUMBER, sort_order=41, value=stor_obj.used)
+                    _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="avail", name="Available", field_type=CustomField.TYPE_NUMBER, sort_order=42, value=stor_obj.avail)
                     _set_flex_cf_value(org=org, flex_type=ft_storage, flex_asset=fa_st, key="connection", name="Connection", field_type=CustomField.TYPE_TEXT, sort_order=60, value=conn.name)
 
                     rt_storage, _ = RelationshipType.objects.get_or_create(

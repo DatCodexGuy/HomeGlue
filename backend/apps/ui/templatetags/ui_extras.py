@@ -43,6 +43,22 @@ def contains(haystack, needle) -> bool:
 
 
 @register.filter
+def in_csv(value, csv: str) -> bool:
+    """
+    Return true if `value` is one of the comma-separated tokens in `csv`.
+    """
+
+    try:
+        v = str(value).strip()
+        if not v:
+            return False
+        tokens = [t.strip() for t in str(csv or "").split(",")]
+        return v in tokens
+    except Exception:
+        return False
+
+
+@register.filter
 def human_bytes(v) -> str:
     """
     Format byte counts into a compact human-friendly string (binary units).
