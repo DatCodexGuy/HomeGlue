@@ -74,7 +74,8 @@
                     <span class="helptext">
                       Synced from Proxmox (may be overwritten on next sync).
                       {% if k == "proxmox_uptime" %}Units: seconds.{% endif %}
-                      {% if k == "proxmox_maxmem" or k == "proxmox_maxdisk" or k == "total" or k == "used" or k == "avail" %}Units: bytes.{% endif %}
+                      {% if k == "proxmox_maxmem" or k == "proxmox_maxdisk" %}Units: bytes.{% endif %}
+                      {% if f.flexible_asset_type and "Proxmox" in f.flexible_asset_type.name and k|in_csv:"total,used,avail" %}Units: bytes.{% endif %}
                     </span>
                   {% endwith %}
                 {% elif f.help_text and f.field_type != "boolean" %}
