@@ -76,50 +76,90 @@
 
           {% if org %}
             <nav class="side__nav">
-              <a class="side__link {% if request.path == '/app/dashboard/' %}is-active{% endif %}" href="{% url 'ui:dashboard' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-dashboard"/></svg>Dashboard</a>
-              <a class="side__link {% if request.path|slice:':12' == '/app/search/' %}is-active{% endif %}" href="{% url 'ui:search' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search</a>
-              <a class="side__link {% if request.path|slice:':13' == '/app/reports/' %}is-active{% endif %}" href="{% url 'ui:reports' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Reports</a>
-              <a class="side__link {% if request.path|slice:':19' == '/app/notifications/' %}is-active{% endif %}" href="{% url 'ui:notifications_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Notifications</a>
-              <a class="side__link {% if request.path|slice:':15' == '/app/workflows/' %}is-active{% endif %}" href="{% url 'ui:workflows_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Workflows</a>
-              <a class="side__link {% if request.path|slice:':18' == '/app/integrations/' %}is-active{% endif %}" href="{% url 'ui:integrations_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>Integrations</a>
-              <button class="side__link side__link--btn js-cmdk" type="button"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Quick<span class="kbd">Ctrl K</span></button>
-              <a class="side__link {% if request.path|slice:':11' == '/app/views/' %}is-active{% endif %}" href="{% url 'ui:saved_views_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Saved Views</a>
-              <a class="side__link {% if request.path|slice:':10' == '/app/wiki/' %}is-active{% endif %}" href="{% url 'ui:wiki_index' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Wiki</a>
-              <a class="side__link {% if request.path|slice:':11' == '/app/files/' %}is-active{% endif %}" href="{% url 'ui:files_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>Files</a>
-	              <button class="side__link side__link--btn js-theme" type="button"><svg class="ico" viewBox="0 0 24 24"><use href="#i-moon"/></svg><span class="js-theme-label">Dark</span></button>
+              <details class="side__group js-side-group" data-key="overview" open>
+                <summary class="side__group__summary">Overview</summary>
+                <div class="side__group__items">
+                  <a class="side__link {% if request.path == '/app/dashboard/' %}is-active{% endif %}" href="{% url 'ui:dashboard' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-dashboard"/></svg>Dashboard</a>
+                  <a class="side__link {% if request.path|slice:':12' == '/app/search/' %}is-active{% endif %}" href="{% url 'ui:search' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search</a>
+                  <button class="side__link side__link--btn js-cmdk" type="button"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Quick<span class="kbd">Ctrl K</span></button>
+                </div>
+              </details>
+
+              <details class="side__group js-side-group" data-key="inventory" open>
+                <summary class="side__group__summary">Inventory</summary>
+                <div class="side__group__items">
+                  <a class="side__link {% if request.path|slice:':12' == '/app/assets/' %}is-active{% endif %}" href="{% url 'ui:assets_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-asset"/></svg>Assets</a>
+                  <a class="side__link {% if request.path|slice:':17' == '/app/config-items/' %}is-active{% endif %}" href="{% url 'ui:config_items_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-config"/></svg>Config Items</a>
+                  <a class="side__link {% if request.path|slice:':16' == '/app/flex-types/' or request.path|slice:':10' == '/app/flex/' %}is-active{% endif %}" href="{% url 'ui:flex_types_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Flexible Assets</a>
+                  <a class="side__link {% if request.path|slice:':13' == '/app/domains/' %}is-active{% endif %}" href="{% url 'ui:domains_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>Domains</a>
+                  <a class="side__link {% if request.path|slice:':15' == '/app/ssl-certs/' %}is-active{% endif %}" href="{% url 'ui:sslcerts_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>SSL Certs</a>
+                </div>
+              </details>
+
+              <details class="side__group js-side-group" data-key="knowledge" open>
+                <summary class="side__group__summary">Knowledge</summary>
+                <div class="side__group__items">
+                  <a class="side__link {% if request.path|slice:':14' == '/app/documents/' %}is-active{% endif %}" href="{% url 'ui:documents_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Docs</a>
+                  <a class="side__link {% if request.path|slice:':10' == '/app/wiki/' %}is-active{% endif %}" href="{% url 'ui:wiki_index' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Help Wiki</a>
+                  <a class="side__link {% if request.path|slice:':11' == '/app/files/' %}is-active{% endif %}" href="{% url 'ui:files_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-download"/></svg>Files</a>
+                  <a class="side__link {% if request.path|slice:':11' == '/app/notes/' %}is-active{% endif %}" href="{% url 'ui:notes_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Notes</a>
+                  <a class="side__link {% if request.path|slice:':14' == '/app/templates/' %}is-active{% endif %}" href="{% url 'ui:templates_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-template"/></svg>Templates</a>
+                </div>
+              </details>
+
+              <details class="side__group js-side-group" data-key="people" open>
+                <summary class="side__group__summary">People & Places</summary>
+                <div class="side__group__items">
+                  <a class="side__link {% if request.path|slice:':13' == '/app/contacts/' %}is-active{% endif %}" href="{% url 'ui:contacts_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-people"/></svg>Contacts</a>
+                  <a class="side__link {% if request.path|slice:':14' == '/app/locations/' %}is-active{% endif %}" href="{% url 'ui:locations_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-pin"/></svg>Locations</a>
+                </div>
+              </details>
+
+              <details class="side__group js-side-group" data-key="automation">
+                <summary class="side__group__summary">Automation</summary>
+                <div class="side__group__items">
+                  <a class="side__link {% if request.path|slice:':18' == '/app/integrations/' %}is-active{% endif %}" href="{% url 'ui:integrations_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>Integrations</a>
+                  <a class="side__link {% if request.path|slice:':15' == '/app/workflows/' %}is-active{% endif %}" href="{% url 'ui:workflows_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Workflows</a>
+                  <a class="side__link {% if request.path|slice:':19' == '/app/notifications/' %}is-active{% endif %}" href="{% url 'ui:notifications_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Notifications</a>
+                  <a class="side__link {% if request.path|slice:':15' == '/app/checklists/' %}is-active{% endif %}" href="{% url 'ui:checklists_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Checklists</a>
+                  <a class="side__link {% if request.path|slice:':20' == '/app/checklist-runs/' %}is-active{% endif %}" href="{% url 'ui:checklist_runs_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Checklist Runs</a>
+                  <a class="side__link {% if request.path|slice:':25' == '/app/checklist-schedules/' %}is-active{% endif %}" href="{% url 'ui:checklist_schedules_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-clock"/></svg>Checklist Schedules</a>
+                </div>
+              </details>
+
+              <details class="side__group js-side-group" data-key="analytics">
+                <summary class="side__group__summary">Analytics</summary>
+                <div class="side__group__items">
+                  <a class="side__link {% if request.path|slice:':13' == '/app/reports/' %}is-active{% endif %}" href="{% url 'ui:reports' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Reports</a>
+                  <a class="side__link {% if request.path|slice:':11' == '/app/views/' %}is-active{% endif %}" href="{% url 'ui:saved_views_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Saved Views</a>
+                </div>
+              </details>
+
+              <details class="side__group js-side-group" data-key="admin_tools">
+                <summary class="side__group__summary">Admin Tools</summary>
+                <div class="side__group__items">
+                  <a class="side__link {% if request.path|slice:':15' == '/app/passwords/' %}is-active{% endif %}" href="{% url 'ui:passwords_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-key"/></svg>Passwords</a>
+                  <a class="side__link {% if request.path|slice:':9' == '/app/tags' %}is-active{% endif %}" href="{% url 'ui:tags_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-tag"/></svg>Tags</a>
+                  <a class="side__link {% if request.path|slice:':18' == '/app/relationships/' %}is-active{% endif %}" href="{% url 'ui:relationships_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>Relationships</a>
+                  <a class="side__link {% if request.path|slice:':23' == '/app/relationship-types/' %}is-active{% endif %}" href="{% url 'ui:relationship_types_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Relationship Types</a>
+                  <a class="side__link {% if request.path|slice:':19' == '/app/custom-fields/' %}is-active{% endif %}" href="{% url 'ui:custom_fields_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Custom Fields</a>
+                  <a class="side__link {% if request.path|slice:':13' == '/app/backups/' %}is-active{% endif %}" href="{% url 'ui:backups_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>Backups</a>
+                  <a class="side__link {% if request.path|slice:':11' == '/app/audit/' %}is-active{% endif %}" href="{% url 'ui:audit_log' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>Audit Log</a>
+                </div>
+              </details>
+
               <div class="side__sep"></div>
-              <a class="side__link {% if request.path|slice:':12' == '/app/assets/' %}is-active{% endif %}" href="{% url 'ui:assets_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-asset"/></svg>Assets</a>
-              <a class="side__link {% if request.path|slice:':16' == '/app/flex-types/' or request.path|slice:':10' == '/app/flex/' %}is-active{% endif %}" href="{% url 'ui:flex_types_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Flexible</a>
-              <a class="side__link {% if request.path|slice:':17' == '/app/config-items/' %}is-active{% endif %}" href="{% url 'ui:config_items_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-config"/></svg>Config Items</a>
-              <a class="side__link {% if request.path|slice:':15' == '/app/passwords/' %}is-active{% endif %}" href="{% url 'ui:passwords_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-key"/></svg>Passwords</a>
-              <a class="side__link {% if request.path|slice:':14' == '/app/documents/' %}is-active{% endif %}" href="{% url 'ui:documents_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Docs</a>
-              <a class="side__link {% if request.path|slice:':15' == '/app/checklists/' %}is-active{% endif %}" href="{% url 'ui:checklists_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Checklists</a>
-              <a class="side__link {% if request.path|slice:':20' == '/app/checklist-runs/' %}is-active{% endif %}" href="{% url 'ui:checklist_runs_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-bolt"/></svg>Checklist Runs</a>
-              <a class="side__link {% if request.path|slice:':25' == '/app/checklist-schedules/' %}is-active{% endif %}" href="{% url 'ui:checklist_schedules_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-clock"/></svg>Checklist Schedules</a>
-              <a class="side__link {% if request.path|slice:':13' == '/app/domains/' %}is-active{% endif %}" href="{% url 'ui:domains_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>Domains</a>
-              <a class="side__link {% if request.path|slice:':15' == '/app/ssl-certs/' %}is-active{% endif %}" href="{% url 'ui:sslcerts_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>SSL Certs</a>
-              <a class="side__link {% if request.path|slice:':11' == '/app/notes/' %}is-active{% endif %}" href="{% url 'ui:notes_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-doc"/></svg>Notes</a>
-              <a class="side__link {% if request.path|slice:':14' == '/app/templates/' %}is-active{% endif %}" href="{% url 'ui:templates_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-template"/></svg>Templates</a>
-              <a class="side__link {% if request.path|slice:':13' == '/app/contacts/' %}is-active{% endif %}" href="{% url 'ui:contacts_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-people"/></svg>Contacts</a>
-              <a class="side__link {% if request.path|slice:':14' == '/app/locations/' %}is-active{% endif %}" href="{% url 'ui:locations_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-pin"/></svg>Locations</a>
-              <a class="side__link {% if request.path|slice:':9' == '/app/tags' %}is-active{% endif %}" href="{% url 'ui:tags_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-tag"/></svg>Tags</a>
-              <a class="side__link {% if request.path|slice:':19' == '/app/custom-fields/' %}is-active{% endif %}" href="{% url 'ui:custom_fields_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Custom Fields</a>
-              <div class="side__sep"></div>
-              <a class="side__link {% if request.path|slice:':18' == '/app/relationships/' %}is-active{% endif %}" href="{% url 'ui:relationships_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-link"/></svg>Relationships</a>
-              <a class="side__link {% if request.path|slice:':23' == '/app/relationship-types/' %}is-active{% endif %}" href="{% url 'ui:relationship_types_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shapes"/></svg>Relationship Types</a>
-              <div class="side__sep"></div>
-              <a class="side__link side__link--muted {% if request.path|slice:':13' == '/app/backups/' %}is-active{% endif %}" href="{% url 'ui:backups_list' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-save"/></svg>Backups</a>
-              <a class="side__link side__link--muted {% if request.path|slice:':11' == '/app/audit/' %}is-active{% endif %}" href="{% url 'ui:audit_log' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>Audit Log</a>
+              <button class="side__link side__link--btn js-theme" type="button"><svg class="ico" viewBox="0 0 24 24"><use href="#i-moon"/></svg><span class="js-theme-label">Dark</span></button>
               <a class="side__link side__link--muted {% if request.path|slice:':14' == '/app/settings/' %}is-active{% endif %}" href="{% url 'ui:settings' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>Settings</a>
               <a class="side__link side__link--muted" href="{% url 'ui:leave_org' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-switch"/></svg>Switch Org</a>
               <a class="side__link side__link--muted {% if request.path|slice:':13' == '/app/account/' %}is-active{% endif %}" href="{% url 'ui:account' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-people"/></svg>Account</a>
               <a class="side__link side__link--muted" href="/accounts/logout/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-logout"/></svg>Logout</a>
-	              {% if user.is_superuser %}
-	                <div class="side__sep"></div>
-	                <a class="side__link side__link--muted {% if request.path|slice:':11' == '/app/admin/' %}is-active{% endif %}" href="{% url 'ui:super_admin_home' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>Admin</a>
-	                <a class="side__link side__link--muted" href="/admin/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>Admin site</a>
-	                <a class="side__link side__link--muted" href="/api/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>API</a>
-	              {% endif %}
+              {% if user.is_superuser %}
+                <div class="side__sep"></div>
+                <a class="side__link side__link--muted {% if request.path|slice:':11' == '/app/admin/' %}is-active{% endif %}" href="{% url 'ui:super_admin_home' %}"><svg class="ico" viewBox="0 0 24 24"><use href="#i-shield"/></svg>Admin</a>
+                <a class="side__link side__link--muted" href="/admin/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-gear"/></svg>Admin site</a>
+                <a class="side__link side__link--muted" href="/api/"><svg class="ico" viewBox="0 0 24 24"><use href="#i-api"/></svg>API</a>
+              {% endif %}
             </nav>
           {% else %}
             <nav class="side__nav">

@@ -190,6 +190,24 @@
     });
   });
 
+  // Sidebar groups: persist open/closed state, but always expand the active section.
+  const sideGroups = Array.from(document.querySelectorAll(".js-side-group"));
+  const groupStoreKey = (k) => `homeglue_nav_group:${k}`;
+  sideGroups.forEach((g, idx) => {
+    if (!(g instanceof HTMLDetailsElement)) return;
+    const key = (g.getAttribute("data-key") || String(idx)).trim();
+    const hasActive = !!g.querySelector(".side__link.is-active");
+    try {
+      const saved = localStorage.getItem(groupStoreKey(key));
+      if (!hasActive && saved === "closed") g.open = false;
+      if (saved === "open") g.open = true;
+    } catch {}
+    if (hasActive) g.open = true;
+    g.addEventListener("toggle", () => {
+      try { localStorage.setItem(groupStoreKey(key), g.open ? "open" : "closed"); } catch {}
+    });
+  });
+
   // Markdown editor helper (Docs, Notes, etc.): toolbar + safe preview.
   const getCookie = (name) => {
     const all = `; ${document.cookie || ""}`;
