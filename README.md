@@ -1,4 +1,4 @@
-# HomeGlue
+# HomeGlue: The "We Have IT Glue at Home" Solution
 
 [![Release](https://img.shields.io/github/v/release/DatCodexGuy/HomeGlue)](https://github.com/DatCodexGuy/HomeGlue/releases)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
